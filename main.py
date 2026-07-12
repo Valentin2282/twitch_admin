@@ -151,6 +151,62 @@ async def logout():
     redirect.delete_cookie("admin_session") # Удаляем куку
     return redirect
 
+# --- ХЕЛПЕР ДЛЯ SUPABASE ---
+async def get_supabase_client():
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    
+    if not supabase_url or not supabase_key:
+        raise HTTPException(status_code=500, detail="Ключи Supabase не настроены")
+        
+    headers = {
+        "apikey": supabase_key,
+        "Authorization": f"Bearer {supabase_key}"
+    }
+    # Возвращаем асинхронный клиент
+    client = httpx.AsyncClient(base_url=supabase_url, headers=headers)
+    try:
+        yield client
+    finally:
+        await client.aclose()
+
+from fastapi import Depends
+
+# --- 6. ЭНДПОИНТ ДЛЯ ДАШБОРДА (СТАТИСТИКА) ---
+@app.get("/api/v1/admin/stats")
+async def get_admin_dashboard_stats(
+    request: Request,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # Проверяем админа
+    token = request.cookies.get("admin_session")
+    if not token:
+        raise HTTPException(status_code=401, detail="Нет доступа")
+    try:
+        jwt.decode(token, get_jwt_secret(), algorithms=["HS256"])
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Сессия недействительна")
+
+    try:
+        # 1. Считаем все открытые кейсы
+        req_cases = await supabase.head("/rest/v1/cs_history", headers={"Prefer": "count=exact"})
+        total_cases = int(req_cases.headers.get("Content-Range", "0-0/0").split("/")[-1])
+
+        # 2. Считаем обработанные скины (выведенные и т.д.)
+        req_skins = await supabase.head(
+            "/rest/v1/cs_history?status=in.(completed,exchanged,exchanged_swap)", 
+            headers={"Prefer": "count=exact"}
+        )
+        total_skins = int(req_skins.headers.get("Content-Range", "0-0/0").split("/")[-1])
+
+        return {
+            "total_cases": total_cases, 
+            "total_withdrawn": total_skins,
+            "stream_status": "Online" # Позже привяжем к реальному статусу
+        }
+    except Exception as e:
+        return {"error": str(e), "total_cases": 0, "total_withdrawn": 0, "stream_status": "Error"}
+
 # --- 5. 🛠️ РЕМОНТ ПОДПИСОК TWITCH (МУЛЬТИАККАУНТ) ---
 @app.get("/api/v1/debug/fix_twitch_subs")
 async def fix_twitch_subs(request: Request):
