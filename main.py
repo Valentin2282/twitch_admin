@@ -6,6 +6,8 @@ import time
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, Request, Response, Depends, BackgroundTasks
 from fastapi.responses import RedirectResponse, HTMLResponse, PlainTextResponse # Добавили HTMLResponse и PlainTextResponse
+from pydantic import BaseModel
+from typing import Optional
 
 app = FastAPI(title="Stream Admin Panel")
 
@@ -440,3 +442,80 @@ async def handle_fossabot_guess(
 
     except Exception:
         return ""
+class RewardCreateRequest(BaseModel):
+    title: str
+    reward_type: str
+    steam_item_name: Optional[str] = ""
+    auto_steam: Optional[bool] = False
+    reward_amount: Optional[int] = 10
+    target_value: Optional[int] = 0
+    notify_admin: Optional[bool] = True
+    show_user_input: Optional[bool] = True
+
+# --- 8. НАСТРОЙКА УНИКАЛЬНЫХ НАГРАД TWITCH ---
+
+@app.get("/api/v1/admin/rewards")
+async def get_admin_rewards_panel(request: Request):
+    token = request.cookies.get("admin_session")
+    if not token: 
+        raise HTTPException(status_code=401, detail="Нет пропуска")
+    try:
+        jwt.decode(token, get_jwt_secret(), algorithms=["HS256"])
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Сессия недействительна")
+
+    supabase = get_resilient_supabase()
+    if not supabase: 
+        raise HTTPException(status_code=500, detail="БД недоступна")
+
+    try:
+        # Извлекаем список стримеров из ENV для селектора на фронте
+        channels = get_allowed_ids()
+        
+        # Подтягиваем текущие триггеры наград из Supabase
+        res = await supabase.get("/rest/v1/twitch_rewards", params={"order": "id.desc"})
+        rewards = res.json() if res.status_code == 200 else []
+        
+        return {"channels": channels, "rewards": rewards}
+    except Exception as e:
+        return {"channels": [], "rewards": []}
+
+@app.post("/api/v1/admin/rewards/create")
+async def create_admin_twitch_reward(req: RewardCreateRequest, request: Request):
+    token = request.cookies.get("admin_session")
+    if not token: raise HTTPException(status_code=401)
+    
+    supabase = get_resilient_supabase()
+    try:
+        payload = {
+            "title": req.title,
+            "reward_type": req.reward_type,
+            "steam_item_name": req.steam_item_name,
+            "auto_steam": req.auto_steam,
+            "reward_amount": req.reward_amount,
+            "promocode_amount": req.reward_amount, # Синхронизация для обратной совместимости
+            "condition_type": "twitch_messages_session" if req.target_value > 0 else "none",
+            "target_value": req.target_value,
+            "notify_admin": req.notify_admin,
+            "show_user_input": req.show_user_input, # Флаг возврата баллов / инпута
+            "is_active": True
+        }
+        
+        res = await supabase.post("/rest/v1/twitch_rewards", json=payload)
+        if res.status_code in [200, 201, 204]:
+            return {"status": "success"}
+        raise HTTPException(status_code=400, detail=res.text)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/admin/rewards/toggle")
+async def toggle_admin_twitch_reward(id: int, status: bool, request: Request):
+    token = request.cookies.get("admin_session")
+    if not token: raise HTTPException(status_code=401)
+    
+    supabase = get_resilient_supabase()
+    try:
+        await supabase.patch("/rest/v1/twitch_rewards", params={"id": f"eq.{id}"}, json={"is_active": status})
+        return {"status": "ok"}
+    except Exception as e:
+        return {"status": "error"}
