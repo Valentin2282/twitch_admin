@@ -178,60 +178,15 @@ async def get_admin_dashboard_stats(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     token = request.cookies.get("admin_session")
-    if not token:
-        raise HTTPException(status_code=401, detail="Нет доступа")
+    if not token: raise HTTPException(status_code=401)
+    
     try:
-        jwt.decode(token, get_jwt_secret(), algorithms=["HS256"])
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Сессия недействительна")
-
-    try:
-        # Для получения глобальных сумм колонок используем вызов RPC в Supabase 
-        # (Или REST API с параметром select, но так как агрегации SUM напрямую в REST нет, 
-        # мы запросим нужные колонки и сложим на лету. В Vercel это займет миллисекунды).
-        
-        # Запрашиваем 1000 самых активных юзеров для просчета статы, 
-        # либо если пользователей десятки тысяч, берем агрегацию (лимит 50000 для скорости)
-        res = await supabase.get(
-            "/rest/v1/users", 
-            params={
-                "select": "telegram_daily_message_count,telegram_weekly_message_count,telegram_monthly_message_count,telegram_total_message_count,daily_message_count,weekly_message_count,monthly_message_count,total_message_count,twitch_login,coins,tickets",
-                "limit": "10000"
-            }
-        )
-        
+        # Вызываем созданную RPC функцию в Supabase
+        res = await supabase.post("/rest/v1/rpc/get_global_metrics", json={})
         if res.status_code != 200:
-            raise Exception("Ошибка БД")
+            raise Exception("Ошибка вызова RPC")
             
-        users_data = res.json()
-        
-        # Считаем агрегацию
-        total_users = len(users_data)
-        twitch_linked = sum(1 for u in users_data if u.get("twitch_login"))
-        
-        total_coins = sum(float(u.get("coins") or 0) for u in users_data)
-        total_tickets = sum(float(u.get("tickets") or 0) for u in users_data)
-
-        # Telegram 
-        tg_daily = sum(u.get("telegram_daily_message_count") or 0 for u in users_data)
-        tg_weekly = sum(u.get("telegram_weekly_message_count") or 0 for u in users_data)
-        tg_monthly = sum(u.get("telegram_monthly_message_count") or 0 for u in users_data)
-        tg_total = sum(u.get("telegram_total_message_count") or 0 for u in users_data)
-
-        # Twitch
-        tw_daily = sum(u.get("daily_message_count") or 0 for u in users_data)
-        tw_weekly = sum(u.get("weekly_message_count") or 0 for u in users_data)
-        tw_monthly = sum(u.get("monthly_message_count") or 0 for u in users_data)
-        tw_total = sum(u.get("total_message_count") or 0 for u in users_data)
-
-        return {
-            "total_users": total_users,
-            "twitch_linked": twitch_linked,
-            "total_coins": total_coins,
-            "total_tickets": total_tickets,
-            "tg_daily": tg_daily, "tg_weekly": tg_weekly, "tg_monthly": tg_monthly, "tg_total": tg_total,
-            "tw_daily": tw_daily, "tw_weekly": tw_weekly, "tw_monthly": tw_monthly, "tw_total": tw_total
-        }
+        return res.json() # База сразу вернет готовый агрегированный JSON
     except Exception as e:
         return {"error": str(e)}
 
