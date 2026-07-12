@@ -210,6 +210,9 @@
 
             document.getElementById('header-title').innerText = tabName === 'dashboard' ? 'Глобальная сводка' : 'База Игроков';
 
+            // 🔥 СОХРАНЯЕМ ВКЛАДКУ В ПАМЯТЬ БРАУЗЕРА
+            localStorage.setItem('activeAdminTab', tabName);
+
             if (tabName === 'users') loadUsers();
         }
 
@@ -249,7 +252,7 @@
             const search = document.getElementById('search-input').value;
             const hasTwitch = document.getElementById('filter-twitch').value;
             const trust = document.getElementById('filter-trust').value;
-            const sort_by = document.getElementById('filter-sort').value; // НОВОЕ ПОЛЕ СОРТИРОВКИ
+            const sort_by = document.getElementById('filter-sort').value;
 
             try {
                 const params = new URLSearchParams({ search, hasTwitch, trust, sort_by });
@@ -310,7 +313,15 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', loadDashboardStats);
+        // 🔥 АВТОМАТИЧЕСКОЕ ВОССТАНОВЛЕНИЕ ВКЛАДКИ ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
+        document.addEventListener('DOMContentLoaded', () => {
+            // Статистику для дашборда загружаем всегда (чтобы данные были свежими в фоне)
+            loadDashboardStats();
+            
+            // Достаем из памяти последнюю открытую вкладку (если пусто — открываем dashboard)
+            const savedTab = localStorage.getItem('activeAdminTab') || 'dashboard';
+            switchTab(savedTab);
+        });
     </script>
 </body>
 </html>
