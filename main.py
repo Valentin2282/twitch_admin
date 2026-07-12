@@ -171,13 +171,12 @@ async def get_supabase_client():
     finally:
         await client.aclose()
 
-# --- 6. ЭНДПОИНТ ДЛЯ ДАШБОРДА (СТАТИСТИКА) ---
+# --- 6. ГЛОБАЛЬНАЯ СТАТИСТИКА (ДАШБОРД) ---
 @app.get("/api/v1/admin/stats")
 async def get_admin_dashboard_stats(
     request: Request,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # Проверяем админа
     token = request.cookies.get("admin_session")
     if not token:
         raise HTTPException(status_code=401, detail="Нет доступа")
@@ -187,24 +186,97 @@ async def get_admin_dashboard_stats(
         raise HTTPException(status_code=401, detail="Сессия недействительна")
 
     try:
-        # 1. Считаем все открытые кейсы
-        req_cases = await supabase.head("/rest/v1/cs_history", headers={"Prefer": "count=exact"})
-        total_cases = int(req_cases.headers.get("Content-Range", "0-0/0").split("/")[-1])
-
-        # 2. Считаем обработанные скины (выведенные и т.д.)
-        req_skins = await supabase.head(
-            "/rest/v1/cs_history?status=in.(completed,exchanged,exchanged_swap)", 
-            headers={"Prefer": "count=exact"}
+        # Для получения глобальных сумм колонок используем вызов RPC в Supabase 
+        # (Или REST API с параметром select, но так как агрегации SUM напрямую в REST нет, 
+        # мы запросим нужные колонки и сложим на лету. В Vercel это займет миллисекунды).
+        
+        # Запрашиваем 1000 самых активных юзеров для просчета статы, 
+        # либо если пользователей десятки тысяч, берем агрегацию (лимит 50000 для скорости)
+        res = await supabase.get(
+            "/rest/v1/users", 
+            params={
+                "select": "telegram_daily_message_count,telegram_weekly_message_count,telegram_monthly_message_count,telegram_total_message_count,daily_message_count,weekly_message_count,monthly_message_count,total_message_count,twitch_login,coins,tickets",
+                "limit": "10000"
+            }
         )
-        total_skins = int(req_skins.headers.get("Content-Range", "0-0/0").split("/")[-1])
+        
+        if res.status_code != 200:
+            raise Exception("Ошибка БД")
+            
+        users_data = res.json()
+        
+        # Считаем агрегацию
+        total_users = len(users_data)
+        twitch_linked = sum(1 for u in users_data if u.get("twitch_login"))
+        
+        total_coins = sum(float(u.get("coins") or 0) for u in users_data)
+        total_tickets = sum(float(u.get("tickets") or 0) for u in users_data)
+
+        # Telegram 
+        tg_daily = sum(u.get("telegram_daily_message_count") or 0 for u in users_data)
+        tg_weekly = sum(u.get("telegram_weekly_message_count") or 0 for u in users_data)
+        tg_monthly = sum(u.get("telegram_monthly_message_count") or 0 for u in users_data)
+        tg_total = sum(u.get("telegram_total_message_count") or 0 for u in users_data)
+
+        # Twitch
+        tw_daily = sum(u.get("daily_message_count") or 0 for u in users_data)
+        tw_weekly = sum(u.get("weekly_message_count") or 0 for u in users_data)
+        tw_monthly = sum(u.get("monthly_message_count") or 0 for u in users_data)
+        tw_total = sum(u.get("total_message_count") or 0 for u in users_data)
 
         return {
-            "total_cases": total_cases, 
-            "total_withdrawn": total_skins,
-            "stream_status": "Online" # Позже привяжем к реальному статусу
+            "total_users": total_users,
+            "twitch_linked": twitch_linked,
+            "total_coins": total_coins,
+            "total_tickets": total_tickets,
+            "tg_daily": tg_daily, "tg_weekly": tg_weekly, "tg_monthly": tg_monthly, "tg_total": tg_total,
+            "tw_daily": tw_daily, "tw_weekly": tw_weekly, "tw_monthly": tw_monthly, "tw_total": tw_total
         }
     except Exception as e:
-        return {"error": str(e), "total_cases": 0, "total_withdrawn": 0, "stream_status": "Error"}
+        return {"error": str(e)}
+
+# --- 6.1 БАЗА ИГРОКОВ (ТАБЛИЦА С ПОИСКОМ) ---
+@app.get("/api/v1/admin/users")
+async def get_admin_users(
+    request: Request,
+    search: str = "",
+    hasTwitch: str = "all",
+    trust: str = "all",
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    token = request.cookies.get("admin_session")
+    if not token: raise HTTPException(status_code=401)
+    
+    try:
+        # Формируем параметры запроса
+        params = {
+            "select": "telegram_id,full_name,photo_url,twitch_login,telegram_total_message_count,total_message_count,coins,tickets,trust_level",
+            "order": "total_message_count.desc",
+            "limit": "100" # Выводим топ-100 по фильтрам, чтобы не грузить браузер
+        }
+        
+        # Применяем фильтр по Твичу
+        if hasTwitch == "linked":
+            params["twitch_login"] = "not.is.null"
+            
+        # Применяем фильтр по Трасту
+        if trust != "all":
+            params["trust_level"] = f"eq.{trust}"
+
+        # Поиск (по TG ID, Имени или Логину Твича)
+        if search:
+            search_clean = search.strip()
+            # or=(twitch_login.ilike.*search*,full_name.ilike.*search*,telegram_id.eq.search)
+            if search_clean.isdigit():
+                params["telegram_id"] = f"eq.{search_clean}"
+            else:
+                params["or"] = f"(twitch_login.ilike.*{search_clean}*,full_name.ilike.*{search_clean}*)"
+
+        res = await supabase.get("/rest/v1/users", params=params)
+        return res.json() if res.status_code == 200 else []
+        
+    except Exception as e:
+        return []
 
 # --- 5. 🛠️ РЕМОНТ ПОДПИСОК TWITCH (МУЛЬТИАККАУНТ) ---
 @app.get("/api/v1/debug/fix_twitch_subs")
