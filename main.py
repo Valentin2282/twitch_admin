@@ -56,6 +56,7 @@ async def root(request: Request):
         }
 
 # --- 2. КНОПКА ВОЙТИ (РЕДИРЕКТ НА TWITCH) ---
+# --- 2. КНОПКА ВОЙТИ (РЕДИРЕКТ НА TWITCH) ---
 @app.get("/api/v1/auth/login")
 async def login():
     # Запрашиваем ID клиента прямо перед редиректом
@@ -63,11 +64,12 @@ async def login():
     if not client_id:
         raise HTTPException(status_code=500, detail="TWITCH_CLIENT_ID не настроен в Vercel")
 
+    # 🔥 ФИКС: Добавили scope channel:read:redemptions для вебхуков наград
     url = (
         f"https://id.twitch.tv/oauth2/authorize?response_type=code"
         f"&client_id={client_id}"
         f"&redirect_uri={get_redirect_uri()}"
-        f"&scope=user:read:email"
+        f"&scope=user:read:email+channel:read:redemptions"
     )
     return RedirectResponse(url)
 
