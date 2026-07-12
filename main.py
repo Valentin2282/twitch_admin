@@ -190,38 +190,50 @@ async def get_admin_dashboard_stats(
     except Exception as e:
         return {"error": str(e)}
 
-# --- 6.1 БАЗА ИГРОКОВ (ТАБЛИЦА С ПОИСКОМ) ---
+# --- 6.1 БАЗА ИГРОКОВ (ТАБЛИЦА С ПОИСКОМ И СОРТИРОВКОЙ) ---
 @app.get("/api/v1/admin/users")
 async def get_admin_users(
     request: Request,
     search: str = "",
     hasTwitch: str = "all",
     trust: str = "all",
+    sort_by: str = "total_message_count", # <-- Ловим параметр из JS
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     token = request.cookies.get("admin_session")
     if not token: raise HTTPException(status_code=401)
     
     try:
-        # Формируем параметры запроса
-        params = {
-            "select": "telegram_id,full_name,photo_url,twitch_login,telegram_total_message_count,total_message_count,coins,tickets,trust_level",
-            "order": "total_message_count.desc",
-            "limit": "100" # Выводим топ-100 по фильтрам, чтобы не грузить браузер
+        # Безопасный словарь доступных сортировок (защита от инъекций)
+        allowed_sorts = {
+            "total_message_count": "total_message_count.desc",
+            "weekly_message_count": "weekly_message_count.desc",
+            "monthly_message_count": "monthly_message_count.desc",
+            "telegram_total_message_count": "telegram_total_message_count.desc",
+            "coins": "coins.desc",
+            "tickets": "tickets.desc"
         }
         
-        # Применяем фильтр по Твичу
+        # Если пришел мусор, скидываем на сортировку по умолчанию
+        order_param = allowed_sorts.get(sort_by, "total_message_count.desc")
+
+        params = {
+            "select": "telegram_id,full_name,photo_url,twitch_login,telegram_total_message_count,total_message_count,coins,tickets,trust_level",
+            "order": order_param,
+            "limit": "100" # Забираем топ-100 по выбранному критерию
+        }
+        
+        # Фильтр по Твичу
         if hasTwitch == "linked":
             params["twitch_login"] = "not.is.null"
             
-        # Применяем фильтр по Трасту
+        # Фильтр по Трасту
         if trust != "all":
             params["trust_level"] = f"eq.{trust}"
 
-        # Поиск (по TG ID, Имени или Логину Твича)
+        # Поиск
         if search:
             search_clean = search.strip()
-            # or=(twitch_login.ilike.*search*,full_name.ilike.*search*,telegram_id.eq.search)
             if search_clean.isdigit():
                 params["telegram_id"] = f"eq.{search_clean}"
             else:
