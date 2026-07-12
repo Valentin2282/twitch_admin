@@ -236,6 +236,7 @@
         }
 
         // --- ЗАГРУЗКА ТАБЛИЦЫ ЮЗЕРОВ ---
+        // --- ЗАГРУЗКА ТАБЛИЦЫ ЮЗЕРОВ ---
         async function loadUsers() {
             const tbody = document.getElementById('users-table-body');
             tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-zinc-500">Загрузка данных...</td></tr>';
@@ -248,7 +249,7 @@
                 // Строим query-параметры
                 const params = new URLSearchParams({ search, hasTwitch, trust });
                 const response = await fetch(`/api/v1/admin/users?${params.toString()}`);
-                if (!response.ok) throw new Error('Ошибка');
+                if (!response.ok) throw new Error('Ошибка API');
                 
                 const users = await response.json();
                 tbody.innerHTML = '';
@@ -259,15 +260,21 @@
                 }
 
                 users.forEach(u => {
+                    // БЕЗОПАСНАЯ ПРОВЕРКА НА NULL
                     const trustColor = u.trust_level === 'green' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
                                        u.trust_level === 'red' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
                                        'bg-zinc-500/10 text-zinc-400 border-zinc-500/20';
+
+                    const tgMsgs = u.telegram_total_message_count || 0;
+                    const twMsgs = u.total_message_count || 0;
+                    const coins = u.coins || 0;
+                    const tickets = u.tickets || 0;
 
                     const row = `
                         <tr class="hover:bg-zinc-800/30 transition-colors">
                             <td class="py-2 px-4">
                                 <div class="flex items-center gap-2">
-                                    ${u.photo_url ? `<img src="${u.photo_url}" class="w-6 h-6 rounded-full">` : `<div class="w-6 h-6 rounded-full bg-zinc-800"></div>`}
+                                    ${u.photo_url ? `<img src="${u.photo_url}" class="w-6 h-6 rounded-full object-cover">` : `<div class="w-6 h-6 rounded-full bg-zinc-800"></div>`}
                                     <div>
                                         <div class="text-zinc-200 font-medium">${u.full_name || 'No Name'}</div>
                                         <div class="text-[10px] text-zinc-500">ID: ${u.telegram_id}</div>
@@ -275,15 +282,15 @@
                                 </div>
                             </td>
                             <td class="py-2 px-4">
-                                ${u.twitch_login ? `<span class="text-[#9146FF] hover:underline cursor-pointer">${u.twitch_login}</span>` : '<span class="text-zinc-600">-</span>'}
+                                ${u.twitch_login ? `<span class="text-[#9146FF] font-medium">${u.twitch_login}</span>` : '<span class="text-zinc-600">-</span>'}
                             </td>
                             <td class="py-2 px-4 text-right">
-                                <span class="text-[#2AABEE]">${u.telegram_total_message_count.toLocaleString()}</span>
+                                <span class="text-[#2AABEE]">${tgMsgs.toLocaleString('ru-RU')}</span>
                                 <span class="text-zinc-600 mx-1">/</span>
-                                <span class="text-[#9146FF]">${u.total_message_count.toLocaleString()}</span>
+                                <span class="text-[#9146FF]">${twMsgs.toLocaleString('ru-RU')}</span>
                             </td>
-                            <td class="py-2 px-4 text-right text-yellow-400 font-medium">${u.coins}</td>
-                            <td class="py-2 px-4 text-right text-blue-400 font-medium">${u.tickets}</td>
+                            <td class="py-2 px-4 text-right text-yellow-400 font-medium">${Number(coins).toFixed(2)}</td>
+                            <td class="py-2 px-4 text-right text-blue-400 font-medium">${Number(tickets).toFixed(0)}</td>
                             <td class="py-2 px-4 text-center">
                                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${trustColor}">
                                     ${u.trust_level ? u.trust_level.toUpperCase() : 'GRAY'}
@@ -294,7 +301,8 @@
                     tbody.innerHTML += row;
                 });
             } catch (error) {
-                tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-red-400">Ошибка при загрузке списка</td></tr>';
+                console.error("Ошибка рендера:", error);
+                tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-red-400">Ошибка при загрузке списка (см. консоль)</td></tr>';
             }
         }
 
