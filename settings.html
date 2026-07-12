@@ -3,61 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stream Admin | Вход</title>
+    <title>Stream Admin | Панель управления</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #0e0e10; color: #efeff1; }
-        .twitch-btn { background-color: #9146FF; transition: all 0.2s ease; }
-        .twitch-btn:hover { background-color: #772ce8; transform: translateY(-2px); }
-        .glass-panel { background: rgba(24, 24, 27, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .sidebar { background-color: #18181b; border-right: 1px solid rgba(255, 255, 255, 0.05); }
+        .nav-item { transition: all 0.2s ease; }
+        .nav-item:hover { background-color: #26262c; color: #9146FF; }
+        .content-area { background-color: #0e0e10; }
     </style>
 </head>
-<body class="h-screen flex items-center justify-center bg-[url('https://c4.wallpaperflare.com/wallpaper/707/220/899/counter-strike-global-offensive-dark-counter-strike-wallpaper-preview.jpg')] bg-cover bg-center">
-    
-    <div class="absolute inset-0 bg-black/70"></div>
+<body class="flex h-screen overflow-hidden">
 
-    <div class="relative z-10 glass-panel p-10 rounded-2xl shadow-2xl max-w-sm w-full text-center">
-        <div class="mb-6">
-            <svg class="w-16 h-16 mx-auto text-[#9146FF]" fill="currentColor" viewBox="0 0 24 24"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/></svg>
+    <aside class="sidebar w-64 flex-shrink-0 hidden md:flex flex-col">
+        <div class="h-16 flex items-center px-6 border-b border-gray-800">
+            <span class="text-xl font-bold text-white tracking-wider">ADMIN<span class="text-[#9146FF]">PANEL</span></span>
         </div>
-        <h1 class="text-2xl font-bold mb-2">HATElove Admin</h1>
-        <p class="text-gray-400 mb-8 text-sm">Управление трансляцией, рулетками и статистикой.</p>
         
-        <button onclick="window.location.href='/api/v1/auth/login'" class="twitch-btn w-full py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 shadow-lg">
-            Войти через Twitch
-        </button>
+        <nav class="flex-1 px-4 py-6 space-y-2">
+            <a href="#" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 bg-[#26262c] text-[#9146FF]">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                Главная (Дашборд)
+            </a>
+            <a href="#" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Выдача наград
+            </a>
+            <a href="#" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                Настройки Twitch
+            </a>
+        </nav>
 
-        <div class="mt-6 text-xs text-gray-500">
-            Доступ разрешен только администраторам системы.
+        <div class="p-4 border-t border-gray-800">
+            <a href="/api/v1/auth/logout" class="nav-item w-full flex items-center justify-center gap-2 py-2 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                Выйти
+            </a>
         </div>
-    </div>
+    </aside>
+
+    <main class="flex-1 content-area flex flex-col">
+        <header class="h-16 flex items-center justify-between px-8 border-b border-gray-800">
+            <h2 class="text-xl font-semibold">Главная</h2>
+            <div class="flex items-center gap-4">
+                <span class="text-gray-400">Добро пожаловать, <strong class="text-white">{{USERNAME}}</strong></span>
+                <img src="https://static-cdn.jtvnw.net/jtv_user_pictures/8a6381c7-d0c0-4576-b179-38bd5ce1d6af-profile_image-70x70.png" class="w-10 h-10 rounded-full border border-gray-700" alt="Avatar">
+            </div>
+        </header>
+        
+        <div class="p-8 overflow-y-auto">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="p-6 rounded-xl bg-[#18181b] border border-gray-800 shadow-sm">
+                    <div class="text-gray-400 text-sm mb-1">Всего кейсов</div>
+                    <div id="stat-cases" class="text-3xl font-bold text-[#9146FF]">---</div>
+                </div>
+                <div class="p-6 rounded-xl bg-[#18181b] border border-gray-800 shadow-sm">
+                    <div class="text-gray-400 text-sm mb-1">Выведено скинов</div>
+                    <div id="stat-skins" class="text-3xl font-bold text-green-400">---</div>
+                </div>
+                <div class="p-6 rounded-xl bg-[#18181b] border border-gray-800 shadow-sm">
+                    <div class="text-gray-400 text-sm mb-1">Статус стрима</div>
+                    <div id="stat-stream" class="text-3xl font-bold text-gray-500">Загрузка...</div>
+                </div>
+            </div>
+
+            <div class="p-8 rounded-xl bg-[#18181b] border border-gray-800 text-center text-gray-400">
+                <h3 class="text-2xl text-white mb-2">Рабочая область</h3>
+                <p>Здесь скоро появится таблица логов, инструменты управления аукционами и настройки рулетки.</p>
+            </div>
+        </div>
+    </main>
 
     <script>
-        // Функция для загрузки статистики при открытии страницы
         async function loadDashboardStats() {
             try {
                 const response = await fetch('/api/v1/admin/stats');
                 if (!response.ok) {
-                    if (response.status === 401) window.location.href = '/'; // Если разлогинило
+                    if (response.status === 401) window.location.href = '/'; 
                     throw new Error('Ошибка загрузки статистики');
                 }
                 
                 const data = await response.json();
                 
-                // Находим элементы на странице и вставляем цифры
+                // Вставляем цифры в карточки
                 document.getElementById('stat-cases').innerText = data.total_cases;
                 document.getElementById('stat-skins').innerText = data.total_withdrawn;
+                
+                // Красим статус стрима
+                const streamEl = document.getElementById('stat-stream');
+                streamEl.innerText = data.stream_status;
+                if (data.stream_status === 'Online') {
+                    streamEl.className = "text-3xl font-bold text-green-400";
+                } else {
+                    streamEl.className = "text-3xl font-bold text-red-400";
+                }
                 
             } catch (error) {
                 console.error("Ошибка:", error);
                 document.getElementById('stat-cases').innerText = 'Ошибка';
                 document.getElementById('stat-skins').innerText = 'Ошибка';
+                document.getElementById('stat-stream').innerText = 'Ошибка';
             }
         }
 
-        // Запускаем загрузку, как только страница отрисовалась
+        // Запускаем загрузку при открытии страницы
         document.addEventListener('DOMContentLoaded', loadDashboardStats);
     </script>
-
 </body>
 </html>
