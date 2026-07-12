@@ -3,111 +3,302 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stream Admin | Панель управления</title>
+    <title>Stream Admin | HATElavka Workspace</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #0e0e10; color: #efeff1; }
-        .sidebar { background-color: #18181b; border-right: 1px solid rgba(255, 255, 255, 0.05); }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { background-color: #09090b; color: #a1a1aa; font-family: 'Inter', sans-serif; font-size: 0.875rem; }
+        .sidebar { background-color: #09090b; border-right: 1px solid #27272a; }
         .nav-item { transition: all 0.2s ease; }
-        .nav-item:hover { background-color: #26262c; color: #9146FF; }
-        .content-area { background-color: #0e0e10; }
+        .nav-item:hover, .nav-item.active { background-color: #18181b; color: #e4e4e7; }
+        .nav-item.active { border-left: 2px solid #9146FF; }
+        .content-area { background-color: #09090b; }
+        .glass-panel { background-color: #18181b; border: 1px solid #27272a; }
+        .clickable-card { cursor: pointer; transition: transform 0.1s, border-color 0.2s; }
+        .clickable-card:hover { transform: translateY(-2px); border-color: #9146FF; }
+        
+        /* Стили для скроллбара под премиум */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #52525b; }
     </style>
 </head>
-<body class="flex h-screen overflow-hidden">
+<body class="flex h-screen overflow-hidden text-sm">
 
-    <aside class="sidebar w-64 flex-shrink-0 hidden md:flex flex-col">
-        <div class="h-16 flex items-center px-6 border-b border-gray-800">
-            <span class="text-xl font-bold text-white tracking-wider">ADMIN<span class="text-[#9146FF]">PANEL</span></span>
+    <aside class="sidebar w-56 flex-shrink-0 hidden md:flex flex-col">
+        <div class="h-14 flex items-center px-5 border-b border-zinc-800">
+            <span class="text-lg font-bold text-zinc-100 tracking-wider">HATE<span class="text-[#9146FF]">LAVKA</span></span>
         </div>
         
-        <nav class="flex-1 px-4 py-6 space-y-2">
-            <a href="#" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 bg-[#26262c] text-[#9146FF]">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-                Главная (Дашборд)
-            </a>
-            <a href="#" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                Выдача наград
-            </a>
-            <a href="#" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                Настройки Twitch
-            </a>
+        <nav class="flex-1 px-3 py-5 space-y-1">
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item active w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                Дашборд
+            </button>
+            <button onclick="switchTab('users')" id="nav-users" class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                База Игроков
+            </button>
         </nav>
 
-        <div class="p-4 border-t border-gray-800">
-            <a href="/api/v1/auth/logout" class="nav-item w-full flex items-center justify-center gap-2 py-2 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        <div class="p-3 border-t border-zinc-800">
+            <div class="flex items-center gap-3 px-3 py-2 mb-2">
+                <div class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                <span class="text-xs text-zinc-400 truncate">{{USERNAME}}</span>
+            </div>
+            <a href="/api/v1/auth/logout" class="flex items-center justify-center gap-2 py-1.5 rounded-md text-xs text-red-400/80 hover:bg-red-500/10 hover:text-red-400 transition-colors">
                 Выйти
             </a>
         </div>
     </aside>
 
-    <main class="flex-1 content-area flex flex-col">
-        <header class="h-16 flex items-center justify-between px-8 border-b border-gray-800">
-            <h2 class="text-xl font-semibold">Главная</h2>
-            <div class="flex items-center gap-4">
-                <span class="text-gray-400">Добро пожаловать, <strong class="text-white">{{USERNAME}}</strong></span>
-                <img src="https://static-cdn.jtvnw.net/jtv_user_pictures/8a6381c7-d0c0-4576-b179-38bd5ce1d6af-profile_image-70x70.png" class="w-10 h-10 rounded-full border border-gray-700" alt="Avatar">
-            </div>
+    <main class="flex-1 content-area flex flex-col h-full overflow-hidden relative">
+        <header class="h-14 flex items-center justify-between px-6 border-b border-zinc-800 bg-[#09090b]/80 backdrop-blur z-10">
+            <h2 id="header-title" class="text-base font-semibold text-zinc-100">Глобальная сводка</h2>
+            <div class="text-xs text-zinc-500">Auto-sync: <span class="text-green-400">Active</span></div>
         </header>
         
-        <div class="p-8 overflow-y-auto">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="p-6 rounded-xl bg-[#18181b] border border-gray-800 shadow-sm">
-                    <div class="text-gray-400 text-sm mb-1">Всего кейсов</div>
-                    <div id="stat-cases" class="text-3xl font-bold text-[#9146FF]">---</div>
+        <div id="tab-dashboard" class="flex-1 p-6 overflow-y-auto space-y-4 block">
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div onclick="switchTab('users')" class="glass-panel rounded-lg p-5 clickable-card group relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <svg class="w-16 h-16 text-[#9146FF]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                    </div>
+                    <h3 class="text-xs uppercase tracking-wider text-zinc-500 font-semibold mb-3">Аудитория</h3>
+                    <div class="flex items-end gap-3 mb-1">
+                        <span id="stat-total-users" class="text-3xl font-bold text-zinc-100">---</span>
+                        <span class="text-xs text-zinc-400 pb-1">всего юзеров</span>
+                    </div>
+                    <div class="flex items-center gap-2 mt-3 pt-3 border-t border-zinc-800/50">
+                        <div class="w-1.5 h-1.5 rounded-full bg-[#9146FF]"></div>
+                        <span class="text-xs text-zinc-300">С привязанным Twitch:</span>
+                        <span id="stat-twitch-linked" class="text-xs font-bold text-zinc-100 ml-auto">---</span>
+                    </div>
                 </div>
-                <div class="p-6 rounded-xl bg-[#18181b] border border-gray-800 shadow-sm">
-                    <div class="text-gray-400 text-sm mb-1">Выведено скинов</div>
-                    <div id="stat-skins" class="text-3xl font-bold text-green-400">---</div>
-                </div>
-                <div class="p-6 rounded-xl bg-[#18181b] border border-gray-800 shadow-sm">
-                    <div class="text-gray-400 text-sm mb-1">Статус стрима</div>
-                    <div id="stat-stream" class="text-3xl font-bold text-gray-500">Загрузка...</div>
+
+                <div class="glass-panel rounded-lg p-5">
+                    <h3 class="text-xs uppercase tracking-wider text-zinc-500 font-semibold mb-3">Экономика (В обороте)</h3>
+                    <div class="grid grid-cols-2 gap-4 mt-2">
+                        <div>
+                            <div class="text-xs text-zinc-400 mb-1">Коины (Coins)</div>
+                            <div id="stat-total-coins" class="text-xl font-bold text-yellow-400">---</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-zinc-400 mb-1">Билеты (Tickets)</div>
+                            <div id="stat-total-tickets" class="text-xl font-bold text-blue-400">---</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="p-8 rounded-xl bg-[#18181b] border border-gray-800 text-center text-gray-400">
-                <h3 class="text-2xl text-white mb-2">Рабочая область</h3>
-                <p>Здесь скоро появится таблица логов, инструменты управления аукционами и настройки рулетки.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                <div class="glass-panel rounded-lg p-5">
+                    <div class="flex items-center gap-2 mb-4">
+                        <svg class="w-4 h-4 text-[#2AABEE]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
+                        <h3 class="text-xs uppercase tracking-wider text-zinc-300 font-semibold">Telegram Сообщения</h3>
+                    </div>
+                    <div class="grid grid-cols-4 gap-2 text-center">
+                        <div class="bg-[#09090b] p-2 rounded border border-zinc-800">
+                            <div class="text-[10px] text-zinc-500 mb-1">ДЕНЬ</div>
+                            <div id="tg-daily" class="font-bold text-zinc-100">---</div>
+                        </div>
+                        <div class="bg-[#09090b] p-2 rounded border border-zinc-800">
+                            <div class="text-[10px] text-zinc-500 mb-1">НЕДЕЛЯ</div>
+                            <div id="tg-weekly" class="font-bold text-zinc-100">---</div>
+                        </div>
+                        <div class="bg-[#09090b] p-2 rounded border border-zinc-800">
+                            <div class="text-[10px] text-zinc-500 mb-1">МЕСЯЦ</div>
+                            <div id="tg-monthly" class="font-bold text-zinc-100">---</div>
+                        </div>
+                        <div class="bg-[#09090b] p-2 rounded border border-zinc-800">
+                            <div class="text-[10px] text-[#2AABEE] mb-1">ИТОГО</div>
+                            <div id="tg-total" class="font-bold text-zinc-100">---</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-panel rounded-lg p-5">
+                    <div class="flex items-center gap-2 mb-4">
+                        <svg class="w-4 h-4 text-[#9146FF]" fill="currentColor" viewBox="0 0 24 24"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/></svg>
+                        <h3 class="text-xs uppercase tracking-wider text-zinc-300 font-semibold">Twitch Сообщения</h3>
+                    </div>
+                    <div class="grid grid-cols-4 gap-2 text-center">
+                        <div class="bg-[#09090b] p-2 rounded border border-zinc-800">
+                            <div class="text-[10px] text-zinc-500 mb-1">ДЕНЬ</div>
+                            <div id="tw-daily" class="font-bold text-zinc-100">---</div>
+                        </div>
+                        <div class="bg-[#09090b] p-2 rounded border border-zinc-800">
+                            <div class="text-[10px] text-zinc-500 mb-1">НЕДЕЛЯ</div>
+                            <div id="tw-weekly" class="font-bold text-zinc-100">---</div>
+                        </div>
+                        <div class="bg-[#09090b] p-2 rounded border border-zinc-800">
+                            <div class="text-[10px] text-zinc-500 mb-1">МЕСЯЦ</div>
+                            <div id="tw-monthly" class="font-bold text-zinc-100">---</div>
+                        </div>
+                        <div class="bg-[#09090b] p-2 rounded border border-zinc-800">
+                            <div class="text-[10px] text-[#9146FF] mb-1">ИТОГО</div>
+                            <div id="tw-total" class="font-bold text-zinc-100">---</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-users" class="flex-1 p-6 overflow-hidden hidden flex flex-col">
+            <div class="glass-panel rounded-lg p-3 mb-4 flex gap-3 items-center">
+                <input type="text" id="search-input" placeholder="Поиск по TG ID, Nickname, Twitch..." class="bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-1.5 flex-1 focus:outline-none focus:border-[#9146FF]">
+                
+                <select id="filter-twitch" class="bg-[#09090b] border border-zinc-700 text-zinc-300 text-xs rounded px-3 py-1.5 focus:outline-none">
+                    <option value="all">Все юзеры</option>
+                    <option value="linked">Только с Twitch</option>
+                </select>
+
+                <select id="filter-trust" class="bg-[#09090b] border border-zinc-700 text-zinc-300 text-xs rounded px-3 py-1.5 focus:outline-none">
+                    <option value="all">Любой траст</option>
+                    <option value="green">Надежные (Green)</option>
+                    <option value="red">Подозрительные (Red)</option>
+                </select>
+
+                <button onclick="loadUsers()" class="bg-[#9146FF] hover:bg-[#7b3ad6] text-white text-xs px-4 py-1.5 rounded transition-colors">Найти</button>
+            </div>
+
+            <div class="glass-panel rounded-lg flex-1 overflow-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-[#18181b] sticky top-0 z-10 border-b border-zinc-800 text-[11px] uppercase text-zinc-500">
+                        <tr>
+                            <th class="py-2 px-4 font-semibold">Игрок / TG ID</th>
+                            <th class="py-2 px-4 font-semibold">Twitch Login</th>
+                            <th class="py-2 px-4 font-semibold text-right">Сообщ (TG / TW)</th>
+                            <th class="py-2 px-4 font-semibold text-right">Coins</th>
+                            <th class="py-2 px-4 font-semibold text-right">Tickets</th>
+                            <th class="py-2 px-4 font-semibold text-center">Траст</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table-body" class="text-xs divide-y divide-zinc-800/50">
+                        </tbody>
+                </table>
             </div>
         </div>
     </main>
 
     <script>
+        // --- УПРАВЛЕНИЕ ВКЛАДКАМИ ---
+        function switchTab(tabName) {
+            document.getElementById('tab-dashboard').classList.add('hidden');
+            document.getElementById('tab-users').classList.add('hidden');
+            document.getElementById('nav-dashboard').classList.remove('active');
+            document.getElementById('nav-users').classList.remove('active');
+            
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            document.getElementById(`nav-${tabName}`).classList.add('active');
+
+            document.getElementById('header-title').innerText = tabName === 'dashboard' ? 'Глобальная сводка' : 'База Игроков';
+
+            if (tabName === 'users') loadUsers();
+        }
+
+        // --- ЗАГРУЗКА ДАШБОРДА ---
         async function loadDashboardStats() {
             try {
                 const response = await fetch('/api/v1/admin/stats');
                 if (!response.ok) {
                     if (response.status === 401) window.location.href = '/'; 
-                    throw new Error('Ошибка загрузки статистики');
+                    throw new Error('Ошибка');
                 }
-                
                 const data = await response.json();
                 
-                // Вставляем цифры в карточки
-                document.getElementById('stat-cases').innerText = data.total_cases;
-                document.getElementById('stat-skins').innerText = data.total_withdrawn;
+                // Юзеры
+                document.getElementById('stat-total-users').innerText = data.total_users.toLocaleString('ru-RU');
+                document.getElementById('stat-twitch-linked').innerText = data.twitch_linked.toLocaleString('ru-RU');
                 
-                // Красим статус стрима
-                const streamEl = document.getElementById('stat-stream');
-                streamEl.innerText = data.stream_status;
-                if (data.stream_status === 'Online') {
-                    streamEl.className = "text-3xl font-bold text-green-400";
-                } else {
-                    streamEl.className = "text-3xl font-bold text-red-400";
-                }
-                
+                // Экономика
+                document.getElementById('stat-total-coins').innerText = Math.floor(data.total_coins).toLocaleString('ru-RU');
+                document.getElementById('stat-total-tickets').innerText = Math.floor(data.total_tickets).toLocaleString('ru-RU');
+
+                // Telegram
+                document.getElementById('tg-daily').innerText = data.tg_daily.toLocaleString('ru-RU');
+                document.getElementById('tg-weekly').innerText = data.tg_weekly.toLocaleString('ru-RU');
+                document.getElementById('tg-monthly').innerText = data.tg_monthly.toLocaleString('ru-RU');
+                document.getElementById('tg-total').innerText = data.tg_total.toLocaleString('ru-RU');
+
+                // Twitch
+                document.getElementById('tw-daily').innerText = data.tw_daily.toLocaleString('ru-RU');
+                document.getElementById('tw-weekly').innerText = data.tw_weekly.toLocaleString('ru-RU');
+                document.getElementById('tw-monthly').innerText = data.tw_monthly.toLocaleString('ru-RU');
+                document.getElementById('tw-total').innerText = data.tw_total.toLocaleString('ru-RU');
+
             } catch (error) {
                 console.error("Ошибка:", error);
-                document.getElementById('stat-cases').innerText = 'Ошибка';
-                document.getElementById('stat-skins').innerText = 'Ошибка';
-                document.getElementById('stat-stream').innerText = 'Ошибка';
             }
         }
 
-        // Запускаем загрузку при открытии страницы
+        // --- ЗАГРУЗКА ТАБЛИЦЫ ЮЗЕРОВ ---
+        async function loadUsers() {
+            const tbody = document.getElementById('users-table-body');
+            tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-zinc-500">Загрузка данных...</td></tr>';
+            
+            const search = document.getElementById('search-input').value;
+            const hasTwitch = document.getElementById('filter-twitch').value;
+            const trust = document.getElementById('filter-trust').value;
+
+            try {
+                // Строим query-параметры
+                const params = new URLSearchParams({ search, hasTwitch, trust });
+                const response = await fetch(`/api/v1/admin/users?${params.toString()}`);
+                if (!response.ok) throw new Error('Ошибка');
+                
+                const users = await response.json();
+                tbody.innerHTML = '';
+
+                if (users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-zinc-500">Пользователи не найдены</td></tr>';
+                    return;
+                }
+
+                users.forEach(u => {
+                    const trustColor = u.trust_level === 'green' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
+                                       u.trust_level === 'red' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
+                                       'bg-zinc-500/10 text-zinc-400 border-zinc-500/20';
+
+                    const row = `
+                        <tr class="hover:bg-zinc-800/30 transition-colors">
+                            <td class="py-2 px-4">
+                                <div class="flex items-center gap-2">
+                                    ${u.photo_url ? `<img src="${u.photo_url}" class="w-6 h-6 rounded-full">` : `<div class="w-6 h-6 rounded-full bg-zinc-800"></div>`}
+                                    <div>
+                                        <div class="text-zinc-200 font-medium">${u.full_name || 'No Name'}</div>
+                                        <div class="text-[10px] text-zinc-500">ID: ${u.telegram_id}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="py-2 px-4">
+                                ${u.twitch_login ? `<span class="text-[#9146FF] hover:underline cursor-pointer">${u.twitch_login}</span>` : '<span class="text-zinc-600">-</span>'}
+                            </td>
+                            <td class="py-2 px-4 text-right">
+                                <span class="text-[#2AABEE]">${u.telegram_total_message_count.toLocaleString()}</span>
+                                <span class="text-zinc-600 mx-1">/</span>
+                                <span class="text-[#9146FF]">${u.total_message_count.toLocaleString()}</span>
+                            </td>
+                            <td class="py-2 px-4 text-right text-yellow-400 font-medium">${u.coins}</td>
+                            <td class="py-2 px-4 text-right text-blue-400 font-medium">${u.tickets}</td>
+                            <td class="py-2 px-4 text-center">
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${trustColor}">
+                                    ${u.trust_level ? u.trust_level.toUpperCase() : 'GRAY'}
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+            } catch (error) {
+                tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-red-400">Ошибка при загрузке списка</td></tr>';
+            }
+        }
+
+        // Запуск при старте
         document.addEventListener('DOMContentLoaded', loadDashboardStats);
     </script>
 </body>
