@@ -133,7 +133,7 @@ async def auth_callback(code: str, response: Response):
         jwt_token = create_jwt_token({"id": twitch_id, "login": twitch_login})
         
         # Отправляем обратно на главную страницу с новой кукой
-        redirect = RedirectResponse(url="/")
+        redirect = RedirectResponse(url="/settings")
         redirect.set_cookie(
             key="admin_session", 
             value=jwt_token, 
