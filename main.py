@@ -1,9 +1,10 @@
 import os
 import httpx
 import jwt
+import pathlib # Добавили библиотеку для работы с файлами
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse # Добавили HTMLResponse
 
 app = FastAPI(title="Stream Admin Panel")
 
@@ -16,46 +17,57 @@ def get_allowed_ids():
     return [x.strip() for x in raw_ids.split(",") if x.strip()]
 
 def get_redirect_uri():
-    # Хардкод или тоже можно вынести в ENV, если захочешь менять домен
     return "https://twitch-admin.vercel.app/api/v1/auth/callback"
 
 def create_jwt_token(data: dict):
-    expire = datetime.now(timezone.utc) + timedelta(days=7) # Сессия на 7 дней
+    expire = datetime.now(timezone.utc) + timedelta(days=7)
     to_encode = data.copy()
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, get_jwt_secret(), algorithm="HS256")
 
-# --- 1. ГЛАВНАЯ СТРАНИЦА (С ПРОВЕРКОЙ ДОСТУПА) ---
-@app.get("/")
+# Функция для чтения HTML файлов
+def get_html(filename: str) -> str:
+    path = pathlib.Path(__file__).parent / filename
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return f"<h1>Ошибка: файл {filename} не найден!</h1>"
+
+# --- 1. ГЛАВНАЯ СТРАНИЦА (ЛОГИН ИЛИ РЕДИРЕКТ НА НАСТРОЙКИ) ---
+@app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
-    # Пытаемся прочитать токен из куки
     token = request.cookies.get("admin_session")
-    
+    if token:
+        try:
+            # Если токен есть и он валиден — сразу кидаем в админку
+            jwt.decode(token, get_jwt_secret(), algorithms=["HS256"])
+            return RedirectResponse(url="/settings")
+        except jwt.PyJWTError:
+            pass # Если токен протух, продолжаем и показываем логин
+            
+    # Отдаем красивую страницу входа
+    return HTMLResponse(content=get_html("main.html"))
+
+# --- 1.5. ПАНЕЛЬ УПРАВЛЕНИЯ (ЗАЩИЩЕННАЯ ЗОНА) ---
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    token = request.cookies.get("admin_session")
     if not token:
-        return {
-            "status": "unauthorized", 
-            "message": "Вы не авторизованы. Перейдите по ссылке для входа.", 
-            "login_url": "/api/v1/auth/login"
-        }
+        # Если пришел без пропуска - выкидываем на логин
+        return RedirectResponse(url="/")
         
     try:
-        # Расшифровываем токен (секрет запрашивается динамически)
         payload = jwt.decode(token, get_jwt_secret(), algorithms=["HS256"])
-        return {
-            "status": "success", 
-            "message": f"Добро пожаловать в защищенную панель, {payload.get('login')}!", 
-            "user": payload,
-            "logout_url": "/api/v1/auth/logout"
-        }
+        twitch_login = payload.get('login', 'Admin')
+        
+        # Читаем HTML и заменяем переменную {{USERNAME}} на реальный ник
+        html_content = get_html("settings.html").replace("{{USERNAME}}", twitch_login)
+        return HTMLResponse(content=html_content)
+        
     except jwt.PyJWTError:
-        # Если токен подделан или истек
-        return {
-            "status": "unauthorized", 
-            "message": "Сессия истекла или недействительна.", 
-            "login_url": "/api/v1/auth/login"
-        }
+        return RedirectResponse(url="/")
 
-# --- 2. КНОПКА ВОЙТИ (РЕДИРЕКТ НА TWITCH) ---
 # --- 2. КНОПКА ВОЙТИ (РЕДИРЕКТ НА TWITCH) ---
 @app.get("/api/v1/auth/login")
 async def login():
