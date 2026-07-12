@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Admin | Вход</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0e0e10; color: #efeff1; }
+        .twitch-btn { background-color: #9146FF; transition: all 0.2s ease; }
+        .twitch-btn:hover { background-color: #772ce8; transform: translateY(-2px); }
+        .glass-panel { background: rgba(24, 24, 27, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.05); }
+    </style>
+</head>
+<body class="h-screen flex items-center justify-center bg-[url('https://c4.wallpaperflare.com/wallpaper/707/220/899/counter-strike-global-offensive-dark-counter-strike-wallpaper-preview.jpg')] bg-cover bg-center">
+    
+    <div class="absolute inset-0 bg-black/70"></div>
+
+    <div class="relative z-10 glass-panel p-10 rounded-2xl shadow-2xl max-w-sm w-full text-center">
+        <div class="mb-6">
+            <svg class="w-16 h-16 mx-auto text-[#9146FF]" fill="currentColor" viewBox="0 0 24 24"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/></svg>
+        </div>
+        <h1 class="text-2xl font-bold mb-2">HATElove Admin</h1>
+        <p class="text-gray-400 mb-8 text-sm">Управление трансляцией, рулетками и статистикой.</p>
+        
+        <button onclick="window.location.href='/api/v1/auth/login'" class="twitch-btn w-full py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 shadow-lg">
+            Войти через Twitch
+        </button>
+
+        <div class="mt-6 text-xs text-gray-500">
+            Доступ разрешен только администраторам системы.
+        </div>
+    </div>
+
+</body>
+</html>
