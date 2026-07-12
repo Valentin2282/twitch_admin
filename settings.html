@@ -32,5 +32,32 @@
         </div>
     </div>
 
+    <script>
+        // Функция для загрузки статистики при открытии страницы
+        async function loadDashboardStats() {
+            try {
+                const response = await fetch('/api/v1/admin/stats');
+                if (!response.ok) {
+                    if (response.status === 401) window.location.href = '/'; // Если разлогинило
+                    throw new Error('Ошибка загрузки статистики');
+                }
+                
+                const data = await response.json();
+                
+                // Находим элементы на странице и вставляем цифры
+                document.getElementById('stat-cases').innerText = data.total_cases;
+                document.getElementById('stat-skins').innerText = data.total_withdrawn;
+                
+            } catch (error) {
+                console.error("Ошибка:", error);
+                document.getElementById('stat-cases').innerText = 'Ошибка';
+                document.getElementById('stat-skins').innerText = 'Ошибка';
+            }
+        }
+
+        // Запускаем загрузку, как только страница отрисовалась
+        document.addEventListener('DOMContentLoaded', loadDashboardStats);
+    </script>
+
 </body>
 </html>
