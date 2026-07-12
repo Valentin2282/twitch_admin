@@ -212,7 +212,7 @@ async def fix_twitch_subs(request: Request):
     # Защита: проверяем, что ты авторизован как админ
     token = request.cookies.get("admin_session")
     if not token:
-        raise HTTPException(status_code=401, detail="Сначала войдите в панель!")
+        raise HTTPException(status_code=401, detail="Сначала войдите в dynamic панель!")
     try:
         jwt.decode(token, get_jwt_secret(), algorithms=["HS256"])
     except jwt.PyJWTError:
@@ -318,9 +318,9 @@ async def handle_fossabot_guess(
         if now > guess_cache.get("buffer_end", 0) and now < guess_cache.get("cooldown_until", 0):
             return ""
 
-        # 2. Обновляем кэш состояния из БД раз в 10 секунд
+        # 2. Обновляем кэш состояния из БД раз в 10 секунд (добавлен /rest/v1/)
         if now - guess_cache["updated_at"] > 10:
-            state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
+            state_res = await supabase.get("/rest/v1/guess_state", params={"id": "eq.1"})
             if state_res.status_code == 200 and state_res.json():
                 state = state_res.json()[0]
                 guess_cache["raw_word"] = state.get("current_word", "") 
@@ -357,19 +357,19 @@ async def handle_fossabot_guess(
             guess_cache["round_winners"] = []           
             is_first_blood = True
             
-        # 5. ЗАПИСЫВАЕМ ПОБЕДИТЕЛЯ В БАЗУ ДАННЫХ
+        # 5. ЗАПИСЫВАЕМ ПОБЕДИТЕЛЯ В БАЗУ ДАННЫХ (добавлен /rest/v1/)
         if twitch_display not in guess_cache["round_winners"]:
             guess_cache["round_winners"].append(twitch_display)
             # Точечно начисляем очки гринделки через RPC
-            await supabase.post("/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
+            await supabase.post("/rest/v1/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
 
         # Отправляем один ответ в чат для первого угадавшего (и собравшихся в буфере за 1.5 сек)
         if is_first_blood:
             target_filter = guess_cache["raw_word"]
             
-            # Открываем буквы в базе (чтобы основная логика и OBS считали статус раунда завершенным)
+            # Открываем буквы в базе (добавлен /rest/v1/)
             all_indices = list(range(len(target_filter)))
-            await supabase.patch("/guess_state", params={"id": "eq.1"}, json={"revealed_indices": all_indices})
+            await supabase.patch("/rest/v1/guess_state", params={"id": "eq.1"}, json={"revealed_indices": all_indices})
 
             winners_str = ", @".join(guess_cache["round_winners"])
             return f"🎉 Слово «{guess_cache['word']}» угадано! Очки забирают: @{winners_str}. След. слово через 20с."
