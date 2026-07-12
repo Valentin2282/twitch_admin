@@ -147,24 +147,36 @@
             </div>
         </div>
 
+        <!-- ВКЛАДКА: БАЗА ИГРОКОВ (Таблица) -->
         <div id="tab-users" class="flex-1 p-6 overflow-hidden hidden flex flex-col">
-            <div class="glass-panel rounded-lg p-3 mb-4 flex gap-3 items-center">
-                <input type="text" id="search-input" placeholder="Поиск по TG ID, Nickname, Twitch..." class="bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-1.5 flex-1 focus:outline-none focus:border-[#9146FF]">
+            <!-- Панель фильтров и сортировки -->
+            <div class="glass-panel rounded-lg p-3 mb-4 flex gap-3 items-center flex-wrap">
+                <input type="text" id="search-input" placeholder="Поиск по TG ID, Nickname, Twitch..." class="bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-1.5 flex-1 focus:outline-none focus:border-[#9146FF] min-w-[200px]">
                 
-                <select id="filter-twitch" class="bg-[#09090b] border border-zinc-700 text-zinc-300 text-xs rounded px-3 py-1.5 focus:outline-none">
+                <select id="filter-sort" class="bg-[#09090b] border border-zinc-700 text-zinc-300 text-xs rounded px-3 py-1.5 focus:outline-none cursor-pointer">
+                    <option value="total_message_count">↓ Топ Twitch (Все время)</option>
+                    <option value="weekly_message_count">↓ Топ Twitch (Неделя)</option>
+                    <option value="monthly_message_count">↓ Топ Twitch (Месяц)</option>
+                    <option value="telegram_total_message_count">↓ Топ TG (Все время)</option>
+                    <option value="coins">↓ Самые богатые (Coins)</option>
+                    <option value="tickets">↓ Больше всего билетов</option>
+                </select>
+
+                <select id="filter-twitch" class="bg-[#09090b] border border-zinc-700 text-zinc-300 text-xs rounded px-3 py-1.5 focus:outline-none cursor-pointer">
                     <option value="all">Все юзеры</option>
                     <option value="linked">Только с Twitch</option>
                 </select>
 
-                <select id="filter-trust" class="bg-[#09090b] border border-zinc-700 text-zinc-300 text-xs rounded px-3 py-1.5 focus:outline-none">
+                <select id="filter-trust" class="bg-[#09090b] border border-zinc-700 text-zinc-300 text-xs rounded px-3 py-1.5 focus:outline-none cursor-pointer">
                     <option value="all">Любой траст</option>
                     <option value="green">Надежные (Green)</option>
                     <option value="red">Подозрительные (Red)</option>
                 </select>
 
-                <button onclick="loadUsers()" class="bg-[#9146FF] hover:bg-[#7b3ad6] text-white text-xs px-4 py-1.5 rounded transition-colors">Найти</button>
+                <button onclick="loadUsers()" class="bg-[#9146FF] hover:bg-[#7b3ad6] text-white text-xs px-5 py-1.5 rounded transition-colors font-medium">Применить</button>
             </div>
 
+            <!-- Таблица -->
             <div class="glass-panel rounded-lg flex-1 overflow-auto">
                 <table class="w-full text-left border-collapse">
                     <thead class="bg-[#18181b] sticky top-0 z-10 border-b border-zinc-800 text-[11px] uppercase text-zinc-500">
@@ -178,7 +190,8 @@
                         </tr>
                     </thead>
                     <tbody id="users-table-body" class="text-xs divide-y divide-zinc-800/50">
-                        </tbody>
+                        <!-- Сюда JS вставит строки -->
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -210,21 +223,14 @@
                 }
                 const data = await response.json();
                 
-                // Юзеры
                 document.getElementById('stat-total-users').innerText = data.total_users.toLocaleString('ru-RU');
                 document.getElementById('stat-twitch-linked').innerText = data.twitch_linked.toLocaleString('ru-RU');
-                
-                // Экономика
                 document.getElementById('stat-total-coins').innerText = Math.floor(data.total_coins).toLocaleString('ru-RU');
                 document.getElementById('stat-total-tickets').innerText = Math.floor(data.total_tickets).toLocaleString('ru-RU');
-
-                // Telegram
                 document.getElementById('tg-daily').innerText = data.tg_daily.toLocaleString('ru-RU');
                 document.getElementById('tg-weekly').innerText = data.tg_weekly.toLocaleString('ru-RU');
                 document.getElementById('tg-monthly').innerText = data.tg_monthly.toLocaleString('ru-RU');
                 document.getElementById('tg-total').innerText = data.tg_total.toLocaleString('ru-RU');
-
-                // Twitch
                 document.getElementById('tw-daily').innerText = data.tw_daily.toLocaleString('ru-RU');
                 document.getElementById('tw-weekly').innerText = data.tw_weekly.toLocaleString('ru-RU');
                 document.getElementById('tw-monthly').innerText = data.tw_monthly.toLocaleString('ru-RU');
@@ -235,8 +241,7 @@
             }
         }
 
-        // --- ЗАГРУЗКА ТАБЛИЦЫ ЮЗЕРОВ ---
-        // --- ЗАГРУЗКА ТАБЛИЦЫ ЮЗЕРОВ ---
+        // --- ЗАГРУЗКА ТАБЛИЦЫ ЮЗЕРОВ С СОРТИРОВКОЙ ---
         async function loadUsers() {
             const tbody = document.getElementById('users-table-body');
             tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-zinc-500">Загрузка данных...</td></tr>';
@@ -244,10 +249,10 @@
             const search = document.getElementById('search-input').value;
             const hasTwitch = document.getElementById('filter-twitch').value;
             const trust = document.getElementById('filter-trust').value;
+            const sort_by = document.getElementById('filter-sort').value; // НОВОЕ ПОЛЕ СОРТИРОВКИ
 
             try {
-                // Строим query-параметры
-                const params = new URLSearchParams({ search, hasTwitch, trust });
+                const params = new URLSearchParams({ search, hasTwitch, trust, sort_by });
                 const response = await fetch(`/api/v1/admin/users?${params.toString()}`);
                 if (!response.ok) throw new Error('Ошибка API');
                 
@@ -260,7 +265,6 @@
                 }
 
                 users.forEach(u => {
-                    // БЕЗОПАСНАЯ ПРОВЕРКА НА NULL
                     const trustColor = u.trust_level === 'green' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
                                        u.trust_level === 'red' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
                                        'bg-zinc-500/10 text-zinc-400 border-zinc-500/20';
@@ -302,11 +306,10 @@
                 });
             } catch (error) {
                 console.error("Ошибка рендера:", error);
-                tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-red-400">Ошибка при загрузке списка (см. консоль)</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-red-400">Ошибка при загрузке списка</td></tr>';
             }
         }
 
-        // Запуск при старте
         document.addEventListener('DOMContentLoaded', loadDashboardStats);
     </script>
 </body>
