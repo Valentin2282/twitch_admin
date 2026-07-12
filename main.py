@@ -147,6 +147,20 @@ async def auth_callback(code: str, response: Response):
         )
         return redirect
 
+# --- РОУТ ДЛЯ ОТДАЧИ НОВОЙ СТРАНИЦЫ НАГРАД ---
+@app.get("/rewards", response_class=HTMLResponse)
+async def rewards_page(request: Request):
+    token = request.cookies.get("admin_session")
+    if not token: 
+        return RedirectResponse(url="/")
+    try:
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=["HS256"])
+        twitch_login = payload.get('login', 'Admin')
+        html_content = get_html("rewards.html").replace("{{USERNAME}}", twitch_login)
+        return HTMLResponse(content=html_content)
+    except jwt.PyJWTError:
+        return RedirectResponse(url="/")
+
 # --- 4. ВЫХОД ИЗ ПАНЕЛИ ---
 @app.get("/api/v1/auth/logout")
 async def logout():
@@ -454,31 +468,68 @@ class RewardCreateRequest(BaseModel):
 
 # --- 8. НАСТРОЙКА УНИКАЛЬНЫХ НАГРАД TWITCH ---
 
+# --- ОБНОВЛЕННЫЙ ЭНДПОИНТ НАГРАД С АВТО-РЕЗОЛВОМ ИМЕН СТРИМЕРОВ ---
 @app.get("/api/v1/admin/rewards")
 async def get_admin_rewards_panel(request: Request):
     token = request.cookies.get("admin_session")
-    if not token: 
-        raise HTTPException(status_code=401, detail="Нет пропуска")
+    if not token: raise HTTPException(status_code=401)
     try:
         jwt.decode(token, get_jwt_secret(), algorithms=["HS256"])
     except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Сессия недействительна")
+        raise HTTPException(status_code=401)
 
     supabase = get_resilient_supabase()
-    if not supabase: 
-        raise HTTPException(status_code=500, detail="БД недоступна")
+    client_id = os.getenv("TWITCH_CLIENT_ID")
+    client_secret = os.getenv("TWITCH_CLIENT_SECRET")
 
     try:
-        # Извлекаем список стримеров из ENV для селектора на фронте
-        channels = get_allowed_ids()
-        
-        # Подтягиваем текущие триггеры наград из Supabase
-        res = await supabase.get("/rest/v1/twitch_rewards", params={"order": "id.desc"})
-        rewards = res.json() if res.status_code == 200 else []
-        
-        return {"channels": channels, "rewards": rewards}
+        broadcaster_ids = get_allowed_ids()
+        channels_metadata = []
+
+        # Получаем App Access Token для запроса к Helix API
+        async with httpx.AsyncClient() as client:
+            token_resp = await client.post(
+                "https://id.twitch.tv/oauth2/token",
+                data={"client_id": client_id, "client_secret": client_secret, "grant_type": "client_credentials"}
+            )
+            if token_resp.status_code == 200:
+                app_token = token_resp.json()["access_token"]
+                
+                # Запрашиваем данные профилей всех стримеров из белого списка за один раз
+                ids_params = [("id", b_id) for b_id in broadcaster_ids]
+                tw_res = await client.get(
+                    "https://api.twitch.tv/helix/users",
+                    headers={"Client-ID": client_id, "Authorization": f"Bearer {app_token}"},
+                    params=ids_params
+                )
+                if tw_res.status_code == 200:
+                    for u_data in tw_res.json().get("data", []):
+                        channels_metadata.append({
+                            "id": u_data["id"],
+                            "login": u_data["login"],
+                            "display_name": u_data["display_name"],
+                            "profile_image": u_data["profile_image_url"]
+                        })
+
+        # Если Twitch упал, делаем fallback на ID
+        if not channels_metadata:
+            channels_metadata = [{"id": b_id, "login": f"Channel_{b_id}", "display_name": f"ID: {b_id}", "profile_image": ""} for b_id in broadcaster_ids]
+
+        # Подтягиваем список триггеров наград
+        res_rewards = await supabase.get("/rest/v1/twitch_rewards", params={"order": "id.desc"})
+        rewards = res_rewards.json() if res_rewards.status_code == 200 else []
+
+        # Подтягиваем лог отчетности по команде !подарок (последние 50 вызовов)
+        res_logs = await supabase.get("/rest/v1/gift_logs", params={"order": "id.desc", "limit": "50"})
+        gift_logs = res_logs.json() if res_logs.status_code == 200 else []
+
+        return {
+            "channels": channels_metadata, 
+            "rewards": rewards,
+            "gift_logs": gift_logs
+        }
     except Exception as e:
-        return {"channels": [], "rewards": []}
+        return {"channels": [], "rewards": [], "gift_logs": []}
 
 @app.post("/api/v1/admin/rewards/create")
 async def create_admin_twitch_reward(req: RewardCreateRequest, request: Request):
