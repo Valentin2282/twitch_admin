@@ -4,7 +4,7 @@ import jwt
 import pathlib # Добавили библиотеку для работы с файлами
 import time
 from datetime import datetime, timedelta, timezone
-from fastapi import FastAPI, HTTPException, Request, Response, Depends
+from fastapi import FastAPI, HTTPException, Request, Response, Depends, BackgroundTasks
 from fastapi.responses import RedirectResponse, HTMLResponse, PlainTextResponse # Добавили HTMLResponse и PlainTextResponse
 
 app = FastAPI(title="Stream Admin Panel")
@@ -212,7 +212,7 @@ async def fix_twitch_subs(request: Request):
     # Защита: проверяем, что ты авторизован как админ
     token = request.cookies.get("admin_session")
     if not token:
-        raise HTTPException(status_code=401, detail="Сначала войдите в dynamic панель!")
+        raise HTTPException(status_code=401, detail="Сначала войдите в панель!")
     try:
         jwt.decode(token, get_jwt_secret(), algorithms=["HS256"])
     except jwt.PyJWTError:
@@ -287,8 +287,7 @@ async def fix_twitch_subs(request: Request):
             "results": created_subs
         }
 
-# --- 7. 🔥 ВЫДЕЛЕННЫЙ БРОНЕЖИЛЕТ ДЛЯ ЧАТА (ПРИЕМ СООБЩЕНИЙ ИЗ FOSSABOT) ---
-# Глобальный легковесный кэш, чтобы не спамить в Supabase на каждое сообщение
+# --- 7. 🔥 ВЫДЕЛЕННЫЙ ВЫСОКОСКОРОСТНОЙ БРОНЕЖИЛЕТ ДЛЯ ЧАТА (FOSSABOT_GUESS) ---
 guess_cache = {
     "word": None,
     "is_active": False,
@@ -299,39 +298,60 @@ guess_cache = {
     "round_winners": []
 }
 
+# Два переиспользуемых глобальных клиента (минус TLS хэндшейки на каждый чих)
 http_client = httpx.AsyncClient()
+_resilient_supabase_client = None
+
+def get_resilient_supabase():
+    """Синглтон клиент для Supabase, сохраняющий коннекшн пул между вызовами Serverless"""
+    global _resilient_supabase_client
+    if _resilient_supabase_client is None:
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        if url and key:
+            headers = {"apikey": key, "Authorization": f"Bearer {key}"}
+            _resilient_supabase_client = httpx.AsyncClient(base_url=url, headers=headers)
+    return _resilient_supabase_client
 
 @app.get("/api/v1/twitch/fossabot_guess", response_class=PlainTextResponse)
 async def handle_fossabot_guess(
     request: Request,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+    background_tasks: BackgroundTasks
 ):
     token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
     if not token: 
+        return ""
+
+    # Достаем скоростной переиспользуемый клиент базы данных
+    supabase = get_resilient_supabase()
+    if not supabase:
         return ""
 
     try:
         global guess_cache
         now = time.time()
 
-        # 1. Блокировка от спама (пока идет кулдаун раунда)
+        # 1. Мгновенная блокировка гонки на уровне памяти
         if now > guess_cache.get("buffer_end", 0) and now < guess_cache.get("cooldown_until", 0):
             return ""
 
-        # 2. Обновляем кэш состояния из БД раз в 10 секунд (добавлен /rest/v1/)
+        # 2. Проверка 10-секундного лимита кэша с защитой от наплыва (Thundering Herd)
         if now - guess_cache["updated_at"] > 10:
-            state_res = await supabase.get("/rest/v1/guess_state", params={"id": "eq.1"})
-            if state_res.status_code == 200 and state_res.json():
-                state = state_res.json()[0]
-                guess_cache["raw_word"] = state.get("current_word", "") 
-                guess_cache["word"] = guess_cache["raw_word"].upper()
-                guess_cache["is_active"] = state.get("is_active", False)
-                guess_cache["updated_at"] = time.time()
+            guess_cache["updated_at"] = now  # Запираем замок ДО await, блокируя параллельные запросы
+            try:
+                state_res = await supabase.get("/rest/v1/guess_state", params={"id": "eq.1"})
+                if state_res.status_code == 200 and state_res.json():
+                    state = state_res.json()[0]
+                    guess_cache["raw_word"] = state.get("current_word", "") 
+                    guess_cache["word"] = guess_cache["raw_word"].upper()
+                    guess_cache["is_active"] = state.get("is_active", False)
+            except Exception:
+                guess_cache["updated_at"] = 0  # Сброс при сбое сети базы
 
         if not guess_cache["is_active"] or not guess_cache["word"]:
             return ""
 
-        # 3. Идем в Fossabot за текстом сообщения из чата
+        # 3. Запрос контекста сообщения в Fossabot API
         fb_res = await http_client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=3.0)
         if fb_res.status_code != 200: 
             return ""
@@ -343,39 +363,41 @@ async def handle_fossabot_guess(
         twitch_display = message_data["user"]["display_name"]
         guess_word = message_data["content"].strip().upper()
 
-        # 4. Если слово не совпало — моментальный сброс (бот молчит)
+        # 4. Если слово не то — бот замолкает мгновенно
         if guess_word != guess_cache["word"]:
             return ""
 
-        # --- ЕСЛИ СЛОВО ПРАВИЛЬНОЕ ---
+        # --- ОБРАБОТКА ПОБЕДНОГО ВХОЖДЕНИЯ ---
         is_first_blood = False
         
-        # Настраиваем временное окно для победителей (1.5 секунды)
         if now > guess_cache.get("cooldown_until", 0):
             guess_cache["buffer_end"] = now + 1.5       
             guess_cache["cooldown_until"] = now + 20    
             guess_cache["round_winners"] = []           
             is_first_blood = True
             
-        # 5. ЗАПИСЫВАЕМ ПОБЕДИТЕЛЯ В БАЗУ ДАННЫХ (добавлен /rest/v1/)
+        # Начисление очков через фоновую задачу (эндпоинт не ждет ответа БД)
         if twitch_display not in guess_cache["round_winners"]:
             guess_cache["round_winners"].append(twitch_display)
-            # Точечно начисляем очки гринделки через RPC
-            await supabase.post("/rest/v1/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
+            background_tasks.add_task(supabase.post, "/rest/v1/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
 
-        # Отправляем один ответ в чат для первого угадавшего (и собравшихся в буфере за 1.5 сек)
         if is_first_blood:
             target_filter = guess_cache["raw_word"]
             
-            # Открываем буквы в базе (добавлен /rest/v1/)
+            # Переносим тяжелый патч букв Supabase в бэкграунд-задачи Vercel. 
+            # Бот выдаст текст в чат СРАЗУ, а база обновится через долю секунды сама.
             all_indices = list(range(len(target_filter)))
-            await supabase.patch("/rest/v1/guess_state", params={"id": "eq.1"}, json={"revealed_indices": all_indices})
+            background_tasks.add_task(
+                supabase.patch, 
+                "/rest/v1/guess_state", 
+                params={"id": "eq.1"}, 
+                json={"revealed_indices": all_indices}
+            )
 
             winners_str = ", @".join(guess_cache["round_winners"])
             return f"🎉 Слово «{guess_cache['word']}» угадано! Очки забирают: @{winners_str}. След. слово через 20с."
         
         return ""
 
-    except Exception as e:
-        # При форс-мажоре молчим, чтобы не спамить в чат ошибками
+    except Exception:
         return ""
