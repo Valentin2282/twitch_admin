@@ -207,6 +207,50 @@ async def get_admin_dashboard_stats(
     except Exception as e:
         return {"error": str(e)}
 
+# --- 6.2 ЗАЩИЩЕННЫЙ ПОИСК ПО КАТАЛОГУ МАРКЕТ-КЭША ДЛЯ МОДАЛКИ ---
+@app.get("/api/v1/admin/market_cache")
+async def get_admin_market_cache_search(
+    request: Request,
+    search: Optional[str] = "",
+    cond: Optional[str] = "all",
+    rarity: Optional[str] = "all",
+    min_p: Optional[float] = 0.0,
+    max_p: Optional[float] = 99999.0,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    token = request.cookies.get("admin_session")
+    if not token: 
+        raise HTTPException(status_code=401, detail="Нет доступа")
+    try:
+        jwt.decode(token, get_jwt_secret(), algorithms=["HS256"])
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Сессия недействительна")
+
+    try:
+        # Строим параметры запроса к Supabase
+        params = {
+            "price_rub": f"gte.{min_p}",
+            "and": f"(price_rub.lte.{max_p})",
+            "limit": "50"
+        }
+
+        # Фильтр по названию
+        if search:
+            params["market_hash_name"] = f"ilike.*{search.strip()}*"
+            
+        # Фильтр по качеству (извлекаем из скобок)
+        if cond and cond != "all":
+            params["market_hash_name"] = f"ilike.*({cond})*"
+            
+        # Фильтр по редкости
+        if rarity and rarity != "all":
+            params["rarity"] = f"eq.{rarity.lower()}"
+
+        res = await supabase.get("/rest/v1/market_cache", params=params)
+        return res.json() if res.status_code == 200 else []
+    except Exception as e:
+        return []
+
 # --- 6.1 БАЗА ИГРОКОВ (ТАБЛИЦА С ПОИСКОМ И СОРТИРОВКОЙ) ---
 @app.get("/api/v1/admin/users")
 async def get_admin_users(
