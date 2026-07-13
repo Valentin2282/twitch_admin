@@ -9,10 +9,9 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body { background-color: #09090b; color: #a1a1aa; font-family: 'Inter', sans-serif; font-size: 0.875rem; }
         .sidebar { background-color: #09090b; border-right: 1px solid #27272a; }
-        .nav-item { transition: all 0.2s ease; cursor: pointer; }
-        .nav-item:hover, .nav-item.active { background-color: #18181b; color: #e4e4e7; }
-        .nav-item.active { border-left: 2px solid #9146FF; }
         .glass-panel { background-color: #18181b; border: 1px solid #27272a; }
+        .sortable-header { cursor: pointer; user-select: none; transition: color 0.2s; }
+        .sortable-header:hover { color: #e4e4e7; }
         
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -27,25 +26,16 @@
             <span class="text-lg font-bold text-zinc-100 tracking-wider">HATE<span class="text-[#9146FF]">LAVKA</span></span>
         </div>
         <nav class="flex-1 px-3 py-5 space-y-1">
-            <a href="/settings" class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium hover:bg-zinc-800/50 hover:text-zinc-100 block">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-                Дашборд
-            </a>
-            <a href="/rewards" class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium hover:bg-zinc-800/50 hover:text-zinc-100 block">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                Награды Twitch
-            </a>
-            <a href="/boxes" class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-100 font-medium bg-zinc-800 block">
-                <svg class="w-4 h-4 text-[#9146FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-                Коробки (Кейсы)
-            </a>
+            <a href="/settings" class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium hover:bg-zinc-800/50 hover:text-zinc-100 block">Дашборд</a>
+            <a href="/rewards" class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium hover:bg-zinc-800/50 hover:text-zinc-100 block">Награды Twitch</a>
+            <a href="/boxes" class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-100 font-medium bg-zinc-800 block">Коробки (Кейсы)</a>
         </nav>
         <div class="p-3 border-t border-zinc-800">
             <a href="/api/v1/auth/logout" class="flex items-center justify-center gap-2 py-1.5 rounded-md text-xs text-red-400/80 hover:bg-red-500/10 hover:text-red-400 transition-colors">Выйти</a>
         </div>
     </aside>
 
-    <main class="flex-1 content-area flex flex-col h-full overflow-hidden">
+    <main class="flex-1 flex flex-col h-full overflow-hidden">
         <header class="h-14 flex items-center px-6 border-b border-zinc-800 bg-[#09090b]/80 backdrop-blur z-10">
             <h2 class="text-base font-semibold text-zinc-100">Фабрика Коробок (Рандомизатор)</h2>
         </header>
@@ -117,21 +107,24 @@
                 <div class="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
                     <div>
                         <h3 class="text-sm font-semibold text-zinc-100">Спецификация слотов: <span id="inspect-box-name" class="text-[#9146FF]">---</span></h3>
-                        <p class="text-[11px] text-zinc-500 mt-0.5">Кликните по названию предмета для открытия каталога фильтрации `market_cache`.</p>
+                        <p class="text-[11px] text-zinc-500 mt-0.5">Кликните по названию предмета для изменения, либо по картинке для увеличения.</p>
                     </div>
-                    <span class="text-[10px] bg-zinc-800 border border-zinc-700 text-zinc-400 px-2 py-1 rounded font-mono">ID Кейса: #<span id="inspect-box-id">0</span></span>
+                    <div class="flex items-center gap-3">
+                        <button onclick="openFilterModalForNewAdd()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded transition-colors shadow-sm">➕ ДОБАВИТЬ СКИН ВРУЧНУЮ</button>
+                        <span class="text-[10px] bg-zinc-800 border border-zinc-700 text-zinc-400 px-2 py-1 rounded font-mono">ID Кейса: #<span id="inspect-box-id">0</span></span>
+                    </div>
                 </div>
                 
                 <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
                     <table class="w-full text-left border-collapse">
                         <thead class="bg-[#09090b] text-[10px] uppercase text-zinc-500 border-b border-zinc-800 sticky top-0 z-10">
                             <tr>
-                                <th class="py-2 px-3 text-center w-20">Длина ника</th>
+                                <th class="sortable-header py-2 px-3 text-center w-28" onclick="toggleSort('slot_index')">Длина ника <span id="sort-icon-slot_index"></span></th>
                                 <th class="py-2 px-3 w-20 text-center">Визуал</th>
-                                <th class="py-2 px-3">Название скина (Клик для замены)</th>
-                                <th class="py-2 px-3 text-center w-32">Редкость</th>
-                                <th class="py-2 px-3 text-center w-24">Качество</th>
-                                <th class="py-2 px-3 text-right w-36">Цена</th>
+                                <th class="sortable-header py-2 px-3" onclick="toggleSort('skin_name')">Название скина (Клик для замены) <span id="sort-icon-skin_name"></span></th>
+                                <th class="sortable-header py-2 px-3 text-center w-32" onclick="toggleSort('rarity')">Редкость <span id="sort-icon-rarity"></span></th>
+                                <th class="sortable-header py-2 px-3 text-center w-24" onclick="toggleSort('condition')">Качество <span id="sort-icon-condition"></span></th>
+                                <th class="sortable-header py-2 px-3 text-right w-36" onclick="toggleSort('price_rub')">Цена <span id="sort-icon-price_rub"></span></th>
                             </tr>
                         </thead>
                         <tbody id="inspector-table-body" class="text-xs divide-y divide-zinc-800/40"></tbody>
@@ -145,20 +138,24 @@
         <div class="bg-[#18181b] border border-zinc-800 rounded-xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
             <div class="p-4 border-b border-zinc-800 flex items-center justify-between bg-[#09090b]/50">
                 <div>
-                    <h3 class="text-sm font-bold text-zinc-100">Полный фильтр-каталог `market_cache`</h3>
-                    <p class="text-[11px] text-zinc-400 mt-0.5">Слот изменения: <span id="modal-slot-index" class="text-[#9146FF] font-mono font-bold"></span></p>
+                    <h3 id="modal-title-text" class="text-sm font-bold text-zinc-100">Полный фильтр-каталог `market_cache`</h3>
+                    <div id="modal-target-info" class="text-[11px] text-zinc-400 mt-0.5"></div>
                 </div>
                 <button onclick="closeFilterModal()" class="text-zinc-400 hover:text-zinc-100 text-sm p-1">✕</button>
             </div>
             
-            <div class="p-4 grid grid-cols-1 md:grid-cols-4 gap-3 border-b border-zinc-800 bg-[#141416]">
-                <div>
-                    <label class="text-[10px] text-zinc-400 block mb-1 uppercase font-medium">Поиск по названию</label>
+            <div class="p-4 grid grid-cols-1 md:grid-cols-5 gap-3 border-b border-zinc-800 bg-[#141416]">
+                <div id="modal-manual-slot-container" class="hidden">
+                    <label class="text-[10px] text-zinc-400 block mb-1 uppercase font-medium">Для какой длины ника?</label>
+                    <input type="number" id="modal-manual-slot-input" min="1" max="30" value="1" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-[#9146FF]">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-[10px] text-zinc-400 block mb-1 uppercase font-medium">Поиск по названию (Исключая наклейки)</label>
                     <input type="text" id="modal-search" oninput="fetchModalItems()" placeholder="Например: P250 | Plum" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-[#9146FF]">
                 </div>
                 <div>
-                    <label class="text-[10px] text-zinc-400 block mb-1 uppercase font-medium">Качество кожи (Wear)</label>
-                    <select id="modal-[#cond]" onchange="fetchModalItems()" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-2.5 py-1.5 focus:outline-none cursor-pointer">
+                    <label class="text-[10px] text-zinc-400 block mb-1 uppercase font-medium">Качество кожи</label>
+                    <select id="modal-cond" onchange="fetchModalItems()" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-2.5 py-1.5 focus:outline-none cursor-pointer">
                         <option value="all">Любое качество</option>
                         <option value="Factory New">Прямо с завода (FN)</option>
                         <option value="Minimal Wear">Немного поношенное (MW)</option>
@@ -168,10 +165,10 @@
                     </select>
                 </div>
                 <div>
-                    <label class="text-[10px] text-zinc-400 block mb-1 uppercase font-medium">Рарность (Rarity)</label>
+                    <label class="text-[10px] text-zinc-400 block mb-1 uppercase font-medium">Рарность</label>
                     <select id="modal-rarity" onchange="fetchModalItems()" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-2.5 py-1.5 focus:outline-none cursor-pointer">
                         <option value="all">Все рарности</option>
-                        <option value="common">Common (Default)</option>
+                        <option value="common">Common</option>
                         <option value="blue">Blue</option>
                         <option value="purple">Purple</option>
                         <option value="pink">Pink</option>
@@ -183,11 +180,11 @@
                 </div>
                 <div class="grid grid-cols-2 gap-1.5">
                     <div>
-                        <label class="text-[10px] text-zinc-400 block mb-1 uppercase font-medium">Мин. руб</label>
+                        <label class="text-[10px] text-zinc-400 block mb-1 uppercase font-medium">Мин. ₽</label>
                         <input type="number" id="modal-min-p" value="0" oninput="fetchModalItems()" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-2 py-1 focus:outline-none">
                     </div>
                     <div>
-                        <label class="text-[10px] text-zinc-400 block mb-1 uppercase font-medium">Макс. руб</label>
+                        <label class="text-[10px] text-zinc-400 block mb-1 uppercase font-medium">Макс. ₽</label>
                         <input type="number" id="modal-max-p" value="9999" oninput="fetchModalItems()" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-2 py-1 focus:outline-none">
                     </div>
                 </div>
@@ -210,10 +207,33 @@
         </div>
     </div>
 
+    <div id="zoom-modal" class="fixed inset-0 bg-black/90 backdrop-blur flex items-center justify-center p-4 z-50 hidden" onclick="closeZoomModal()">
+        <div class="relative max-w-3xl w-full flex flex-col items-center" onclick="event.stopPropagation()">
+            <button onclick="closeZoomModal()" class="absolute -top-12 right-0 md:-right-12 bg-zinc-800 text-zinc-200 hover:text-white border border-zinc-700 rounded-full w-10 h-10 flex items-center justify-center text-lg transition-colors font-bold shadow-xl">✕</button>
+            <img id="zoom-img-target" src="" class="max-h-[75vh] w-auto object-contain mix-blend-screen drop-shadow-[0_0_35px_rgba(145,70,255,0.3)]">
+            <h4 id="zoom-title-target" class="text-zinc-200 font-semibold mt-4 tracking-wide text-center text-base"></h4>
+        </div>
+    </div>
+
     <script>
         let currentSelectedBoxId = null;
         let currentBoxName = "";
-        let targetItemId = null; // Для отслеживания изменяемого слота в модалке
+        let targetItemId = null; 
+        let modalMode = 'edit'; // 'edit' или 'add'
+        
+        let loadedItems = []; // Хранилище предметов для локальной сортировки
+        let currentSortField = 'slot_index';
+        let currentSortAsc = true;
+
+        // Склонение слова "символ" по правилам русского языка
+        function getSymbolsDeclension(number) {
+            const lastDigit = number % 10;
+            const lastTwoDigits = number % 100;
+            if (lastTwoDigits >= 11 && lastTwoDigits <= 14) return `${number} символов`;
+            if (lastDigit === 1) return `${number} символ`;
+            if (lastDigit >= 2 && lastDigit <= 4) return `${number} символа`;
+            return `${number} символов`;
+        }
 
         async function loadBoxes() {
             const tbody = document.getElementById('boxes-table-body');
@@ -285,45 +305,109 @@
 
             try {
                 const res = await fetch(`/api/v1/admin/boxes/${id}/items`);
-                const items = await res.json();
-                tbody.innerHTML = '';
-
-                if(items.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-zinc-500">Пул предметов пуст. Запустите генерацию.</td></tr>';
-                    return;
-                }
-
-                items.forEach(slot => {
-                    const price = slot.price_rub ? `${Number(slot.price_rub).toFixed(2)} руб.` : '<span class="text-zinc-600">0.00 руб.</span>';
-                    const rarity = (slot.rarity || 'common').toUpperCase();
-                    const img = slot.image_url ? `<img src="${slot.image_url}" class="w-9 h-9 object-contain mix-blend-screen">` : `<div class="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs text-zinc-600">❓</div>`;
-                    
-                    const rarityBadge = rarity === 'RED' || rarity === 'COVERT' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                                        rarity === 'PINK' || rarity === 'CLASSIFIED' ? 'bg-pink-500/10 text-pink-400 border-pink-500/20' :
-                                        rarity === 'PURPLE' || rarity === 'RESTRICTED' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                                        'bg-zinc-500/10 text-zinc-400 border-zinc-500/20';
-
-                    tbody.innerHTML += `
-                        <tr class="hover:bg-zinc-800/20 transition-colors">
-                            <td class="py-2 px-3 text-center font-bold text-purple-400 bg-zinc-900/10">${slot.slot_index} знаков</td>
-                            <td class="py-1 px-3 flex justify-center">${img}</td>
-                            <td class="py-2 px-3 font-medium text-zinc-200">
-                                <span onclick="openFilterModal(${slot.id}, ${slot.slot_index})" class="hover:text-[#9146FF] text-zinc-100 hover:underline cursor-pointer border-b border-dashed border-zinc-700 pb-0.5 transition-colors">${slot.skin_name}</span>
-                            </td>
-                            <td class="py-2 px-3 text-center">
-                                <span class="px-2 py-0.5 rounded border text-[10px] font-semibold ${rarityBadge}">${rarity}</span>
-                            </td>
-                            <td class="py-2 px-3 text-center text-zinc-400 font-mono text-[11px]">${slot.condition || 'FN'}</td>
-                            <td class="py-2 px-3 text-right text-yellow-500 font-semibold font-mono">${price}</td>
-                        </tr>`;
-                });
+                loadedItems = await res.json();
+                renderInspectorTable();
             } catch (e) {}
         }
 
-        // --- УПРАВЛЕНИЕ КРАСИВЫМ ДИАЛОГОВЫМ ОКНОМ ---
-        function openFilterModal(itemId, slotIndex) {
+        // Рендеринг таблицы с учетом сортировки
+        function renderInspectorTable() {
+            const tbody = document.getElementById('inspector-table-body');
+            tbody.innerHTML = '';
+            updateSortIcons();
+
+            if(loadedItems.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-zinc-500">Пул предметов пуст. Запустите генерацию или добавьте скин вручную.</td></tr>';
+                return;
+            }
+
+            // Сортировка данных
+            const sorted = [...loadedItems].sort((a, b) => {
+                let valA = a[currentSortField];
+                let valB = b[currentSortField];
+
+                if (typeof valA === 'string') {
+                    return currentSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                } else {
+                    return currentSortAsc ? (valA - valB) : (valB - valA);
+                }
+            });
+
+            sorted.forEach(slot => {
+                const price = slot.price_rub ? `${Number(slot.price_rub).toFixed(2)} руб.` : '<span class="text-zinc-600">0.00 руб.</span>';
+                const rarity = (slot.rarity || 'common').toUpperCase();
+                const img = slot.image_url ? `<img src="${slot.image_url}" onclick="openZoomModal('${slot.image_url}', '${slot.skin_name.replace(/'/g, "\\'")}')" class="w-9 h-9 object-contain mix-blend-screen cursor-zoom-in hover:scale-110 transition-transform">` : `<div class="w-9 h-9 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs text-zinc-600">❓</div>`;
+                
+                const rarityBadge = rarity === 'RED' || rarity === 'COVERT' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                                    rarity === 'PINK' || rarity === 'CLASSIFIED' ? 'bg-pink-500/10 text-pink-400 border-pink-500/20' :
+                                    rarity === 'PURPLE' || rarity === 'RESTRICTED' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                                    'bg-zinc-500/10 text-zinc-400 border-zinc-500/20';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-zinc-800/20 transition-colors">
+                        <td class="py-2 px-3 text-center font-bold text-purple-400 bg-zinc-900/10">${getSymbolsDeclension(slot.slot_index)}</td>
+                        <td class="py-1 px-3 flex justify-center">${img}</td>
+                        <td class="py-2 px-3 font-medium text-zinc-200">
+                            <span onclick="openFilterModalForEdit(${slot.id}, ${slot.slot_index})" class="hover:text-[#9146FF] text-zinc-100 hover:underline cursor-pointer border-b border-dashed border-zinc-700 pb-0.5 transition-colors">${slot.skin_name}</span>
+                        </td>
+                        <td class="py-2 px-3 text-center">
+                            <span class="px-2 py-0.5 rounded border text-[10px] font-semibold ${rarityBadge}">${rarity}</span>
+                        </td>
+                        <td class="py-2 px-3 text-center text-zinc-400 font-mono text-[11px]">${slot.condition || 'FN'}</td>
+                        <td class="py-2 px-3 text-right text-yellow-500 font-semibold font-mono">${price}</td>
+                    </tr>`;
+            });
+        }
+
+        function toggleSort(field) {
+            if (currentSortField === field) {
+                currentSortAsc = !currentSortAsc;
+            } else {
+                currentSortField = field;
+                currentSortAsc = true;
+            }
+            renderInspectorTable();
+        }
+
+        function updateSortIcons() {
+            ['slot_index', 'skin_name', 'rarity', 'condition', 'price_rub'].forEach(f => {
+                const el = document.getElementById(`sort-icon-${f}`);
+                if(!el) return;
+                if (currentSortField === f) {
+                    el.innerText = currentSortAsc ? ' ▲' : ' ▼';
+                    el.className = 'text-[#9146FF] font-bold text-[9px]';
+                } else {
+                    el.innerText = '';
+                }
+            });
+        }
+
+        // --- КРАСИВОЕ УВЕЛИЧЕНИЕ КАРТИНОК (ZOOM) ---
+        function openZoomModal(imgUrl, skinName) {
+            document.getElementById('zoom-img-target').src = imgUrl;
+            document.getElementById('zoom-title-target').innerText = skinName;
+            document.getElementById('zoom-modal').classList.remove('hidden');
+        }
+        function closeZoomModal() {
+            document.getElementById('zoom-modal').classList.add('hidden');
+        }
+
+        // --- УПРАВЛЕНИЕ КАТАЛОГОМ И ФИЛЬТРАЦИЕЙ ---
+        function openFilterModalForEdit(itemId, slotIndex) {
+            modalMode = 'edit';
             targetItemId = itemId;
-            document.getElementById('modal-slot-index').innerText = `${slotIndex} символов`;
+            document.getElementById('modal-title-text').innerText = "Изменение существующего слота";
+            document.getElementById('modal-target-info').innerHTML = `Редактируем слот на: <span class="text-[#9146FF] font-bold">${getSymbolsDeclension(slotIndex)}</span>`;
+            document.getElementById('modal-manual-slot-container').classList.add('hidden');
+            document.getElementById('filter-modal').classList.remove('hidden');
+            fetchModalItems();
+        }
+
+        function openFilterModalForNewAdd() {
+            modalMode = 'add';
+            document.getElementById('modal-title-text').innerText = "Ручное добавление скина в коробку";
+            document.getElementById('modal-target-info').innerText = "Выберите параметры ниже. Новая запись в cs_items и привязка к слоту создадутся автоматически.";
+            document.getElementById('modal-manual-slot-container').classList.remove('hidden');
             document.getElementById('filter-modal').classList.remove('hidden');
             fetchModalItems();
         }
@@ -332,31 +416,38 @@
             document.getElementById('filter-modal').classList.add('hidden');
         }
 
-        // Фронтенд-фильтрация и поиск напрямую через Supabase RPC/REST параметры
         async function fetchModalItems() {
             const tbody = document.getElementById('modal-table-body');
             tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-zinc-500">Поиск в кэше маркета...</td></tr>';
             
             const search = document.getElementById('modal-search').value.trim();
-            const cond = document.getElementById('modal-[#cond]').value;
+            const cond = document.getElementById('modal-cond').value;
             const rarity = document.getElementById('modal-rarity').value;
             const minP = parseFloat(document.getElementById('modal-min-p').value) || 0;
             const maxP = parseFloat(document.getElementById('modal-max-p').value) || 99999;
 
-            // Конструируем PostgREST параметры для Supabase
-            let params = new URLSearchParams();
-            params.append('price_rub', `gte.${minP}`);
-            params.append('and', `(price_rub.lte.${maxP})`);
-            params.append('limit', '50');
-
-            if (search) params.append('market_hash_name', `ilike.*${search}*`);
-            if (cond !== 'all') params.append('market_hash_name', `ilike.*(${cond})*`);
-            if (rarity !== 'all') params.append('rarity', `eq.${rarity}`);
+            let params = new URLSearchParams({
+                search: search,
+                cond: cond,
+                rarity: rarity,
+                min_p: minP,
+                max_p: maxP
+            });
 
             try {
-                const res = await fetch(`/rest/v1/market_cache?${params.toString()}`);
-                const data = await res.json();
+                const res = await fetch(`/api/v1/admin/market_cache?${params.toString()}`);
+                if (!res.ok) throw new Error();
+                
+                let data = await res.json();
                 tbody.innerHTML = '';
+
+                // Очистка от Наклеек, Граффити и Нашейных патчей (Полная фильтрация мусора)
+                if (data && data.length > 0) {
+                    data = data.filter(item => {
+                        const name = item.market_hash_name;
+                        return !name.includes("Sticker |") && !name.includes("Patch |") && !name.includes("Sealed Graffiti |");
+                    });
+                }
 
                 if (!data || data.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-zinc-500">Нет подходящих предметов в market_cache</td></tr>';
@@ -364,7 +455,7 @@
                 }
 
                 data.forEach(item => {
-                    const img = item.image_url ? `<img src="${item.image_url}" class="w-8 h-8 object-contain mix-blend-screen">` : '❓';
+                    const img = item.image_url ? `<img src="${item.image_url}" onclick="openZoomModal('${item.image_url}', '${item.market_hash_name.replace(/'/g, "\\'")}')" class="w-8 h-8 object-contain mix-blend-screen cursor-zoom-in hover:scale-110 transition-transform">` : '❓';
                     tbody.innerHTML += `
                         <tr class="hover:bg-zinc-800/40 transition-colors">
                             <td class="p-2 flex justify-center">${img}</td>
@@ -377,26 +468,44 @@
                         </tr>`;
                 });
             } catch (e) {
-                tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-red-400">Ошибка связи с базой данных</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-red-400">Ошибка связи с сервером админ-панели</td></tr>';
             }
         }
 
-        // Вызов сохранения на бэкенд и автоматическое добавление в cs_items
         async function selectItemForSlot(marketHashName) {
             try {
-                const res = await fetch(`/api/v1/admin/box_items/${targetItemId}/update`, {
+                let url = "";
+                let payload = { skin_name: marketHashName };
+
+                if (modalMode === 'edit') {
+                    // Стандартное изменение существующего слота
+                    url = `/api/v1/admin/box_items/${targetItemId}/update`;
+                } else {
+                    // Добавление новой привязки с указанием кастомного слота знаков
+                    const manualSlot = parseInt(document.getElementById('modal-manual-slot-input').value) || 1;
+                    url = `/api/v1/admin/box_items/add_new_manual`;
+                    payload = {
+                        box_id: currentSelectedBoxId,
+                        slot_index: manualSlot,
+                        skin_name: marketHashName
+                    };
+                }
+
+                const res = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ skin_name: marketHashName })
+                    body: JSON.stringify(payload)
                 });
+
                 if (res.ok) {
                     closeFilterModal();
+                    loadBoxes();
                     inspectBox(currentSelectedBoxId, currentBoxName);
                 } else {
                     const err = await res.json();
-                    alert(err.detail || "Ошибка добавления");
+                    alert(err.detail || "Ошибка транзакции базы данных");
                 }
-            } catch (e) { alert("Ошибка сети"); }
+            } catch (e) { alert("Ошибка соединения с бэкендом"); }
         }
 
         document.addEventListener('DOMContentLoaded', loadBoxes);
