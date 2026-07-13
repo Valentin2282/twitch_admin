@@ -76,6 +76,7 @@
                             <thead class="bg-[#09090b] border-b border-zinc-800 text-[10px] uppercase text-zinc-500 sticky top-0 z-10">
                                 <tr>
                                     <th class="py-2 px-3">Название</th>
+                                    <th class="py-2 px-3 text-center">Статус</th>
                                     <th class="py-2 px-3 text-center">Механика</th>
                                     <th class="py-2 px-3 text-center">Предметов внутри</th>
                                     <th class="py-2 px-3 text-right">Действия</th>
@@ -209,7 +210,7 @@
         let currentSortField = 'slot_index';
         let currentSortAsc = true;
 
-        let modalLoadedItems = []; // Хранилище для сортировки внутри модалки
+        let modalLoadedItems = [];
         let currentModalSortField = 'price_rub';
         let currentModalSortAsc = true;
 
@@ -224,14 +225,14 @@
 
         async function loadBoxes() {
             const tbody = document.getElementById('boxes-table-body');
-            tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-zinc-500">Загрузка активных кейсов...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-zinc-500">Загрузка активных кейсов...</td></tr>';
             try {
                 const res = await fetch('/api/v1/admin/boxes');
                 const data = await res.json();
                 tbody.innerHTML = '';
                 
                 if (data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-zinc-500">Коробки не созданы</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-zinc-500">Коробки не созданы</td></tr>';
                     return;
                 }
                 data.forEach(b => {
@@ -239,9 +240,18 @@
                     const badgeClass = count > 0 ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20';
                     const isSelected = currentSelectedBoxId === b.id ? 'bg-zinc-800/40 border-l-2 border-[#9146FF]' : '';
                     
+                    // 🔥 НОВОЕ: Тумблер (Свитч)
+                    const toggleHtml = `
+                        <label class="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" class="sr-only peer" ${b.is_active ? 'checked' : ''} onchange="toggleBoxStatus(${b.id}, this.checked)">
+                          <div class="w-8 h-4 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#9146FF]"></div>
+                        </label>
+                    `;
+                    
                     tbody.innerHTML += `
                         <tr onclick="inspectBox(${b.id}, '${b.name}')" class="hover:bg-zinc-800/20 transition-colors cursor-pointer ${isSelected}">
                             <td class="py-3 px-3 text-zinc-200 font-medium">${b.name}</td>
+                            <td class="py-3 px-3 text-center" onclick="event.stopPropagation();">${toggleHtml}</td>
                             <td class="py-3 px-3 text-center text-zinc-400">По длине ника</td>
                             <td class="py-3 px-3 text-center">
                                 <span class="px-2 py-0.5 rounded border text-[10px] font-bold ${badgeClass}">${count} / 30 слотов</span>
@@ -252,6 +262,20 @@
                         </tr>`;
                 });
             } catch (e) {}
+        }
+
+        // 🔥 НОВОЕ: Функция отправки статуса тумблера
+        async function toggleBoxStatus(id, status) {
+            try {
+                const res = await fetch(`/api/v1/admin/boxes/toggle?id=${id}&status=${status}`, { method: 'POST' });
+                if (!res.ok) {
+                    alert("Ошибка при переключении статуса. Попробуйте снова.");
+                    loadBoxes(); // Возвращаем визуально обратно
+                }
+            } catch (e) {
+                alert("Ошибка сети при переключении статуса.");
+                loadBoxes();
+            }
         }
 
         async function createBox() {
@@ -369,7 +393,6 @@
             });
         }
 
-        // --- ЛОГИКА ФИЛЬТРА-КАТАЛОГА (МОДАЛКА) ---
         function openFilterModalForEdit(itemId, slotIndex) {
             modalMode = 'edit';
             targetItemId = itemId;
