@@ -3,6 +3,7 @@ import httpx
 import jwt
 import pathlib # Добавили библиотеку для работы с файлами
 import time
+import asyncio
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, Request, Response, Depends, BackgroundTasks
 from fastapi.responses import RedirectResponse, HTMLResponse, PlainTextResponse # Добавили HTMLResponse и PlainTextResponse
@@ -456,6 +457,8 @@ async def handle_fossabot_guess(
 
     except Exception:
         return ""
+
+
 class RewardCreateRequest(BaseModel):
     title: str
     reward_type: str
@@ -468,7 +471,6 @@ class RewardCreateRequest(BaseModel):
 
 # --- 8. НАСТРОЙКА УНИКАЛЬНЫХ НАГРАД TWITCH ---
 
-# --- ОБНОВЛЕННЫЙ ЭНДПОИНТ НАГРАД С АВТО-РЕЗОЛВОМ ИМЕН СТРИМЕРОВ ---
 @app.get("/api/v1/admin/rewards")
 async def get_admin_rewards_panel(request: Request):
     token = request.cookies.get("admin_session")
@@ -486,7 +488,6 @@ async def get_admin_rewards_panel(request: Request):
         broadcaster_ids = get_allowed_ids()
         channels_metadata = []
 
-        # Получаем App Access Token для запроса к Helix API
         async with httpx.AsyncClient() as client:
             token_resp = await client.post(
                 "https://id.twitch.tv/oauth2/token",
@@ -494,8 +495,6 @@ async def get_admin_rewards_panel(request: Request):
             )
             if token_resp.status_code == 200:
                 app_token = token_resp.json()["access_token"]
-                
-                # Запрашиваем данные профилей всех стримеров из белого списка за один раз
                 ids_params = [("id", b_id) for b_id in broadcaster_ids]
                 tw_res = await client.get(
                     "https://api.twitch.tv/helix/users",
@@ -511,15 +510,12 @@ async def get_admin_rewards_panel(request: Request):
                             "profile_image": u_data["profile_image_url"]
                         })
 
-        # Если Twitch упал, делаем fallback на ID
         if not channels_metadata:
             channels_metadata = [{"id": b_id, "login": f"Channel_{b_id}", "display_name": f"ID: {b_id}", "profile_image": ""} for b_id in broadcaster_ids]
 
-        # Подтягиваем список триггеров наград
         res_rewards = await supabase.get("/rest/v1/twitch_rewards", params={"order": "id.desc"})
         rewards = res_rewards.json() if res_rewards.status_code == 200 else []
 
-        # Подтягиваем лог отчетности по команде !подарок (последние 50 вызовов)
         res_logs = await supabase.get("/rest/v1/gift_logs", params={"order": "id.desc", "limit": "50"})
         gift_logs = res_logs.json() if res_logs.status_code == 200 else []
 
@@ -544,11 +540,11 @@ async def create_admin_twitch_reward(req: RewardCreateRequest, request: Request)
             "steam_item_name": req.steam_item_name,
             "auto_steam": req.auto_steam,
             "reward_amount": req.reward_amount,
-            "promocode_amount": req.reward_amount, # Синхронизация для обратной совместимости
+            "promocode_amount": req.reward_amount,
             "condition_type": "twitch_messages_session" if req.target_value > 0 else "none",
             "target_value": req.target_value,
             "notify_admin": req.notify_admin,
-            "show_user_input": req.show_user_input, # Флаг возврата баллов / инпута
+            "show_user_input": req.show_user_input,
             "is_active": True
         }
         
@@ -590,6 +586,11 @@ class BoxCreateRequest(BaseModel):
     name: str
     box_type: str = "nick_length"
 
+class BoxGenerateRequest(BaseModel):
+    min_price: float = 0.0
+    max_price: float = 10000.0
+    rarity: str = "all"
+
 # --- ЭНДПОИНТЫ ДЛЯ РАБОТЫ С КОРОБКАМИ ---
 @app.get("/api/v1/admin/boxes")
 async def get_admin_boxes(request: Request):
@@ -617,50 +618,93 @@ async def create_admin_box(req: BoxCreateRequest, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def parse_condition(name: str):
+    if "(Factory New)" in name or "(Прямо с завода)" in name: return "FN"
+    if "(Minimal Wear)" in name or "(Немного поношенное)" in name: return "MW"
+    if "(Field-Tested)" in name or "(После полевых испытаний)" in name: return "FT"
+    if "(Well-Worn)" in name or "(Поношенное)" in name: return "WW"
+    if "(Battle-Scarred)" in name or "(Закаленное в боях)" in name: return "BS"
+    return "FN"
+
 @app.post("/api/v1/admin/boxes/{box_id}/generate")
-async def generate_box_content(box_id: int, request: Request):
-    """Генерация 30 слотов (для ников от 1 до 30 символов) рандомными скинами из cs_items"""
+async def generate_box_content(box_id: int, req: BoxGenerateRequest, request: Request):
+    """
+    Умная генерация 30 слотов. Бот:
+    1. Идет в market_cache
+    2. Фильтрует по ценам и качеству
+    3. Создает записи в cs_items (чтобы вся экосистема лавки их видела)
+    4. Привязывает к слотам коробки
+    """
     token = request.cookies.get("admin_session")
     if not token: raise HTTPException(status_code=401)
     
     supabase = get_resilient_supabase()
     try:
-        # 1. Берем 100 активных скинов из базы магазина
-        items_res = await supabase.get("/rest/v1/cs_items", params={"is_active": "eq.true", "limit": "100"})
-        available_items = items_res.json()
-        if not available_items:
-            raise HTTPException(status_code=400, detail="В таблице cs_items нет активных скинов для генерации!")
+        # 1. Тянем из Кэша Маркета по фильтрам (до 500 вариантов для рандома)
+        params = {
+            "price_rub": f"gte.{req.min_price}",
+            "and": f"(price_rub.lte.{req.max_price})",
+            "is_available": "eq.true",
+            "limit": "500"
+        }
+        if req.rarity and req.rarity != "all":
+            params["rarity"] = f"eq.{req.rarity}"
+            
+        mc_res = await supabase.get("/rest/v1/market_cache", params=params)
+        available_items = mc_res.json()
+        
+        if not available_items or len(available_items) == 0:
+            raise HTTPException(status_code=400, detail="Не найдено предметов в market_cache по вашим фильтрам цены/качества!")
 
         import random
-        random.shuffle(available_items)
+        # Берем 30 случайных пушек из отобранных
+        selected_items = random.choices(available_items, k=30)
         
         box_items_payload = []
-        # Генерируем 30 слотов (максимальная длина логина Twitch ~25 символов)
-        for i in range(1, 31):
-            item = random.choice(available_items)
-            skin_name = item.get("name") or item.get("market_hash_name", "Секретный скин")
+        cs_items_to_insert = []
+        
+        for i, item in enumerate(selected_items):
+            mhn = item.get("market_hash_name")
+            skin_name = mhn
+            
+            # Подготовка для слота в коробке
             box_items_payload.append({
                 "box_id": box_id,
-                "slot_index": i,
+                "slot_index": i + 1, # от 1 до 30
                 "skin_name": skin_name,
                 "chance_weight": 10
             })
             
-        # 2. Очищаем старые предметы этой коробки
+            # Подготовка для таблицы cs_items (очищаем название от скобок)
+            clean_name = mhn.split("(")[0].strip() if "(" in mhn else mhn
+            cs_items_to_insert.append({
+                "name": clean_name,
+                "market_hash_name": mhn,
+                "image_url": item.get("image_url", ""),
+                "rarity": item.get("rarity", "common"),
+                "condition": parse_condition(mhn),
+                "price_rub": item.get("price_rub", 0.0),
+                "price": item.get("price_rub", 0.0) / 100, # Примерный перевод в баксы или баллы
+                "is_active": True
+            })
+            
+        # 2. Формируем предметы в таблице cs_items (с Prefer = resolution=ignore-duplicates, если есть UNIQUE constraints)
+        await supabase.post("/rest/v1/cs_items", json=cs_items_to_insert, headers={"Prefer": "resolution=ignore-duplicates"})
+        
+        # 3. Очищаем старые предметы этой коробки
         await supabase.delete("/rest/v1/reward_box_items", params={"box_id": f"eq.{box_id}"})
         
-        # 3. Заливаем новые
+        # 4. Заливаем новые слоты
         await supabase.post("/rest/v1/reward_box_items", json=box_items_payload)
+        
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# --- СХЕМА ДЛЯ ИЗМЕНЕНИЯ СЛОТА В КЕЙСЕ ---
 class SlotUpdateRequest(BaseModel):
     skin_name: str
 
-# --- 1. ПОЛУЧИТЬ СОДЕРЖИМОЕ КОРОБКИ С ДАННЫМИ ИЗ МАРКЕТ-КЭША ---
+# --- 1. ПОЛУЧИТЬ СОДЕРЖИМОЕ КОРОБКИ С ЖЕЛЕЗОБЕТОННЫМ МЭТЧЕМ ИЗ МАРКЕТА ---
 @app.get("/api/v1/admin/boxes/{box_id}/items")
 async def get_admin_box_items(box_id: int, request: Request):
     token = request.cookies.get("admin_session")
@@ -668,20 +712,26 @@ async def get_admin_box_items(box_id: int, request: Request):
     
     supabase = get_resilient_supabase()
     try:
-        # Тянем предметы коробки и через PostgREST связываем с market_cache по имени скина
-        # В PostgREST Supabase связь настраивается указанием имени таблицы в select
-        params = {
-            "box_id": f"eq.{box_id}",
-            "select": "id,slot_index,skin_name,chance_weight,cache:market_cache!reward_box_items_skin_name_fkey(price_rub,rarity,image_url)",
-            "order": "slot_index.asc"
-        }
-        # Если внешнего ключа в схеме нет, Supabase позволяет делать join по совпадающим полям:
-        # "select": "id,slot_index,skin_name,cache:market_cache(price_rub,rarity,image_url)"
-        # Мы запрашиваем универсальный вариант:
-        params["select"] = "id,slot_index,skin_name,chance_weight,market_cache(price_rub,rarity,image_url)"
+        # 1. Получаем слоты
+        res = await supabase.get("/rest/v1/reward_box_items", params={"box_id": f"eq.{box_id}", "order": "slot_index.asc"})
+        items = res.json()
+        if not items: return []
         
-        res = await supabase.get("/rest/v1/reward_box_items", params=params)
-        return res.json() if res.status_code == 200 else []
+        # 2. Параллельно запрашиваем актуальные данные из market_cache для КАЖДОГО скина
+        # Это 100% спасает от пустой коробки из-за отсутствия Foreign Keys в БД
+        tasks = [
+            supabase.get("/rest/v1/market_cache", params={"market_hash_name": f"eq.{item['skin_name']}", "select": "price_rub,rarity,image_url"}) 
+            for item in items
+        ]
+        results = await asyncio.gather(*tasks)
+        
+        for item, r in zip(items, results):
+            if r.status_code == 200 and r.json():
+                item["market_cache"] = r.json()[0]
+            else:
+                item["market_cache"] = None
+                
+        return items
     except Exception as e:
         return []
 
@@ -693,10 +743,20 @@ async def update_admin_box_slot(item_id: int, req: SlotUpdateRequest, request: R
     
     supabase = get_resilient_supabase()
     try:
+        skin_name = req.skin_name.strip()
+        # Принудительно закидываем его в cs_items, если мы редактируем руками
+        clean_name = skin_name.split("(")[0].strip() if "(" in skin_name else skin_name
+        cond = parse_condition(skin_name)
+        await supabase.post(
+            "/rest/v1/cs_items", 
+            json={"name": clean_name, "market_hash_name": skin_name, "condition": cond, "is_active": True}, 
+            headers={"Prefer": "resolution=ignore-duplicates"}
+        )
+
         res = await supabase.patch(
             "/rest/v1/reward_box_items",
             params={"id": f"eq.{item_id}"},
-            json={"skin_name": req.skin_name.strip()}
+            json={"skin_name": skin_name}
         )
         if res.status_code in [200, 201, 204]:
             return {"status": "ok"}
