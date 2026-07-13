@@ -747,11 +747,3 @@ async def get_box_players(box_id: int, search: str = "", request: Request, supab
     except Exception:
         return []
 
-@app.delete("/api/v1/admin/boxes/players/{player_id}")
-async def delete_box_player(player_id: int, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
-    try:
-        await supabase.delete("/rest/v1/box_players", params={"id": f"eq.{player_id}"})
-        return {"status": "ok"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
