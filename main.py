@@ -712,26 +712,35 @@ async def get_admin_box_items(box_id: int, request: Request):
     
     supabase = get_resilient_supabase()
     try:
-        # 1. Получаем слоты
+        # 1. Получаем слоты коробки
         res = await supabase.get("/rest/v1/reward_box_items", params={"box_id": f"eq.{box_id}", "order": "slot_index.asc"})
         items = res.json()
         if not items: return []
         
-        # 2. Параллельно запрашиваем актуальные данные из market_cache для КАЖДОГО скина
-        # Это 100% спасает от пустой коробки из-за отсутствия Foreign Keys в БД
+        # 2. Собираем параллельные запросы к market_cache для обогащения данными
         tasks = [
-            supabase.get("/rest/v1/market_cache", params={"market_hash_name": f"eq.{item['skin_name']}", "select": "price_rub,rarity,image_url"}) 
+            supabase.get("/rest/v1/market_cache", params={"market_hash_name": f"eq.{item['skin_name']}"}) 
             for item in items
         ]
         results = await asyncio.gather(*tasks)
         
+        enriched_items = []
         for item, r in zip(items, results):
-            if r.status_code == 200 and r.json():
-                item["market_cache"] = r.json()[0]
-            else:
-                item["market_cache"] = None
+            cache_data = r.json()[0] if (r.status_code == 200 and r.json()) else {}
+            
+            # Мержим данные: приоритет у market_cache для актуальных картинок, цен и редкостей
+            enriched_items.append({
+                "id": item.get("id"),
+                "box_id": item.get("box_id"),
+                "slot_index": item.get("slot_index"),
+                "skin_name": item.get("skin_name"),
+                "image_url": cache_data.get("image_url") or item.get("image_url") or "",
+                "price_rub": cache_data.get("price_rub") or 0.0,
+                "rarity": cache_data.get("rarity") or "common",
+                "condition": parse_condition(item.get("skin_name"))
+            })
                 
-        return items
+        return enriched_items
     except Exception as e:
         return []
 
@@ -744,15 +753,38 @@ async def update_admin_box_slot(item_id: int, req: SlotUpdateRequest, request: R
     supabase = get_resilient_supabase()
     try:
         skin_name = req.skin_name.strip()
-        # Принудительно закидываем его в cs_items, если мы редактируем руками
+        
+        # 1. Запрашиваем полные данные из market_cache, чтобы вытащить картинку, цену и редкость
+        mc_res = await supabase.get("/rest/v1/market_cache", params={"market_hash_name": f"eq.{skin_name}"})
+        if mc_res.status_code != 200 or not mc_res.json():
+            raise HTTPException(status_code=400, detail=f"Скин «{skin_name}» не найден в таблице market_cache!")
+            
+        cache = mc_res.json()[0]
+        
+        # Разделяем имя для cs_items (например, "MP5-SD | Kitbash")
         clean_name = skin_name.split("(")[0].strip() if "(" in skin_name else skin_name
         cond = parse_condition(skin_name)
-        await supabase.post(
-            "/rest/v1/cs_items", 
-            json={"name": clean_name, "market_hash_name": skin_name, "condition": cond, "is_active": True}, 
-            headers={"Prefer": "resolution=ignore-duplicates"}
-        )
+        price_rub = cache.get("price_rub", 0.0)
+        
+        # 2. Создаем или обновляем запись в cs_items строго по схеме таблицы
+        cs_item_payload = {
+            "name": clean_name,
+            "market_hash_name": skin_name,
+            "image_url": cache.get("image_url", ""),
+            "rarity": cache.get("rarity", "common"),
+            "condition": cond,
+            "chance_weight": 10,
+            "quantity": 1,
+            "is_active": True,
+            "boost_percent": 0.0,
+            "price": price_rub / 100, # Перевод в условные баллы лавки
+            "price_rub": price_rub
+        }
+        
+        # Игнорируем дубликаты по уникальным ключам, если они есть
+        await supabase.post("/rest/v1/cs_items", json=cs_item_payload, headers={"Prefer": "resolution=ignore-duplicates"})
 
+        # 3. Обновляем сам слот в коробке
         res = await supabase.patch(
             "/rest/v1/reward_box_items",
             params={"id": f"eq.{item_id}"},
@@ -760,6 +792,6 @@ async def update_admin_box_slot(item_id: int, req: SlotUpdateRequest, request: R
         )
         if res.status_code in [200, 201, 204]:
             return {"status": "ok"}
-        raise HTTPException(status_code=400, detail="Ошибка обновления слота")
+        raise HTTPException(status_code=400, detail="Ошибка обновления слота в коробке")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
