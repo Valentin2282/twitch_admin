@@ -14,6 +14,7 @@
         .nav-item.active { border-left: 2px solid #9146FF; }
         .content-area { background-color: #09090b; }
         .glass-panel { background-color: #18181b; border: 1px solid #27272a; }
+        
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
@@ -29,13 +30,16 @@
         
         <nav class="flex-1 px-3 py-5 space-y-1">
             <a href="/settings" class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium hover:bg-zinc-800/50 hover:text-zinc-100 block">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg> Дашборд
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                Дашборд
             </a>
             <a href="/rewards" class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium hover:bg-zinc-800/50 hover:text-zinc-100 block">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Награды Twitch
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Награды Twitch
             </a>
             <a href="/boxes" class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-100 font-medium bg-zinc-800 border-left-2 block">
-                <svg class="w-4 h-4 text-[#9146FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg> Коробки (Кейсы)
+                <svg class="w-4 h-4 text-[#9146FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                Коробки (Кейсы)
             </a>
         </nav>
 
@@ -51,31 +55,61 @@
         
         <div class="flex-1 p-6 overflow-y-auto space-y-6">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="glass-panel rounded-lg p-5 h-fit lg:col-span-1 space-y-4">
-                    <h3 class="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Создать новую Коробку</h3>
-                    <div>
-                        <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Название кейса</label>
-                        <input type="text" id="box-title" placeholder="Пример: Новогодний дроп" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
+                
+                <div class="lg:col-span-1 space-y-4">
+                    <div class="glass-panel rounded-lg p-5 space-y-4">
+                        <h3 class="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Создать новую Коробку</h3>
+                        <div>
+                            <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Название кейса</label>
+                            <input type="text" id="box-title" placeholder="Пример: Бокс новичка" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Механика распределения</label>
+                            <select id="box-type" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2 focus:outline-none cursor-pointer">
+                                <option value="nick_length">🔢 Выдача по длине ника (1-30 символов)</option>
+                            </select>
+                        </div>
+                        <button onclick="createBox()" class="w-full bg-[#9146FF] hover:bg-[#7b3ad6] text-white text-xs font-semibold py-2 rounded transition-colors shadow-sm">Собрать каркас коробки</button>
                     </div>
-                    <div>
-                        <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Механика дропа</label>
-                        <select id="box-type" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2 focus:outline-none">
-                            <option value="nick_length">🔢 Выдача по длине ника (1-30 символов)</option>
-                        </select>
+
+                    <div class="glass-panel rounded-lg p-5 space-y-4">
+                        <div class="border-b border-zinc-800 pb-2">
+                            <h3 class="text-sm font-semibold text-zinc-100">Фильтры генерации пула</h3>
+                            <p class="text-[10px] text-zinc-500 mt-0.5">Применятся к market_cache при клике на «Сгенерировать»</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Мин. Цена (руб)</label>
+                                <input type="number" id="gen-min-price" value="5.00" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-1.5 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Макс. Цена (руб)</label>
+                                <input type="number" id="gen-max-price" value="150.00" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-1.5 focus:outline-none">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Редкость (Rarity)</label>
+                            <select id="gen-rarity" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2 focus:outline-none cursor-pointer">
+                                <option value="all">Все пушки (Без ограничений)</option>
+                                <option value="covert">Covert (Тайное)</option>
+                                <option value="classified">Classified (Засекреченное)</option>
+                                <option value="restricted">Restricted (Запрещенное)</option>
+                                <option value="mil-spec">Mil-Spec (Армейское)</option>
+                            </select>
+                        </div>
                     </div>
-                    <button onclick="createBox()" class="w-full bg-[#9146FF] hover:bg-[#7b3ad6] text-white text-xs font-semibold py-2 rounded transition-colors shadow-sm mt-2">Собрать каркас коробки</button>
                 </div>
 
-                <div class="glass-panel rounded-lg p-5 lg:col-span-2 flex flex-col h-full min-h-[260px]">
+                <div class="glass-panel rounded-lg p-5 lg:col-span-2 flex flex-col min-h-[300px]">
                     <h3 class="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2 mb-4">Активные Коробки в системе (Кликни для просмотра слотов)</h3>
                     <div class="flex-1 overflow-auto">
                         <table class="w-full text-left border-collapse">
-                            <thead class="bg-[#09090b] border-b border-zinc-800 text-[10px] uppercase text-zinc-500 sticky top-0">
+                            <thead class="bg-[#09090b] border-b border-zinc-800 text-[10px] uppercase text-zinc-500 sticky top-0 z-10">
                                 <tr>
-                                    <th class="py-2 px-3">Название</th>
+                                    <th class="py-2 px-3">Название Коробки</th>
                                     <th class="py-2 px-3 text-center">Механика</th>
-                                    <th class="py-2 px-3 text-center">Предметов внутри</th>
-                                    <th class="py-2 px-3 text-right">Действия</th>
+                                    <th class="py-2 px-3 text-center">Заполнение пула</th>
+                                    <th class="py-2 px-3 text-right">Управление</th>
                                 </tr>
                             </thead>
                             <tbody id="boxes-table-body" class="text-xs divide-y divide-zinc-800/40"></tbody>
@@ -87,21 +121,21 @@
             <div id="box-inspector-panel" class="glass-panel rounded-lg p-5 hidden transition-all">
                 <div class="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
                     <div>
-                        <h3 class="text-sm font-semibold text-zinc-100">Содержимое коробки: <span id="inspect-box-name" class="text-[#9146FF]">---</span></h3>
-                        <p class="text-[11px] text-zinc-500 mt-0.5">Слоты распределяются по количеству букв в никнейме зрителя. Кликни на название скина для изменения.</p>
+                        <h3 class="text-sm font-semibold text-zinc-100">Спецификация слотов: <span id="inspect-box-name" class="text-[#9146FF]">---</span></h3>
+                        <p class="text-[11px] text-zinc-500 mt-0.5">Каждый слот жестко отвечает длине никнейма. Кликните по названию предмета, чтобы точечно его заменить.</p>
                     </div>
-                    <span class="text-[10px] bg-zinc-800 border border-zinc-700 text-zinc-400 px-2 py-1 rounded font-mono">ID Кейса: #<span id="inspect-box-id">0</span></span>
+                    <span class="text-[10px] bg-zinc-800 border border-zinc-700 text-zinc-400 px-2 py-1 rounded font-mono">ID Коробки: #<span id="inspect-box-id">0</span></span>
                 </div>
                 
                 <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
                     <table class="w-full text-left border-collapse">
                         <thead class="bg-[#09090b] text-[10px] uppercase text-zinc-500 border-b border-zinc-800 sticky top-0 z-10">
                             <tr>
-                                <th class="py-2 px-3 text-center w-16">Слот (Букв)</th>
-                                <th class="py-2 px-3 w-16">Визуал</th>
-                                <th class="py-2 px-3">Название скина (Клик для редактирования)</th>
-                                <th class="py-2 px-3 text-center w-28">Редкость</th>
-                                <th class="py-2 px-3 text-right w-32">Цена кэша (Маркет)</th>
+                                <th class="py-2 px-3 text-center w-20">Букв в нике</th>
+                                <th class="py-2 px-3 w-16 text-center">Визуал</th>
+                                <th class="py-2 px-3">Название скина (Клик для замены)</th>
+                                <th class="py-2 px-3 text-center w-32">Редкость</th>
+                                <th class="py-2 px-3 text-right w-36">Цена в кэше Маркета</th>
                             </tr>
                         </thead>
                         <tbody id="inspector-table-body" class="text-xs divide-y divide-zinc-800/40"></tbody>
@@ -114,14 +148,16 @@
     <script>
         let currentSelectedBoxId = null;
 
+        // Загрузка списка коробок
         async function loadBoxes() {
             const tbody = document.getElementById('boxes-table-body');
-            tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-zinc-500">Загрузка...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-zinc-500">Загрузка активных кейсов...</td></tr>';
             
             try {
                 const res = await fetch('/api/v1/admin/boxes');
                 const data = await res.json();
                 tbody.innerHTML = '';
+                
                 if (data.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-zinc-500">Коробки не созданы</td></tr>';
                     return;
@@ -130,50 +166,77 @@
                 data.forEach(b => {
                     const count = b.items && b.items[0] ? b.items[0].count : 0;
                     const badgeClass = count > 0 ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20';
+                    const isSelected = currentSelectedBoxId === b.id ? 'bg-zinc-800/40 border-l-2 border-[#9146FF]' : '';
+                    
                     tbody.innerHTML += `
-                        <tr onclick="inspectBox(${b.id}, '${b.name}')" class="hover:bg-zinc-800/30 transition-colors cursor-pointer ${currentSelectedBoxId === b.id ? 'bg-zinc-800/50' : ''}">
-                            <td class="py-2.5 px-3 text-zinc-200 font-medium">${b.name}</td>
-                            <td class="py-2 px-3 text-center text-zinc-400">${b.box_type === 'nick_length' ? 'По длине ника' : 'Рандом'}</td>
-                            <td class="py-2 px-3 text-center">
+                        <tr onclick="inspectBox(${b.id}, '${b.name}')" class="hover:bg-zinc-800/20 transition-colors cursor-pointer ${isSelected}">
+                            <td class="py-3 px-3 text-zinc-200 font-medium">${b.name}</td>
+                            <td class="py-3 px-3 text-center text-zinc-400">${b.box_type === 'nick_length' ? 'По длине ника' : 'Рандом'}</td>
+                            <td class="py-3 px-3 text-center">
                                 <span class="px-2 py-0.5 rounded border text-[10px] font-bold ${badgeClass}">${count} / 30 слотов</span>
                             </td>
-                            <td class="py-2 px-3 text-right" onclick="event.stopPropagation();">
-                                <button onclick="generateBox(${b.id})" class="text-[#2AABEE] hover:underline text-xs font-semibold mr-3">⚡ Сгенерировать пул</button>
+                            <td class="py-3 px-3 text-right" onclick="event.stopPropagation();">
+                                <button onclick="generateBox(${b.id}, '${b.name}')" class="text-[#2AABEE] hover:text-[#5bc2f7] text-xs font-semibold mr-2 transition-colors">⚡ Сгенерировать пул</button>
                             </td>
                         </tr>`;
                 });
             } catch (e) {
-                tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-red-400">Ошибка</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-red-400">Ошибка разбора данных</td></tr>';
             }
         }
 
+        // Создание каркаса коробки
         async function createBox() {
             const payload = {
                 name: document.getElementById('box-title').value,
                 box_type: document.getElementById('box-type').value
             };
             if (!payload.name) return alert('Введите название!');
+            
             try {
-                await fetch('/api/v1/admin/boxes/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                document.getElementById('box-title').value = '';
-                loadBoxes();
-            } catch (e) {}
-        }
-
-        async function generateBox(id) {
-            if(!confirm("Это удалит старые предметы в коробке и заполнит 30 слотов новыми случайными скинами из базы магазина. Продолжить?")) return;
-            try {
-                const res = await fetch(`/api/v1/admin/boxes/${id}/generate`, { method: 'POST' });
-                if (res.ok) { 
-                    alert('Коробка успешно заполнена предметами!'); 
+                const res = await fetch('/api/v1/admin/boxes/create', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify(payload) 
+                });
+                if (res.ok) {
+                    document.getElementById('box-title').value = '';
                     loadBoxes();
-                    if(currentSelectedBoxId === id) inspectBox(id, document.getElementById('inspect-box-name').innerText);
                 }
-                else { alert('Ошибка генерации'); }
             } catch (e) {}
         }
 
-        // --- ИНСПЕКТОР СЛОТОВ КОРОБКИ (С КАРТИНКАМИ И ЦЕНАМИ ИЗ МАРКЕТА) ---
+        // Умная генерация содержимого с пробросом параметров фильтрации в бэкенд
+        async function generateBox(id, name) {
+            if(!confirm(`Вы действительно хотите заполнить коробку «${name}»? Это полностью перепишет все 30 слотов случайными предметами по заданным фильтрам.`)) return;
+            
+            const payload = {
+                min_price: parseFloat(document.getElementById('gen-min-price').value) || 0.0,
+                max_price: parseFloat(document.getElementById('gen-max-price').value) || 10000.0,
+                rarity: document.getElementById('gen-rarity').value
+            };
+
+            try {
+                const res = await fetch(`/api/v1/admin/boxes/${id}/generate`, { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.ok) { 
+                    alert('Пул успешно сгенерирован и синхронизирован с экосистемой магазина!'); 
+                    loadBoxes();
+                    if(currentSelectedBoxId === id) inspectBox(id, name);
+                } else {
+                    const errData = await res.json();
+                    alert(`Ошибка генерации: ${errData.detail || 'Проверьте кэш маркета'}`);
+                }
+            } catch (e) {
+                alert('Не удалось связаться с сервером.');
+            }
+        }
+
+        // Инспектор слотов с выводом картинок и цен из market_cache
         async function inspectBox(id, name) {
             currentSelectedBoxId = id;
             document.getElementById('box-inspector-panel').classList.remove('hidden');
@@ -181,7 +244,7 @@
             document.getElementById('inspect-box-id').innerText = id;
 
             const tbody = document.getElementById('inspector-table-body');
-            tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-zinc-500">Загрузка слотов спецификации...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-zinc-500">Запрашиваю спецификацию слотов и кэш изображений Steam...</td></tr>';
 
             try {
                 const res = await fetch(`/api/v1/admin/boxes/${id}/items`);
@@ -189,18 +252,15 @@
                 tbody.innerHTML = '';
 
                 if(items.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-zinc-500">Коробка пуста. Сгенерируйте пул предметов!</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-zinc-500">Пул предметов пуст. Нажмите «Сгенерировать пул» выше.</td></tr>';
                     return;
                 }
 
                 items.forEach(slot => {
-                    // Парсим вложенный объект кэша маркета (из join запроса бэка)
-                    // Бэкенд может вернуть market_cache как объект или список в зависимости от связей в БД
-                    const cache = slot.market_cache ? (Array.isArray(slot.market_cache) ? slot.market_cache[0] : slot.market_cache) : null;
-                    
-                    const price = cache && cache.price_rub ? `${Number(cache.price_rub).toFixed(2)} руб.` : '<span class="text-zinc-600">Нет в кэше</span>';
+                    const cache = slot.market_cache;
+                    const price = cache && cache.price_rub ? `${Number(cache.price_rub).toFixed(2)} руб.` : '<span class="text-zinc-600">Нет в маркет-кэше</span>';
                     const rarity = cache && cache.rarity ? cache.rarity.toUpperCase() : 'COMMON';
-                    const img = cache && cache.image_url ? `<img src="${cache.image_url}" class="w-8 h-8 object-contain mix-blend-screen">` : `<div class="w-8 h-8 rounded bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[10px] text-zinc-600">❓</div>`;
+                    const img = cache && cache.image_url ? `<img src="${cache.image_url}" class="w-8 h-8 object-contain mix-blend-screen">` : `<div class="w-8 h-8 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] text-zinc-600">❓</div>`;
                     
                     const rarityBadge = rarity === 'RED' || rarity === 'COVERT' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
                                         rarity === 'PINK' || rarity === 'CLASSIFIED' ? 'bg-pink-500/10 text-pink-400 border-pink-500/20' :
@@ -209,10 +269,10 @@
 
                     tbody.innerHTML += `
                         <tr class="hover:bg-zinc-800/20 transition-colors">
-                            <td class="py-2 px-3 text-center font-bold text-purple-400 bg-zinc-900/30">${slot.slot_index}</td>
+                            <td class="py-2 px-3 text-center font-bold text-purple-400 bg-zinc-900/20">${slot.slot_index}</td>
                             <td class="py-1 px-3 flex justify-center">${img}</td>
                             <td class="py-2 px-3 font-medium text-zinc-200">
-                                <span onclick="editSlotInline(${slot.id}, '${slot.skin_name}', ${id}, '${name}')" class="hover:text-[#9146FF] hover:underline cursor-pointer border-b border-dashed border-zinc-700 pb-0.5">${slot.skin_name}</span>
+                                <span onclick="editSlotInline(${slot.id}, '${slot.skin_name}', ${id}, '${name}')" class="hover:text-[#9146FF] hover:underline cursor-pointer border-b border-dashed border-zinc-700 pb-0.5 transition-colors">${slot.skin_name}</span>
                             </td>
                             <td class="py-2 px-3 text-center">
                                 <span class="px-2 py-0.5 rounded border text-[10px] font-semibold ${rarityBadge}">${rarity}</span>
@@ -221,15 +281,15 @@
                         </tr>`;
                 });
             } catch (e) {
-                tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-red-400">Ошибка разбора спецификации слотов</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-red-400">Ошибка рендеринга пула предметов</td></tr>';
             }
         }
 
-        // --- РУЧНОЕ ИЗМЕНЕНИЕ СЛОТА НА ЛЕТУ ---
+        // Ручное изменение конкретного слота (Мгновенное обновление)
         async function editSlotInline(itemId, currentName, boxId, boxName) {
-            const newSkinName = prompt(`Изменение слота.\nВведите точное название предмета из CS2 (как в Steam/Маркете):`, currentName);
-            if (newSkinName === null) return; // Отмена
-            if (!newSkinName.strip || newSkinName.trim() === "") return alert("Название не может быть пустым!");
+            const newSkinName = prompt(`Ручная модификация слота.\nВведите точное название скина (как в Steam/Маркете):`, currentName);
+            if (newSkinName === null) return;
+            if (newSkinName.trim() === "") return alert("Название не может быть пустым!");
 
             try {
                 const res = await fetch(`/api/v1/admin/box_items/${itemId}/update`, {
@@ -239,12 +299,12 @@
                 });
                 
                 if (res.ok) {
-                    inspectBox(boxId, boxName); // Моментально обновляем инспектор, чтобы подтянулась цена и картинка
+                    inspectBox(boxId, boxName);
                 } else {
-                    alert("Не удалось обновить слот");
+                    alert("Ошибка базы данных при попытке сохранить изменения");
                 }
             } catch (e) {
-                alert("Ошибка соединения с сервером");
+                alert("Ошибка сети при отправке запроса");
             }
         }
 
