@@ -576,39 +576,26 @@ async def handle_fossabot_gift(request: Request):
 
         # Подключаем наш глобальный клиент БД
         db = supabase_client
-        target_box_id = 1 # 🔥 Добавили переменную для удобства
 
-        # 2. ПАРАЛЛЕЛЬНО ищем юзера, его приз, статус коробки И анти-абуз (4 запроса сразу)
+        # 2. ПАРАЛЛЕЛЬНО ищем юзера, его приз И проверяем статус коробки
         user_task = db.get("/rest/v1/users", params={"twitch_login": f"eq.{twitch_login}", "select": "telegram_id, trade_link, is_banned"})
         prize_task = db.get("/rest/v1/reward_box_items", params={
-            "box_id": f"eq.{target_box_id}", 
+            "box_id": "eq.1", 
             "slot_index": f"eq.{nick_length}", 
             "select": "skin_name"
         })
+        # 🔥 НОВОЕ: Проверяем, активна ли коробка прямо сейчас
         box_task = db.get("/rest/v1/reward_boxes", params={
-            "id": f"eq.{target_box_id}",
+            "id": "eq.1",
             "select": "is_active"
         })
-        # 🔥 НОВОЕ: Проверяем, забирал ли он уже награду
-        claim_task = db.get("/rest/v1/box_players", params={
-            "box_id": f"eq.{target_box_id}", 
-            "twitch_login": f"eq.{twitch_login}", 
-            "select": "id"
-        })
 
-        # Запускаем все ЧЕТЫРЕ запроса одновременно!
-        user_res, prize_res, box_res, claim_res = await asyncio.gather(user_task, prize_task, box_task, claim_task)
+        # Запускаем все три запроса одновременно!
+        user_res, prize_res, box_res = await asyncio.gather(user_task, prize_task, box_task)
         
         user_data = user_res.json() if user_res.status_code == 200 else []
         prize_data = prize_res.json() if prize_res.status_code == 200 else []
         box_data = box_res.json() if box_res.status_code == 200 else []
-        claim_data = claim_res.json() if claim_res.status_code == 200 else []
-
-        # ==========================================
-        # 🛑 АНТИ-АБУЗ: ПРОВЕРКА НА ПОВТОР
-        # ==========================================
-        if claim_data:
-            return f"🛑 @{twitch_display}, ты уже забирал свой приз с этой раздачи! Жди следующих 🐸"
 
         # ==========================================
         # 🛑 ПРОВЕРКА АКТИВНОСТИ НАГРАДЫ
@@ -655,26 +642,18 @@ async def handle_fossabot_gift(request: Request):
         item_data = item_res.json()
         item_id = item_data[0]['id'] if (item_data and len(item_data) > 0) else None
 
-        # 3. ДОБАВЛЯЕМ В ИНВЕНТАРЬ И ФИКСИРУЕМ В BOX_PLAYERS (ПАРАЛЛЕЛЬНО)
-        # 🔥 НОВОЕ: Запускаем два POST-запроса одновременно
-        await asyncio.gather(
-            db.post("/rest/v1/cs_history", json={
-                "user_id": user_tg_id, 
-                "item_id": item_id,
-                "status": "available", 
-                "case_name": "Подарок со стрима",
-                "details": f"Выигрыш: {prize_name}",
-                "source": "twitch",
-                "is_swapped": False
-            }),
-            db.post("/rest/v1/box_players", json={
-                "box_id": target_box_id,
-                "telegram_id": user_tg_id,
-                "twitch_login": twitch_login
-            })
-        )
+        # 3. ДОБАВЛЯЕМ В ИНВЕНТАРЬ (СТАТУС 'available')
+        await db.post("/rest/v1/cs_history", json={
+            "user_id": user_tg_id, 
+            "item_id": item_id,
+            "status": "available", 
+            "case_name": "Подарок со стрима",
+            "details": f"Выигрыш: {prize_name}",
+            "source": "twitch",
+            "is_swapped": False
+        })
 
-        print(f"✅ Подарок {prize_name} добавлен в инвентарь для TG ID {user_tg_id} и зафиксирован анти-абуз.")
+        print(f"✅ Подарок {prize_name} добавлен в инвентарь (status: available) для TG ID {user_tg_id}")
         
         # 4. Мгновенно отвечаем в Twitch чат
         return (f"🎉 @{twitch_display}, твой ник = {nick_length} символов! "
@@ -683,29 +662,6 @@ async def handle_fossabot_gift(request: Request):
     except Exception as e:
         print(f"Fossabot Gift Error: {e}")
         return "ㅤ" # Молчим при ошибке
-
-@app.get("/api/v1/admin/boxes/{box_id}/players")
-async def get_box_players(box_id: int, search: str = "", request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
-    try:
-        params = {"box_id": f"eq.{box_id}", "order": "id.desc"}
-        if search:
-            # Умный поиск: ищем и по Twitch логину, и по TG ID
-            params["or"] = f"(twitch_login.ilike.*{search.strip()}*,telegram_id.eq.{search.strip() if search.strip().isdigit() else 0})"
-        
-        res = await supabase.get("/rest/v1/box_players", params=params)
-        return res.json() if res.status_code == 200 else []
-    except Exception:
-        return []
-
-@app.delete("/api/v1/admin/boxes/players/{player_id}")
-async def delete_box_player(player_id: int, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
-    try:
-        await supabase.delete("/rest/v1/box_players", params={"id": f"eq.{player_id}"})
-        return {"status": "ok"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
         
 # =========================================================================
 # ⚙️ 2. СКРЫТЫЙ ЭНДПОИНТ-ВОРКЕР (Спокойно закупает скин за 10 секунд)
@@ -716,6 +672,28 @@ class WorkerPayload(BaseModel):
     target_price_rub: float
     trade_url: str
     history_id: int
+
+@app.post("/api/v1/internal/worker_buy_skin")
+async def worker_buy_skin(payload: WorkerPayload):
+    try:
+        logging.info(f"⚙️ Воркер начал работу: Закупка {payload.target_name} для юзера {payload.user_id}...")
+        db = await get_background_client()
+        
+        # Запускаем твою оригинальную, мощную функцию закупки!
+        await fulfill_item_delivery(
+            user_id=payload.user_id,
+            target_name=payload.target_name,
+            target_price_rub=payload.target_price_rub,
+            trade_url=payload.trade_url,
+            supabase=db,
+            history_id=payload.history_id,
+            source="shop" 
+        )
+        logging.info(f"✅ Воркер успешно отработал ордер #{payload.history_id}")
+        return {"status": "ok"}
+    except Exception as e:
+        logging.error(f"❌ Воркер сломался на ордере #{payload.history_id}: {e}")
+        return {"status": "error"}
 
 @app.post("/api/v1/admin/boxes/toggle")
 async def toggle_admin_box(
