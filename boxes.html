@@ -119,6 +119,34 @@
         </div>
     </main>
 
+    <div id="players-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-[#18181b] border border-zinc-800 rounded-xl w-full max-w-3xl flex flex-col overflow-hidden shadow-2xl">
+            <div class="p-4 border-b border-zinc-800 flex items-center justify-between bg-[#09090b]/50">
+                <div>
+                    <h3 class="text-sm font-bold text-zinc-100">Активации коробки: <span id="players-box-name" class="text-[#9146FF]"></span></h3>
+                    <div class="text-[11px] text-zinc-400 mt-0.5">Пользователи в этом списке не могут получить эту награду повторно.</div>
+                </div>
+                <button onclick="closePlayersModal()" class="text-zinc-400 hover:text-zinc-100 text-sm p-1">✕</button>
+            </div>
+            <div class="p-4 border-b border-zinc-800 bg-[#141416]">
+                <input type="text" id="players-search" oninput="fetchBoxPlayers()" placeholder="Умный поиск: Twitch Логин или Telegram ID..." class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
+            </div>
+            <div class="flex-1 overflow-y-auto max-h-[50vh] p-4 bg-[#09090b]/40">
+                <table class="w-full text-left border-collapse">
+                    <thead class="text-[10px] uppercase text-zinc-500 border-b border-zinc-800 sticky top-0 bg-[#18181b] py-2 z-10">
+                        <tr>
+                            <th class="p-2">Twitch Логин</th>
+                            <th class="p-2 text-center">Telegram ID</th>
+                            <th class="p-2 text-center">Дата получения</th>
+                            <th class="p-2 text-right">Действие</th>
+                        </tr>
+                    </thead>
+                    <tbody id="players-table-body" class="text-xs divide-y divide-zinc-800/60"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <div id="filter-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-[#18181b] border border-zinc-800 rounded-xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
             <div class="p-4 border-b border-zinc-800 flex items-center justify-between bg-[#09090b]/50">
@@ -214,6 +242,8 @@
         let currentModalSortField = 'price_rub';
         let currentModalSortAsc = true;
 
+        let currentPlayersBoxId = null;
+
         function getSymbolsDeclension(number) {
             const lastDigit = number % 10;
             const lastTwoDigits = number % 100;
@@ -240,14 +270,14 @@
                     const badgeClass = count > 0 ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20';
                     const isSelected = currentSelectedBoxId === b.id ? 'bg-zinc-800/40 border-l-2 border-[#9146FF]' : '';
                     
-                    // 🔥 НОВОЕ: Тумблер (Свитч)
+                    // НОВОЕ: Тумблер статуса
                     const toggleHtml = `
                         <label class="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" class="sr-only peer" ${b.is_active ? 'checked' : ''} onchange="toggleBoxStatus(${b.id}, this.checked)">
                           <div class="w-8 h-4 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#9146FF]"></div>
                         </label>
                     `;
-                    
+
                     tbody.innerHTML += `
                         <tr onclick="inspectBox(${b.id}, '${b.name}')" class="hover:bg-zinc-800/20 transition-colors cursor-pointer ${isSelected}">
                             <td class="py-3 px-3 text-zinc-200 font-medium">${b.name}</td>
@@ -257,6 +287,7 @@
                                 <span class="px-2 py-0.5 rounded border text-[10px] font-bold ${badgeClass}">${count} / 30 слотов</span>
                             </td>
                             <td class="py-3 px-3 text-right" onclick="event.stopPropagation();">
+                                <button onclick="openPlayersModal(${b.id}, '${b.name}')" class="text-emerald-400 hover:text-emerald-300 text-xs font-semibold mr-3 transition-colors">👥 Игроки</button>
                                 <button onclick="generateBox(${b.id}, '${b.name}')" class="text-[#2AABEE] hover:text-[#5bc2f7] text-xs font-semibold mr-2 transition-colors">⚡ Сгенерировать пул</button>
                             </td>
                         </tr>`;
@@ -264,18 +295,73 @@
             } catch (e) {}
         }
 
-        // 🔥 НОВОЕ: Функция отправки статуса тумблера
         async function toggleBoxStatus(id, status) {
             try {
                 const res = await fetch(`/api/v1/admin/boxes/toggle?id=${id}&status=${status}`, { method: 'POST' });
                 if (!res.ok) {
                     alert("Ошибка при переключении статуса. Попробуйте снова.");
-                    loadBoxes(); // Возвращаем визуально обратно
+                    loadBoxes();
                 }
             } catch (e) {
                 alert("Ошибка сети при переключении статуса.");
                 loadBoxes();
             }
+        }
+
+        // --- ЛОГИКА ИГРОКОВ (BOX_PLAYERS) ---
+        function openPlayersModal(id, name) {
+            currentPlayersBoxId = id;
+            document.getElementById('players-box-name').innerText = name;
+            document.getElementById('players-modal').classList.remove('hidden');
+            document.getElementById('players-search').value = "";
+            fetchBoxPlayers();
+        }
+
+        function closePlayersModal() {
+            document.getElementById('players-modal').classList.add('hidden');
+            currentPlayersBoxId = null;
+        }
+
+        async function fetchBoxPlayers() {
+            if (!currentPlayersBoxId) return;
+            const search = document.getElementById('players-search').value;
+            const tbody = document.getElementById('players-table-body');
+            tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-zinc-500">Загрузка игроков...</td></tr>';
+            
+            try {
+                const res = await fetch(`/api/v1/admin/boxes/${currentPlayersBoxId}/players?search=${encodeURIComponent(search)}`);
+                const data = await res.json();
+                
+                tbody.innerHTML = '';
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-zinc-500">Никто еще не открывал этот кейс</td></tr>';
+                    return;
+                }
+
+                data.forEach(p => {
+                    const date = new Date(p.claimed_at).toLocaleString('ru-RU');
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-zinc-800/40 transition-colors">
+                            <td class="p-2 font-medium text-purple-400">@${p.twitch_login}</td>
+                            <td class="p-2 text-center text-zinc-300 font-mono">${p.telegram_id}</td>
+                            <td class="p-2 text-center text-zinc-500 text-[11px]">${date}</td>
+                            <td class="p-2 text-right">
+                                <button onclick="deleteBoxPlayer(${p.id})" class="bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[11px] px-2.5 py-1 rounded transition-colors border border-red-500/20">Удалить</button>
+                            </td>
+                        </tr>`;
+                });
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-red-400">Ошибка загрузки</td></tr>';
+            }
+        }
+
+        async function deleteBoxPlayer(playerId) {
+            if(!confirm("Удалить пользователя из списка? Он сможет получить награду повторно.")) return;
+            try {
+                const res = await fetch(`/api/v1/admin/boxes/players/${playerId}`, { method: 'DELETE' });
+                if (res.ok) fetchBoxPlayers();
+                else alert("Ошибка при удалении.");
+            } catch (e) { alert("Ошибка сети."); }
         }
 
         async function createBox() {
@@ -292,9 +378,9 @@
         async function generateBox(id, name) {
             if(!confirm(`Переписать все 30 слотов для кейса «${name}»?`)) return;
             const payload = {
-                min_price: parseFloat(document.getElementById('gen-min-price').value) || 0.0,
-                max_price: parseFloat(document.getElementById('gen-max-price').value) || 10000.0,
-                rarity: document.getElementById('gen-rarity').value
+                min_price: parseFloat(document.getElementById('gen-min-price')?.value) || 0.0,
+                max_price: parseFloat(document.getElementById('gen-max-price')?.value) || 10000.0,
+                rarity: document.getElementById('gen-rarity')?.value || 'all'
             };
             try {
                 const res = await fetch(`/api/v1/admin/boxes/${id}/generate`, { 
