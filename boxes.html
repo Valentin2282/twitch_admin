@@ -9,6 +9,10 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body { background-color: #09090b; color: #a1a1aa; font-family: 'Inter', sans-serif; font-size: 0.875rem; }
         .sidebar { background-color: #09090b; border-right: 1px solid #27272a; }
+        .nav-item { transition: all 0.2s ease; cursor: pointer; }
+        .nav-item:hover, .nav-item.active { background-color: #18181b; color: #e4e4e7; }
+        .nav-item.active { border-left: 2px solid #9146FF; }
+        .content-area { background-color: #09090b; }
         .glass-panel { background-color: #18181b; border: 1px solid #27272a; }
         .sortable-header { cursor: pointer; user-select: none; transition: color 0.2s; }
         .sortable-header:hover { color: #e4e4e7; }
@@ -25,76 +29,56 @@
         <div class="h-14 flex items-center px-5 border-b border-zinc-800">
             <span class="text-lg font-bold text-zinc-100 tracking-wider">HATE<span class="text-[#9146FF]">LAVKA</span></span>
         </div>
+        
         <nav class="flex-1 px-3 py-5 space-y-1">
-            <a href="/settings" class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium hover:bg-zinc-800/50 hover:text-zinc-100 block">Дашборд</a>
-            <a href="/rewards" class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium hover:bg-zinc-800/50 hover:text-zinc-100 block">Награды Twitch</a>
-            <a href="/boxes" class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-100 font-medium bg-zinc-800 block">Коробки (Кейсы)</a>
+            <a href="/settings" class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium hover:bg-zinc-800/50 hover:text-zinc-100 block">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg> Дашборд
+            </a>
+            <a href="/rewards" class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium hover:bg-zinc-800/50 hover:text-zinc-100 block">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Награды Twitch
+            </a>
+            <a href="/boxes" class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-100 font-medium bg-zinc-800 border-left-2 block">
+                <svg class="w-4 h-4 text-[#9146FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg> Коробки (Кейсы)
+            </a>
         </nav>
+
         <div class="p-3 border-t border-zinc-800">
             <a href="/api/v1/auth/logout" class="flex items-center justify-center gap-2 py-1.5 rounded-md text-xs text-red-400/80 hover:bg-red-500/10 hover:text-red-400 transition-colors">Выйти</a>
         </div>
     </aside>
 
-    <main class="flex-1 flex flex-col h-full overflow-hidden">
+    <main class="flex-1 content-area flex flex-col h-full overflow-hidden">
         <header class="h-14 flex items-center px-6 border-b border-zinc-800 bg-[#09090b]/80 backdrop-blur z-10">
             <h2 class="text-base font-semibold text-zinc-100">Фабрика Коробок (Рандомизатор)</h2>
         </header>
         
         <div class="flex-1 p-6 overflow-y-auto space-y-6">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-1 space-y-4">
-                    <div class="glass-panel rounded-lg p-5 space-y-4">
-                        <h3 class="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Создать новую Коробку</h3>
-                        <div>
-                            <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Название кейса</label>
-                            <input type="text" id="box-title" placeholder="Пример: Бокс новичка" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
-                        </div>
-                        <div>
-                            <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Механика распределения</label>
-                            <select id="box-type" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2 focus:outline-none cursor-pointer">
-                                <option value="nick_length">🔢 Выдача по длине ника (1-30 символов)</option>
-                            </select>
-                        </div>
-                        <button onclick="createBox()" class="w-full bg-[#9146FF] hover:bg-[#7b3ad6] text-white text-xs font-semibold py-2 rounded transition-colors shadow-sm">Собрать каркас коробки</button>
+                <div class="glass-panel rounded-lg p-5 h-fit lg:col-span-1 space-y-4">
+                    <h3 class="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Создать новую Коробку</h3>
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Название кейса</label>
+                        <input type="text" id="box-title" placeholder="Пример: Новогодний дроп" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
                     </div>
-
-                    <div class="glass-panel rounded-lg p-5 space-y-4">
-                        <div class="border-b border-zinc-800 pb-2">
-                            <h3 class="text-sm font-semibold text-zinc-100">Фильтры автоматической генерации</h3>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Мин. Цена (руб)</label>
-                                <input type="number" id="gen-min-price" value="5.00" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-1.5 focus:outline-none">
-                            </div>
-                            <div>
-                                <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Макс. Цена (руб)</label>
-                                <input type="number" id="gen-max-price" value="150.00" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-1.5 focus:outline-none">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Редкость (Rarity)</label>
-                            <select id="gen-rarity" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2 focus:outline-none cursor-pointer">
-                                <option value="all">Все пушки (Без ограничений)</option>
-                                <option value="covert">Covert (Тайное)</option>
-                                <option value="classified">Classified (Засекреченное)</option>
-                                <option value="restricted">Restricted (Запрещенное)</option>
-                                <option value="mil-spec">Mil-Spec (Армейское)</option>
-                            </select>
-                        </div>
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Механика дропа</label>
+                        <select id="box-type" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2 focus:outline-none cursor-pointer">
+                            <option value="nick_length">🔢 Выдача по длине ника (1-30 символов)</option>
+                        </select>
                     </div>
+                    <button onclick="createBox()" class="w-full bg-[#9146FF] hover:bg-[#7b3ad6] text-white text-xs font-semibold py-2 rounded transition-colors shadow-sm mt-2">Собрать каркас коробки</button>
                 </div>
 
-                <div class="glass-panel rounded-lg p-5 lg:col-span-2 flex flex-col min-h-[300px]">
+                <div class="glass-panel rounded-lg p-5 lg:col-span-2 flex flex-col h-full min-h-[300px]">
                     <h3 class="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2 mb-4">Активные Коробки в системе</h3>
                     <div class="flex-1 overflow-auto">
                         <table class="w-full text-left border-collapse">
                             <thead class="bg-[#09090b] border-b border-zinc-800 text-[10px] uppercase text-zinc-500 sticky top-0 z-10">
                                 <tr>
-                                    <th class="py-2 px-3">Название Коробки</th>
+                                    <th class="py-2 px-3">Название</th>
                                     <th class="py-2 px-3 text-center">Механика</th>
-                                    <th class="py-2 px-3 text-center">Заполнение пула</th>
-                                    <th class="py-2 px-3 text-right">Управление</th>
+                                    <th class="py-2 px-3 text-center">Предметов внутри</th>
+                                    <th class="py-2 px-3 text-right">Действия</th>
                                 </tr>
                             </thead>
                             <tbody id="boxes-table-body" class="text-xs divide-y divide-zinc-800/40"></tbody>
@@ -195,9 +179,9 @@
                     <thead class="text-[10px] uppercase text-zinc-500 border-b border-zinc-800 sticky top-0 bg-[#18181b] py-2 z-10">
                         <tr>
                             <th class="p-2 text-center w-16">Визуал</th>
-                            <th class="p-2">Полный Hash Name</th>
-                            <th class="p-2 text-center w-28">Редкость</th>
-                            <th class="p-2 text-right w-28">Цена в рублях</th>
+                            <th class="sortable-header p-2" onclick="toggleModalSort('market_hash_name')">Полный Hash Name <span id="modal-sort-icon-market_hash_name"></span></th>
+                            <th class="sortable-header p-2 text-center w-28" onclick="toggleModalSort('rarity')">Редкость <span id="modal-sort-icon-rarity"></span></th>
+                            <th class="sortable-header p-2 text-right w-28" onclick="toggleModalSort('price_rub')">Цена в рублях <span id="modal-sort-icon-price_rub"></span></th>
                             <th class="p-2 text-center w-24">Действие</th>
                         </tr>
                     </thead>
@@ -221,11 +205,14 @@
         let targetItemId = null; 
         let modalMode = 'edit'; // 'edit' или 'add'
         
-        let loadedItems = []; // Хранилище предметов для локальной сортировки
+        let loadedItems = []; 
         let currentSortField = 'slot_index';
         let currentSortAsc = true;
 
-        // Склонение слова "символ" по правилам русского языка
+        let modalLoadedItems = []; // Хранилище для сортировки внутри модалки
+        let currentModalSortField = 'price_rub';
+        let currentModalSortAsc = true;
+
         function getSymbolsDeclension(number) {
             const lastDigit = number % 10;
             const lastTwoDigits = number % 100;
@@ -310,7 +297,6 @@
             } catch (e) {}
         }
 
-        // Рендеринг таблицы с учетом сортировки
         function renderInspectorTable() {
             const tbody = document.getElementById('inspector-table-body');
             tbody.innerHTML = '';
@@ -321,15 +307,16 @@
                 return;
             }
 
-            // Сортировка данных
             const sorted = [...loadedItems].sort((a, b) => {
-                let valA = a[currentSortField];
-                let valB = b[currentSortField];
+                let valA = a[currentSortField] || '';
+                let valB = b[currentSortField] || '';
 
-                if (typeof valA === 'string') {
-                    return currentSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-                } else {
+                if (currentSortField === 'price_rub' || currentSortField === 'slot_index') {
+                    valA = parseFloat(valA) || 0;
+                    valB = parseFloat(valB) || 0;
                     return currentSortAsc ? (valA - valB) : (valB - valA);
+                } else {
+                    return currentSortAsc ? String(valA).localeCompare(String(valB)) : String(valB).localeCompare(String(valA));
                 }
             });
 
@@ -382,17 +369,7 @@
             });
         }
 
-        // --- КРАСИВОЕ УВЕЛИЧЕНИЕ КАРТИНОК (ZOOM) ---
-        function openZoomModal(imgUrl, skinName) {
-            document.getElementById('zoom-img-target').src = imgUrl;
-            document.getElementById('zoom-title-target').innerText = skinName;
-            document.getElementById('zoom-modal').classList.remove('hidden');
-        }
-        function closeZoomModal() {
-            document.getElementById('zoom-modal').classList.add('hidden');
-        }
-
-        // --- УПРАВЛЕНИЕ КАТАЛОГОМ И ФИЛЬТРАЦИЕЙ ---
+        // --- ЛОГИКА ФИЛЬТРА-КАТАЛОГА (МОДАЛКА) ---
         function openFilterModalForEdit(itemId, slotIndex) {
             modalMode = 'edit';
             targetItemId = itemId;
@@ -426,50 +403,87 @@
             const minP = parseFloat(document.getElementById('modal-min-p').value) || 0;
             const maxP = parseFloat(document.getElementById('modal-max-p').value) || 99999;
 
-            let params = new URLSearchParams({
-                search: search,
-                cond: cond,
-                rarity: rarity,
-                min_p: minP,
-                max_p: maxP
-            });
+            let params = new URLSearchParams({ search: search, cond: cond, rarity: rarity, min_p: minP, max_p: maxP });
 
             try {
                 const res = await fetch(`/api/v1/admin/market_cache?${params.toString()}`);
                 if (!res.ok) throw new Error();
                 
                 let data = await res.json();
-                tbody.innerHTML = '';
-
-                // Очистка от Наклеек, Граффити и Нашейных патчей (Полная фильтрация мусора)
+                
                 if (data && data.length > 0) {
                     data = data.filter(item => {
                         const name = item.market_hash_name;
                         return !name.includes("Sticker |") && !name.includes("Patch |") && !name.includes("Sealed Graffiti |");
                     });
                 }
-
-                if (!data || data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-zinc-500">Нет подходящих предметов в market_cache</td></tr>';
-                    return;
-                }
-
-                data.forEach(item => {
-                    const img = item.image_url ? `<img src="${item.image_url}" onclick="openZoomModal('${item.image_url}', '${item.market_hash_name.replace(/'/g, "\\'")}')" class="w-8 h-8 object-contain mix-blend-screen cursor-zoom-in hover:scale-110 transition-transform">` : '❓';
-                    tbody.innerHTML += `
-                        <tr class="hover:bg-zinc-800/40 transition-colors">
-                            <td class="p-2 flex justify-center">${img}</td>
-                            <td class="p-2 font-medium text-zinc-200">${item.market_hash_name}</td>
-                            <td class="p-2 text-center text-[11px] uppercase font-bold text-zinc-400">${item.rarity || 'BLUE'}</td>
-                            <td class="p-2 text-right text-yellow-500 font-mono font-semibold">${Number(item.price_rub).toFixed(2)} ₽</td>
-                            <td class="p-2 text-center">
-                                <button onclick="selectItemForSlot('${item.market_hash_name}')" class="bg-[#9146FF] hover:bg-[#7b3ad6] text-white text-[11px] px-2.5 py-1 rounded transition-colors">Выбрать</button>
-                            </td>
-                        </tr>`;
-                });
+                
+                modalLoadedItems = data || [];
+                renderModalTable();
             } catch (e) {
                 tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-red-400">Ошибка связи с сервером админ-панели</td></tr>';
             }
+        }
+
+        function renderModalTable() {
+            const tbody = document.getElementById('modal-table-body');
+            tbody.innerHTML = '';
+            updateModalSortIcons();
+
+            if (!modalLoadedItems || modalLoadedItems.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-zinc-500">Нет подходящих предметов в market_cache</td></tr>';
+                return;
+            }
+
+            const sorted = [...modalLoadedItems].sort((a, b) => {
+                let valA = a[currentModalSortField] || '';
+                let valB = b[currentModalSortField] || '';
+
+                if (currentModalSortField === 'price_rub') {
+                    valA = parseFloat(valA) || 0;
+                    valB = parseFloat(valB) || 0;
+                    return currentModalSortAsc ? (valA - valB) : (valB - valA);
+                } else {
+                    return currentModalSortAsc ? String(valA).localeCompare(String(valB)) : String(valB).localeCompare(String(valA));
+                }
+            });
+
+            sorted.forEach(item => {
+                const img = item.image_url ? `<img src="${item.image_url}" onclick="openZoomModal('${item.image_url}', '${item.market_hash_name.replace(/'/g, "\\'")}')" class="w-8 h-8 object-contain mix-blend-screen cursor-zoom-in hover:scale-110 transition-transform">` : '❓';
+                tbody.innerHTML += `
+                    <tr class="hover:bg-zinc-800/40 transition-colors">
+                        <td class="p-2 flex justify-center">${img}</td>
+                        <td class="p-2 font-medium text-zinc-200">${item.market_hash_name}</td>
+                        <td class="p-2 text-center text-[11px] uppercase font-bold text-zinc-400">${item.rarity || 'BLUE'}</td>
+                        <td class="p-2 text-right text-yellow-500 font-mono font-semibold">${Number(item.price_rub).toFixed(2)} ₽</td>
+                        <td class="p-2 text-center">
+                            <button onclick="selectItemForSlot('${item.market_hash_name.replace(/'/g, "\\'")}')" class="bg-[#9146FF] hover:bg-[#7b3ad6] text-white text-[11px] px-2.5 py-1 rounded transition-colors">Выбрать</button>
+                        </td>
+                    </tr>`;
+            });
+        }
+
+        function toggleModalSort(field) {
+            if (currentModalSortField === field) {
+                currentModalSortAsc = !currentModalSortAsc;
+            } else {
+                currentModalSortField = field;
+                currentModalSortAsc = true;
+            }
+            renderModalTable();
+        }
+
+        function updateModalSortIcons() {
+            ['market_hash_name', 'rarity', 'price_rub'].forEach(f => {
+                const el = document.getElementById(`modal-sort-icon-${f}`);
+                if(!el) return;
+                if (currentModalSortField === f) {
+                    el.innerText = currentModalSortAsc ? ' ▲' : ' ▼';
+                    el.className = 'text-[#9146FF] font-bold text-[9px]';
+                } else {
+                    el.innerText = '';
+                }
+            });
         }
 
         async function selectItemForSlot(marketHashName) {
@@ -478,24 +492,14 @@
                 let payload = { skin_name: marketHashName };
 
                 if (modalMode === 'edit') {
-                    // Стандартное изменение существующего слота
                     url = `/api/v1/admin/box_items/${targetItemId}/update`;
                 } else {
-                    // Добавление новой привязки с указанием кастомного слота знаков
                     const manualSlot = parseInt(document.getElementById('modal-manual-slot-input').value) || 1;
                     url = `/api/v1/admin/box_items/add_new_manual`;
-                    payload = {
-                        box_id: currentSelectedBoxId,
-                        slot_index: manualSlot,
-                        skin_name: marketHashName
-                    };
+                    payload = { box_id: currentSelectedBoxId, slot_index: manualSlot, skin_name: marketHashName };
                 }
 
-                const res = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+                const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
 
                 if (res.ok) {
                     closeFilterModal();
@@ -506,6 +510,15 @@
                     alert(err.detail || "Ошибка транзакции базы данных");
                 }
             } catch (e) { alert("Ошибка соединения с бэкендом"); }
+        }
+
+        function openZoomModal(imgUrl, skinName) {
+            document.getElementById('zoom-img-target').src = imgUrl;
+            document.getElementById('zoom-title-target').innerText = skinName;
+            document.getElementById('zoom-modal').classList.remove('hidden');
+        }
+        function closeZoomModal() {
+            document.getElementById('zoom-modal').classList.add('hidden');
         }
 
         document.addEventListener('DOMContentLoaded', loadBoxes);
