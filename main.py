@@ -732,3 +732,26 @@ async def toggle_admin_box(
         return {"status": "ok"}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+
+@app.get("/api/v1/admin/boxes/{box_id}/players")
+async def get_box_players(box_id: int, search: str = "", request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
+    try:
+        params = {"box_id": f"eq.{box_id}", "order": "id.desc"}
+        if search:
+            # Умный поиск: ищем и по Twitch логину, и по TG ID
+            params["or"] = f"(twitch_login.ilike.*{search.strip()}*,telegram_id.eq.{search.strip() if search.strip().isdigit() else 0})"
+        
+        res = await supabase.get("/rest/v1/box_players", params=params)
+        return res.json() if res.status_code == 200 else []
+    except Exception:
+        return []
+
+@app.delete("/api/v1/admin/boxes/players/{player_id}")
+async def delete_box_player(player_id: int, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
+    try:
+        await supabase.delete("/rest/v1/box_players", params={"id": f"eq.{player_id}"})
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
