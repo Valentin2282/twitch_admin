@@ -561,10 +561,10 @@ async def add_new_manual_skin_slot(req: AddManualSlotRequest, request: Request, 
 async def handle_fossabot_gift(request: Request):
     token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
     if not token: 
-        return "ㅤ" # Невидимый символ от пустого спама
+        return "ㅤ" # Защита от пустого спама (невидимый символ)
 
     try:
-        # 1. Быстро забираем данные из Fossabot
+        # 1. Запрашиваем контекст из Fossabot (кто написал команду)
         fb_res = await http_client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=3.0)
         if fb_res.status_code != 200: 
             return "❌ Ошибка связи с сервером Fossabot."
@@ -577,12 +577,13 @@ async def handle_fossabot_gift(request: Request):
         twitch_display = msg_data["user"]["display_name"]
         nick_length = len(twitch_login)
 
+        # Подключаем наш скоростной клиент Supabase
         db = await get_background_client()
 
-        # 2. ПАРАЛЛЕЛЬНО ищем юзера и приз в БД (экономит время)
-        user_task = db.get("/users", params={"twitch_login": f"eq.{twitch_login}", "select": "id, telegram_id, trade_url"})
+        # 2. ПАРАЛЛЕЛЬНО ищем юзера в БД и определяем его приз
+        user_task = db.get("/users", params={"twitch_login": f"eq.{twitch_login}", "select": "id, telegram_id"})
         prize_task = db.get("/reward_box_items", params={
-            "box_id": "eq.1", 
+            "box_id": "eq.1", # 🔥 ВАЖНО: Укажи тут ID коробки, где лежат призы за длину ника
             "slot_index": f"eq.{nick_length}", 
             "select": "skin_name"
         })
@@ -594,55 +595,48 @@ async def handle_fossabot_gift(request: Request):
 
         prize_name = prize_data[0]['skin_name'] if prize_data else "Секретный скин"
 
-        # ВАРИАНТ 1: НОВИЧОК
+        # ==========================================
+        # СЦЕНАРИЙ 1: ПОЛЬЗОВАТЕЛЬ НОВИЧОК (НЕТ В ЛАВКЕ)
+        # ==========================================
         if not user_data:
-            return (f"👋 @{twitch_display}, в твоем нике {nick_length} символов, "
-                    f"твой приз #{nick_length} ({prize_name}). "
-                    f"Купи в баллах награду на Twitch, чтобы её получить (напиши трейд-ссылку в сообщении)!")
+            return (f"👋 @{twitch_display}, в твоем нике {nick_length} символов! "
+                    f"Твой приз: {prize_name}. "
+                    f"Авторизуйся в нашем TG-боте и привяжи Twitch, чтобы забрать его в профиль!")
 
-        # ВАРИАНТ 2: ЮЗЕР В СИСТЕМЕ
-        user_info = user_data[0]
-        trade_url = user_info.get("trade_url")
-        user_id = user_info.get("id")
+        # ==========================================
+        # СЦЕНАРИЙ 2: ЮЗЕР ЕСТЬ В ЛАВКЕ (ВЫДАЕМ В ИНВЕНТАРЬ)
+        # ==========================================
+        user_tg_id = user_data[0].get("telegram_id")
 
-        if not trade_url:
-            return (f"⚠️ @{twitch_display}, ты есть в лавке, но не привязал трейд-ссылку! "
-                    f"Добавь её в Telegram-боте, чтобы получить {prize_name}.")
-
-        price_res = await db.get("/cs_items", params={"market_hash_name": f"eq.{prize_name}", "select": "price_rub"})
-        price_data = price_res.json()
-        target_price_rub = price_data[0]['price_rub'] if price_data else 100.0 
-
-        # Запись в историю
-        history_res = await db.post("/cs_history", json={
-            "user_id": user_id, "action_type": "twitch_gift", "item_name": prize_name, "status": "processing"
+        # Находим внутренний ID предмета в таблице cs_items (нужно для связи в withdraw)
+        item_res = await db.get("/cs_items", params={
+            "market_hash_name": f"eq.{prize_name}", 
+            "select": "id", 
+            "limit": 1
         })
-        history_id = history_res.json()[0]['id'] if history_res.status_code in [200, 201] else int(time.time())
+        item_data = item_res.json()
+        item_id = item_data[0]['id'] if (item_data and len(item_data) > 0) else None
 
-        # 🔥 ХАКИ ДЛЯ VERCEL: Делаем "слепой выстрел" на наш же второй эндпоинт
-        # Это мгновенно создаст независимый процесс для закупки, не тормозя Fossabot.
-        app_url = os.getenv("WEB_APP_URL", f"https://{request.url.hostname}")
-        payload = {
-            "user_id": user_id, "target_name": prize_name, "target_price_rub": target_price_rub,
-            "trade_url": trade_url, "history_id": history_id
-        }
+        # 3. ДОБАВЛЯЕМ В ИНВЕНТАРЬ (СТАТУС 'available')
+        await db.post("/cs_history", json={
+            "user_id": user_tg_id, 
+            "item_id": item_id,
+            "status": "available", # 🔥 Тот самый статус, который ждет твой код withdraw!
+            "case_name": "Подарок со стрима",
+            "details": f"Выигрыш: {prize_name}",
+            "source": "twitch", # Метка для аналитики
+            "is_swapped": False
+        })
 
-        try:
-            # timeout=0.1 заставит код разорвать связь через долю секунды, НЕ дожидаясь ответа
-            asyncio.create_task(
-                http_client.post(f"{app_url}/api/v1/internal/worker_buy_skin", json=payload, timeout=0.1)
-            )
-        except Exception as trigger_e:
-            # Ошибка ReadTimeout здесь — это абсолютная норма (мы сами её спровоцировали)
-            pass
-
-        logging.info(f"✅ Успешный мгновенный ответ для @{twitch_display}")
+        logging.info(f"✅ Подарок {prize_name} добавлен в инвентарь (status: available) для TG ID {user_tg_id}")
+        
+        # 4. Мгновенно отвечаем в Twitch чат
         return (f"🎉 @{twitch_display}, твой ник = {nick_length} символов! "
-                f"Выдаю {prize_name}. Система уже покупает скин и скоро отправит трейд!")
+                f"Выдаю {prize_name}. Предмет уже лежит в твоем инвентаре в ТГ-боте, можешь выводить!")
 
     except Exception as e:
         logging.error(f"Fossabot Gift Error: {e}", exc_info=True)
-        return "ㅤ" # Невидимый символ при системном сбое, чтобы не спамить в чат
+        return "ㅤ" # Молчим при ошибке
 
 # =========================================================================
 # ⚙️ 2. СКРЫТЫЙ ЭНДПОИНТ-ВОРКЕР (Спокойно закупает скин за 10 секунд)
@@ -657,10 +651,10 @@ class WorkerPayload(BaseModel):
 @app.post("/api/v1/internal/worker_buy_skin")
 async def worker_buy_skin(payload: WorkerPayload):
     try:
-        logging.info(f"⚙️ Воркер запустил закупку для пользователя ID {payload.user_id}...")
+        logging.info(f"⚙️ Воркер начал работу: Закупка {payload.target_name} для юзера {payload.user_id}...")
         db = await get_background_client()
         
-        # Запускаем твою оригинальную функцию закупки
+        # Запускаем твою оригинальную, мощную функцию закупки!
         await fulfill_item_delivery(
             user_id=payload.user_id,
             target_name=payload.target_name,
@@ -670,8 +664,8 @@ async def worker_buy_skin(payload: WorkerPayload):
             history_id=payload.history_id,
             source="shop" 
         )
-        logging.info(f"✅ Воркер успешно отработал ордер {payload.history_id}")
+        logging.info(f"✅ Воркер успешно отработал ордер #{payload.history_id}")
         return {"status": "ok"}
     except Exception as e:
-        logging.error(f"❌ Воркер сломался: {e}")
+        logging.error(f"❌ Воркер сломался на ордере #{payload.history_id}: {e}")
         return {"status": "error"}
