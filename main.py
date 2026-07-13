@@ -577,19 +577,34 @@ async def handle_fossabot_gift(request: Request):
         # Подключаем наш глобальный клиент БД
         db = supabase_client
 
-        # 2. ПАРАЛЛЕЛЬНО ищем юзера и его приз
-        # 🔥 ИСПРАВЛЕНИЕ: Запрашиваем правильные поля trade_link и is_banned
+        # 2. ПАРАЛЛЕЛЬНО ищем юзера, его приз И проверяем статус коробки
         user_task = db.get("/rest/v1/users", params={"twitch_login": f"eq.{twitch_login}", "select": "telegram_id, trade_link, is_banned"})
         prize_task = db.get("/rest/v1/reward_box_items", params={
-            "box_id": "eq.1", # Не забудь убедиться, что коробка с призами имеет ID 1
+            "box_id": "eq.1", 
             "slot_index": f"eq.{nick_length}", 
             "select": "skin_name"
         })
+        # 🔥 НОВОЕ: Проверяем, активна ли коробка прямо сейчас
+        box_task = db.get("/rest/v1/reward_boxes", params={
+            "id": "eq.1",
+            "select": "is_active"
+        })
 
-        user_res, prize_res = await asyncio.gather(user_task, prize_task)
+        # Запускаем все три запроса одновременно!
+        user_res, prize_res, box_res = await asyncio.gather(user_task, prize_task, box_task)
         
         user_data = user_res.json() if user_res.status_code == 200 else []
         prize_data = prize_res.json() if prize_res.status_code == 200 else []
+        box_data = box_res.json() if box_res.status_code == 200 else []
+
+        # ==========================================
+        # 🛑 ПРОВЕРКА АКТИВНОСТИ НАГРАДЫ
+        # ==========================================
+        is_box_active = box_data[0].get("is_active", False) if box_data else False
+        
+        if not is_box_active:
+            # Если в БД is_active = false, бот красиво разворачивает зрителя
+            return f"🔒 @{twitch_display}, раздача подарков временно отключена! Следи за стримом, скоро включим обратно 🐸"
 
         prize_name = prize_data[0]['skin_name'] if prize_data else "Секретный скин"
 
@@ -606,7 +621,7 @@ async def handle_fossabot_gift(request: Request):
         # ==========================================
         user_info = user_data[0]
         user_tg_id = user_info.get("telegram_id")
-        trade_link = user_info.get("trade_link") # 🔥 Берем по правильному ключу
+        trade_link = user_info.get("trade_link")
         is_banned = user_info.get("is_banned")
 
         # 🛡️ Защита от забаненных юзеров
@@ -647,7 +662,7 @@ async def handle_fossabot_gift(request: Request):
     except Exception as e:
         print(f"Fossabot Gift Error: {e}")
         return "ㅤ" # Молчим при ошибке
-
+        
 # =========================================================================
 # ⚙️ 2. СКРЫТЫЙ ЭНДПОИНТ-ВОРКЕР (Спокойно закупает скин за 10 секунд)
 # =========================================================================
