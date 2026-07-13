@@ -570,3 +570,87 @@ async def toggle_admin_twitch_reward(id: int, status: bool, request: Request):
         return {"status": "ok"}
     except Exception as e:
         return {"status": "error"}
+
+# --- РОУТ ДЛЯ ОТДАЧИ СТРАНИЦЫ КОРОБОК ---
+@app.get("/boxes", response_class=HTMLResponse)
+async def boxes_page(request: Request):
+    token = request.cookies.get("admin_session")
+    if not token: 
+        return RedirectResponse(url="/")
+    try:
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=["HS256"])
+        twitch_login = payload.get('login', 'Admin')
+        html_content = get_html("boxes.html").replace("{{USERNAME}}", twitch_login)
+        return HTMLResponse(content=html_content)
+    except jwt.PyJWTError:
+        return RedirectResponse(url="/")
+
+# --- СХЕМА СОЗДАНИЯ КОРОБКИ ---
+class BoxCreateRequest(BaseModel):
+    name: str
+    box_type: str = "nick_length"
+
+# --- ЭНДПОИНТЫ ДЛЯ РАБОТЫ С КОРОБКАМИ ---
+@app.get("/api/v1/admin/boxes")
+async def get_admin_boxes(request: Request):
+    token = request.cookies.get("admin_session")
+    if not token: raise HTTPException(status_code=401)
+    
+    supabase = get_resilient_supabase()
+    try:
+        # Запрашиваем коробки и сразу считаем, сколько внутри предметов
+        res = await supabase.get("/rest/v1/reward_boxes", params={"select": "*,items:reward_box_items(count)", "order": "id.desc"})
+        return res.json() if res.status_code == 200 else []
+    except Exception:
+        return []
+
+@app.post("/api/v1/admin/boxes/create")
+async def create_admin_box(req: BoxCreateRequest, request: Request):
+    token = request.cookies.get("admin_session")
+    if not token: raise HTTPException(status_code=401)
+    
+    supabase = get_resilient_supabase()
+    try:
+        res = await supabase.post("/rest/v1/reward_boxes", json={"name": req.name, "box_type": req.box_type})
+        if res.status_code in [200, 201, 204]: return {"status": "ok"}
+        raise HTTPException(status_code=400, detail="Ошибка создания")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/admin/boxes/{box_id}/generate")
+async def generate_box_content(box_id: int, request: Request):
+    """Генерация 30 слотов (для ников от 1 до 30 символов) рандомными скинами из cs_items"""
+    token = request.cookies.get("admin_session")
+    if not token: raise HTTPException(status_code=401)
+    
+    supabase = get_resilient_supabase()
+    try:
+        # 1. Берем 100 активных скинов из базы магазина
+        items_res = await supabase.get("/rest/v1/cs_items", params={"is_active": "eq.true", "limit": "100"})
+        available_items = items_res.json()
+        if not available_items:
+            raise HTTPException(status_code=400, detail="В таблице cs_items нет активных скинов для генерации!")
+
+        import random
+        random.shuffle(available_items)
+        
+        box_items_payload = []
+        # Генерируем 30 слотов (максимальная длина логина Twitch ~25 символов)
+        for i in range(1, 31):
+            item = random.choice(available_items)
+            skin_name = item.get("name") or item.get("market_hash_name", "Секретный скин")
+            box_items_payload.append({
+                "box_id": box_id,
+                "slot_index": i,
+                "skin_name": skin_name,
+                "chance_weight": 10
+            })
+            
+        # 2. Очищаем старые предметы этой коробки
+        await supabase.delete("/rest/v1/reward_box_items", params={"box_id": f"eq.{box_id}"})
+        
+        # 3. Заливаем новые
+        await supabase.post("/rest/v1/reward_box_items", json=box_items_payload)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
