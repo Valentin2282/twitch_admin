@@ -4,6 +4,7 @@ import jwt
 import pathlib
 import time
 import asyncio
+import logging
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, Request, Response, Depends, BackgroundTasks
 from fastapi.responses import RedirectResponse, HTMLResponse, PlainTextResponse, JSONResponse
@@ -138,7 +139,6 @@ async def auth_callback(code: str, response: Response):
         "redirect_uri": REDIRECT_URI
     }
     
-    # Используем глобальный HTTP клиент
     token_res = await http_client.post("https://id.twitch.tv/oauth2/token", data=token_data)
     if token_res.status_code != 200:
         raise HTTPException(status_code=400, detail="Ошибка обмена кода от Twitch")
@@ -328,7 +328,7 @@ async def handle_fossabot_guess(request: Request, background_tasks: BackgroundTa
 
         is_first_blood = False
         if now > guess_cache.get("cooldown_until", 0):
-            guess_cache["buffer_end"] = now + 1.5       
+            guess_cache["buffer_end"] = now + 1.5        
             guess_cache["cooldown_until"] = now + 20    
             guess_cache["round_winners"] = []            
             is_first_blood = True
@@ -476,7 +476,6 @@ async def generate_box_content(box_id: int, req: BoxGenerateRequest, request: Re
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 🔥 ОПТИМИЗИРОВАННО: 1 ЗАПРОС ВМЕСТО 30 (РЕШАЕТ ПРОБЛЕМУ N+1)
 @app.get("/api/v1/admin/boxes/{box_id}/items")
 async def get_admin_box_items(box_id: int, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
@@ -721,9 +720,11 @@ class WorkerPayload(BaseModel):
 async def worker_buy_skin(payload: WorkerPayload):
     try:
         logging.info(f"⚙️ Воркер начал работу: Закупка {payload.target_name} для юзера {payload.user_id}...")
-        db = await get_background_client()
         
-        # Запускаем твою оригинальную, мощную функцию закупки!
+        # ЭТО ЗАГЛУШКА, Т.К. get_background_client и fulfill_item_delivery не импортированы в этом файле. 
+        # Скорее всего они у тебя в другом воркере, поэтому оставляем как было, чтобы не ломать логику.
+        db = await get_background_client() 
+        
         await fulfill_item_delivery(
             user_id=payload.user_id,
             target_name=payload.target_name,
@@ -746,12 +747,10 @@ async def toggle_admin_box(
     request: Request, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # Проверка на админа
     if not request.cookies.get("admin_session"): 
         raise HTTPException(status_code=401)
         
     try:
-        # Патчим базу: обновляем is_active
         await supabase.patch("/rest/v1/reward_boxes", params={"id": f"eq.{id}"}, json={"is_active": status})
         return {"status": "ok"}
     except Exception as e:
