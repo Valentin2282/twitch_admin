@@ -553,3 +553,102 @@ async def add_new_manual_skin_slot(req: AddManualSlotRequest, request: Request, 
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/twitch/fossabot_gift", response_class=PlainTextResponse)
+async def handle_fossabot_gift(
+    request: Request,
+    background_tasks: BackgroundTasks
+):
+    # 1. Авторизация запроса от Fossabot
+    token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
+    if not token: 
+        return ""
+
+    try:
+        # 2. Быстрый запрос контекста сообщения из Fossabot
+        fb_res = await http_client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=3.0)
+        if fb_res.status_code != 200: 
+            return "❌ Ошибка связи с сервером."
+            
+        msg_data = fb_res.json().get("message")
+        if not msg_data: 
+            return ""
+
+        twitch_login = msg_data["user"]["login"].lower()
+        twitch_display = msg_data["user"]["display_name"]
+        nick_length = len(twitch_login)
+
+        # Используем глобальный коннект для максимальной скорости
+        db = await get_background_client()
+
+        # 3. ПАРАЛЛЕЛЬНО ищем юзера в БД и узнаем, какой приз привязан к длине его ника
+        user_task = db.get("/users", params={"twitch_login": f"eq.{twitch_login}", "select": "id, telegram_id, trade_url"})
+        
+        # Предполагаем, что у тебя есть коробка "Длина ника", где slot_index = количество символов
+        prize_task = db.get("/reward_box_items", params={
+            "box_id": "eq.1", # Укажи ID коробки, которая отвечает за длины ников
+            "slot_index": f"eq.{nick_length}", 
+            "select": "skin_name"
+        })
+
+        user_res, prize_res = await asyncio.gather(user_task, prize_task)
+        
+        user_data = user_res.json() if user_res.status_code == 200 else []
+        prize_data = prize_res.json() if prize_res.status_code == 200 else []
+
+        prize_name = prize_data[0]['skin_name'] if prize_data else "Секретный скин"
+
+        # ==========================================
+        # ВАРИАНТ 1: ПОЛЬЗОВАТЕЛЬ НОВИЧОК (НЕТ В БД)
+        # ==========================================
+        if not user_data:
+            return (f"👋 @{twitch_display}, в твоем нике {nick_length} символов, "
+                    f"твой приз #{nick_length} ({prize_name}). "
+                    f"Купи в баллах награду на Twitch, чтобы её получить (напиши трейд-ссылку в сообщении)!")
+
+        # ==========================================
+        # ВАРИАНТ 2: ПОЛЬЗОВАТЕЛЬ ЕСТЬ В СИСТЕМЕ
+        # ==========================================
+        user_info = user_data[0]
+        trade_url = user_info.get("trade_url")
+        user_id = user_info.get("id")
+
+        if not trade_url:
+            return (f"⚠️ @{twitch_display}, ты есть в лавке, но не привязал трейд-ссылку! "
+                    f"Добавь её в Telegram-боте, чтобы получить {prize_name}.")
+
+        # Запрашиваем цену предмета из кэша, чтобы передать бюджет автозакупщику
+        price_res = await db.get("/cs_items", params={"market_hash_name": f"eq.{prize_name}", "select": "price_rub"})
+        price_data = price_res.json()
+        target_price_rub = price_data[0]['price_rub'] if price_data else 100.0 # Бюджет по умолчанию
+
+        # Создаем запись в истории (со статусом обработки)
+        history_res = await db.post("/cs_history", json={
+            "user_id": user_id,
+            "action_type": "twitch_gift",
+            "item_name": prize_name,
+            "status": "processing"
+        })
+        
+        history_id = history_res.json()[0]['id'] if history_res.status_code in [200, 201] else int(time.time())
+
+        # 🔥 Отправляем тяжелую задачу в фон (Vercel выполнит её асинхронно, не задерживая ответ в чат)
+        background_tasks.add_task(
+            fulfill_item_delivery,
+            user_id=user_id,
+            target_name=prize_name,
+            target_price_rub=target_price_rub,
+            trade_url=trade_url,
+            supabase=db,
+            history_id=history_id,
+            source="shop" 
+        )
+
+        # Мгновенный ответ в чат Twitch
+        return (f"🎉 @{twitch_display}, твой ник = {nick_length} символов! "
+                f"Выдаю {prize_name}. Система уже покупает скин и скоро отправит трейд!")
+
+    except Exception as e:
+        # Логируем, но не крашим бота в чате
+        print(f"Fossabot Gift Error: {e}")
+        return "❌ Произошла системная ошибка при выдаче подарка."
