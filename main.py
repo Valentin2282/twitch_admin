@@ -558,10 +558,10 @@ async def add_new_manual_skin_slot(req: AddManualSlotRequest, request: Request, 
 async def handle_fossabot_gift(request: Request):
     token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
     if not token: 
-        return "ㅤ" # Защита от пустого спама (невидимый символ)
+        return "ㅤ" # Невидимый символ от пустого спама
 
     try:
-        # 1. Запрашиваем контекст из Fossabot
+        # 1. Быстро забираем данные из Fossabot
         fb_res = await http_client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=3.0)
         if fb_res.status_code != 200: 
             return "❌ Ошибка связи с сервером Fossabot."
@@ -574,13 +574,13 @@ async def handle_fossabot_gift(request: Request):
         twitch_display = msg_data["user"]["display_name"]
         nick_length = len(twitch_login)
 
-        # 🔥 ИСПРАВЛЕНИЕ: Берем глобальный клиент базы данных из твоей оптимизированной сборки
+        # 🔥 ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЙ КЛИЕНТ ИЗ ТВОЕГО ОСНОВНОГО КОДА
         db = supabase_client
 
-        # 2. ПАРАЛЛЕЛЬНО ищем юзера в БД и определяем его приз
-        user_task = db.get("/users", params={"twitch_login": f"eq.{twitch_login}", "select": "id, telegram_id"})
-        prize_task = db.get("/reward_box_items", params={
-            "box_id": "eq.1", # Убедись, что тут стоит ID твоей коробки
+        # 2. ПАРАЛЛЕЛЬНО ищем юзера в БД и определяем его приз (ВАЖНО: пути с /rest/v1/)
+        user_task = db.get("/rest/v1/users", params={"twitch_login": f"eq.{twitch_login}", "select": "id, telegram_id"})
+        prize_task = db.get("/rest/v1/reward_box_items", params={
+            "box_id": "eq.1", # Убедись, что тут стоит правильный ID коробки
             "slot_index": f"eq.{nick_length}", 
             "select": "skin_name"
         })
@@ -593,7 +593,7 @@ async def handle_fossabot_gift(request: Request):
         prize_name = prize_data[0]['skin_name'] if prize_data else "Секретный скин"
 
         # ==========================================
-        # СЦЕНАРИЙ 1: ПОЛЬЗОВАТЕЛЬ НОВИЧОК (НЕТ В ЛАВКЕ)
+        # СЦЕНАРИЙ 1: ПОЛЬЗОВАТЕЛЬ НОВИЧОК
         # ==========================================
         if not user_data:
             return (f"👋 @{twitch_display}, в твоем нике {nick_length} символов! "
@@ -606,7 +606,7 @@ async def handle_fossabot_gift(request: Request):
         user_tg_id = user_data[0].get("telegram_id")
 
         # Находим внутренний ID предмета в таблице cs_items
-        item_res = await db.get("/cs_items", params={
+        item_res = await db.get("/rest/v1/cs_items", params={
             "market_hash_name": f"eq.{prize_name}", 
             "select": "id", 
             "limit": 1
@@ -615,7 +615,7 @@ async def handle_fossabot_gift(request: Request):
         item_id = item_data[0]['id'] if (item_data and len(item_data) > 0) else None
 
         # 3. ДОБАВЛЯЕМ В ИНВЕНТАРЬ (СТАТУС 'available')
-        await db.post("/cs_history", json={
+        await db.post("/rest/v1/cs_history", json={
             "user_id": user_tg_id, 
             "item_id": item_id,
             "status": "available", 
