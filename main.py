@@ -554,17 +554,14 @@ async def add_new_manual_skin_slot(req: AddManualSlotRequest, request: Request, 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# =========================================================================
-# 🚀 1. МГНОВЕННЫЙ ЭНДПОИНТ (Отвечает Fossabot за 100мс)
-# =========================================================================
 @app.get("/api/v1/twitch/fossabot_gift", response_class=PlainTextResponse)
 async def handle_fossabot_gift(request: Request):
     token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
     if not token: 
-        return "ㅤ" # Защита от пустого спама (невидимый символ)
+        return "ㅤ" # Невидимый символ от пустого спама
 
     try:
-        # 1. Запрашиваем контекст из Fossabot (кто написал команду)
+        # 1. Быстро забираем данные из Fossabot
         fb_res = await http_client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=3.0)
         if fb_res.status_code != 200: 
             return "❌ Ошибка связи с сервером Fossabot."
@@ -577,13 +574,13 @@ async def handle_fossabot_gift(request: Request):
         twitch_display = msg_data["user"]["display_name"]
         nick_length = len(twitch_login)
 
-        # Подключаем наш скоростной клиент Supabase
-        db = await get_background_client()
+        # 🛑 ИСПРАВЛЕНИЕ 1: Берем правильный клиент из твоего Vercel-кода (БЕЗ await!)
+        db = get_resilient_supabase()
 
-        # 2. ПАРАЛЛЕЛЬНО ищем юзера в БД и определяем его приз
+        # 2. ПАРАЛЛЕЛЬНО ищем юзера и приз в БД
         user_task = db.get("/users", params={"twitch_login": f"eq.{twitch_login}", "select": "id, telegram_id"})
         prize_task = db.get("/reward_box_items", params={
-            "box_id": "eq.1", # 🔥 ВАЖНО: Укажи тут ID коробки, где лежат призы за длину ника
+            "box_id": "eq.1", # 🔥 Напоминаю: укажи тут ID коробки
             "slot_index": f"eq.{nick_length}", 
             "select": "skin_name"
         })
@@ -596,7 +593,7 @@ async def handle_fossabot_gift(request: Request):
         prize_name = prize_data[0]['skin_name'] if prize_data else "Секретный скин"
 
         # ==========================================
-        # СЦЕНАРИЙ 1: ПОЛЬЗОВАТЕЛЬ НОВИЧОК (НЕТ В ЛАВКЕ)
+        # СЦЕНАРИЙ 1: ПОЛЬЗОВАТЕЛЬ НОВИЧОК
         # ==========================================
         if not user_data:
             return (f"👋 @{twitch_display}, в твоем нике {nick_length} символов! "
@@ -604,11 +601,10 @@ async def handle_fossabot_gift(request: Request):
                     f"Авторизуйся в нашем TG-боте и привяжи Twitch, чтобы забрать его в профиль!")
 
         # ==========================================
-        # СЦЕНАРИЙ 2: ЮЗЕР ЕСТЬ В ЛАВКЕ (ВЫДАЕМ В ИНВЕНТАРЬ)
+        # СЦЕНАРИЙ 2: ЮЗЕР ЕСТЬ В ЛАВКЕ
         # ==========================================
         user_tg_id = user_data[0].get("telegram_id")
 
-        # Находим внутренний ID предмета в таблице cs_items (нужно для связи в withdraw)
         item_res = await db.get("/cs_items", params={
             "market_hash_name": f"eq.{prize_name}", 
             "select": "id", 
@@ -621,22 +617,23 @@ async def handle_fossabot_gift(request: Request):
         await db.post("/cs_history", json={
             "user_id": user_tg_id, 
             "item_id": item_id,
-            "status": "available", # 🔥 Тот самый статус, который ждет твой код withdraw!
+            "status": "available", 
             "case_name": "Подарок со стрима",
             "details": f"Выигрыш: {prize_name}",
-            "source": "twitch", # Метка для аналитики
+            "source": "twitch",
             "is_swapped": False
         })
 
-        logging.info(f"✅ Подарок {prize_name} добавлен в инвентарь (status: available) для TG ID {user_tg_id}")
+        print(f"✅ Подарок {prize_name} добавлен в инвентарь (status: available) для TG ID {user_tg_id}")
         
-        # 4. Мгновенно отвечаем в Twitch чат
+        # 4. Мгновенно отвечаем в Twitch
         return (f"🎉 @{twitch_display}, твой ник = {nick_length} символов! "
                 f"Выдаю {prize_name}. Предмет уже лежит в твоем инвентаре в ТГ-боте, можешь выводить!")
 
     except Exception as e:
-        logging.error(f"Fossabot Gift Error: {e}", exc_info=True)
-        return "ㅤ" # Молчим при ошибке
+        # 🛑 ИСПРАВЛЕНИЕ 2: Используем print вместо logging
+        print(f"Fossabot Gift Error: {e}")
+        return "ㅤ" # Невидимый символ при ошибке
 
 # =========================================================================
 # ⚙️ 2. СКРЫТЫЙ ЭНДПОИНТ-ВОРКЕР (Спокойно закупает скин за 10 секунд)
