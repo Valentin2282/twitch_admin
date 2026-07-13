@@ -694,3 +694,21 @@ async def worker_buy_skin(payload: WorkerPayload):
     except Exception as e:
         logging.error(f"❌ Воркер сломался на ордере #{payload.history_id}: {e}")
         return {"status": "error"}
+
+@app.post("/api/v1/admin/boxes/toggle")
+async def toggle_admin_box(
+    id: int, 
+    status: bool, 
+    request: Request, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # Проверка на админа
+    if not request.cookies.get("admin_session"): 
+        raise HTTPException(status_code=401)
+        
+    try:
+        # Патчим базу: обновляем is_active
+        await supabase.patch("/rest/v1/reward_boxes", params={"id": f"eq.{id}"}, json={"is_active": status})
+        return {"status": "ok"}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
