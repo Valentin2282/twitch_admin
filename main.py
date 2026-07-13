@@ -839,3 +839,56 @@ async def update_admin_box_slot(item_id: int, req: SlotUpdateRequest, request: R
         raise HTTPException(status_code=400, detail="Ошибка обновления слота в коробке")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+class AddManualSlotRequest(BaseModel):
+    box_id: int
+    slot_index: int
+    skin_name: str
+
+@app.post("/api/v1/admin/box_items/add_new_manual")
+async def add_new_manual_skin_slot(req: AddManualSlotRequest, request: Request):
+    token = request.cookies.get("admin_session")
+    if not token: raise HTTPException(status_code=401)
+    
+    supabase = get_resilient_supabase()
+    try:
+        skin_name = req.skin_name.strip()
+        
+        # 1. Тянем данные из market_cache
+        mc_res = await supabase.get("/rest/v1/market_cache", params={"market_hash_name": f"eq.{skin_name}"})
+        if mc_res.status_code != 200 or not mc_res.json():
+            raise HTTPException(status_code=400, detail="Скин не найден в кэше")
+            
+        cache = mc_res.json()[0]
+        clean_name = skin_name.split("(")[0].strip() if "(" in skin_name else skin_name
+        price_rub = cache.get("price_rub", 0.0)
+        
+        # 2. Автоматически создаем запись в cs_items (с автоматической ценой)
+        cs_item_payload = {
+            "name": clean_name,
+            "market_hash_name": skin_name,
+            "image_url": cache.get("image_url", ""),
+            "rarity": cache.get("rarity", "common"),
+            "condition": parse_condition(skin_name),
+            "chance_weight": 10,
+            "quantity": 1,
+            "is_active": True,
+            "boost_percent": 0.0,
+            "price": price_rub / 100,
+            "price_rub": price_rub
+        }
+        await supabase.post("/rest/v1/cs_items", json=cs_item_payload, headers={"Prefer": "resolution=ignore-duplicates"})
+        
+        # 3. Добавляем новый слот в reward_box_items для нужной длины ника
+        box_item_payload = {
+            "box_id": req.box_id,
+            "slot_index": req.slot_index,
+            "skin_name": skin_name
+        }
+        res = await supabase.post("/rest/v1/reward_box_items", json=box_item_payload)
+        if res.status_code in [200, 201, 204]:
+            return {"status": "ok"}
+            
+        raise HTTPException(status_code=400, detail="Не удалось привязать предмет к коробке")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
