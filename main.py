@@ -654,3 +654,52 @@ async def generate_box_content(box_id: int, request: Request):
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- СХЕМА ДЛЯ ИЗМЕНЕНИЯ СЛОТА В КЕЙСЕ ---
+class SlotUpdateRequest(BaseModel):
+    skin_name: str
+
+# --- 1. ПОЛУЧИТЬ СОДЕРЖИМОЕ КОРОБКИ С ДАННЫМИ ИЗ МАРКЕТ-КЭША ---
+@app.get("/api/v1/admin/boxes/{box_id}/items")
+async def get_admin_box_items(box_id: int, request: Request):
+    token = request.cookies.get("admin_session")
+    if not token: raise HTTPException(status_code=401)
+    
+    supabase = get_resilient_supabase()
+    try:
+        # Тянем предметы коробки и через PostgREST связываем с market_cache по имени скина
+        # В PostgREST Supabase связь настраивается указанием имени таблицы в select
+        params = {
+            "box_id": f"eq.{box_id}",
+            "select": "id,slot_index,skin_name,chance_weight,cache:market_cache!reward_box_items_skin_name_fkey(price_rub,rarity,image_url)",
+            "order": "slot_index.asc"
+        }
+        # Если внешнего ключа в схеме нет, Supabase позволяет делать join по совпадающим полям:
+        # "select": "id,slot_index,skin_name,cache:market_cache(price_rub,rarity,image_url)"
+        # Мы запрашиваем универсальный вариант:
+        params["select"] = "id,slot_index,skin_name,chance_weight,market_cache(price_rub,rarity,image_url)"
+        
+        res = await supabase.get("/rest/v1/reward_box_items", params=params)
+        return res.json() if res.status_code == 200 else []
+    except Exception as e:
+        return []
+
+# --- 2. РУЧНОЕ ИЗМЕНЕНИЕ КОНКРЕТНОГО СЛОТА ---
+@app.post("/api/v1/admin/box_items/{item_id}/update")
+async def update_admin_box_slot(item_id: int, req: SlotUpdateRequest, request: Request):
+    token = request.cookies.get("admin_session")
+    if not token: raise HTTPException(status_code=401)
+    
+    supabase = get_resilient_supabase()
+    try:
+        res = await supabase.patch(
+            "/rest/v1/reward_box_items",
+            params={"id": f"eq.{item_id}"},
+            json={"skin_name": req.skin_name.strip()}
+        )
+        if res.status_code in [200, 201, 204]:
+            return {"status": "ok"}
+        raise HTTPException(status_code=400, detail="Ошибка обновления слота")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
