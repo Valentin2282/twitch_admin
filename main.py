@@ -717,28 +717,6 @@ class WorkerPayload(BaseModel):
     trade_url: str
     history_id: int
 
-@app.post("/api/v1/internal/worker_buy_skin")
-async def worker_buy_skin(payload: WorkerPayload):
-    try:
-        logging.info(f"⚙️ Воркер начал работу: Закупка {payload.target_name} для юзера {payload.user_id}...")
-        db = await get_background_client()
-        
-        # Запускаем твою оригинальную, мощную функцию закупки!
-        await fulfill_item_delivery(
-            user_id=payload.user_id,
-            target_name=payload.target_name,
-            target_price_rub=payload.target_price_rub,
-            trade_url=payload.trade_url,
-            supabase=db,
-            history_id=payload.history_id,
-            source="shop" 
-        )
-        logging.info(f"✅ Воркер успешно отработал ордер #{payload.history_id}")
-        return {"status": "ok"}
-    except Exception as e:
-        logging.error(f"❌ Воркер сломался на ордере #{payload.history_id}: {e}")
-        return {"status": "error"}
-
 @app.post("/api/v1/admin/boxes/toggle")
 async def toggle_admin_box(
     id: int, 
