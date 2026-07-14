@@ -489,26 +489,41 @@ async def create_admin_twitch_reward(req: RewardCreateRequest, request: Request,
     if res.status_code in [200, 201, 204]: return {"status": "success"}
     raise HTTPException(status_code=400, detail=res.text)
 
-@app.post("/api/v1/admin/rewards/toggle")
+@@app.post("/api/v1/admin/rewards/toggle")
 async def toggle_admin_twitch_reward(id: int, status: bool, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
     
     # 🔥 НОВОЕ: Выключаем награду прямо на Твиче
     r_resp = await supabase.get("/rest/v1/twitch_rewards", params={"id": f"eq.{id}", "select": "twitch_reward_id,broadcaster_id"})
-    r_data = r_resp.json()
-    if r_data and r_data[0].get("twitch_reward_id") and r_data[0].get("broadcaster_id"):
-        b_id = r_data[0]["broadcaster_id"]
-        t_id = r_data[0]["twitch_reward_id"]
+    
+    # Пуленепробиваемая проверка ответа базы
+    if r_resp.status_code == 200:
+        r_data = r_resp.json()
         
-        t_resp = await supabase.get("/rest/v1/users", params={"twitch_id": f"eq.{b_id}", "select": "twitch_access_token"})
-        if t_resp.json() and t_resp.json()[0].get("twitch_access_token"):
-            b_token = t_resp.json()[0]["twitch_access_token"]
-            url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={b_id}&id={t_id}"
-            headers = {"Authorization": f"Bearer {b_token}", "Client-Id": TWITCH_CLIENT_ID, "Content-Type": "application/json"}
-            await http_client.patch(url, headers=headers, json={"is_enabled": status})
+        # Проверяем, что вернулся именно список, а не словарь с ошибкой
+        if r_data and isinstance(r_data, list) and r_data[0].get("twitch_reward_id") and r_data[0].get("broadcaster_id"):
+            b_id = r_data[0]["broadcaster_id"]
+            t_id = r_data[0]["twitch_reward_id"]
+            
+            t_resp = await supabase.get("/rest/v1/users", params={"twitch_id": f"eq.{b_id}", "select": "twitch_access_token"})
+            
+            # Проверяем ответ для токена тоже
+            if t_resp.status_code == 200 and t_resp.json() and isinstance(t_resp.json(), list) and t_resp.json()[0].get("twitch_access_token"):
+                b_token = t_resp.json()[0]["twitch_access_token"]
+                url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={b_id}&id={t_id}"
+                headers = {"Authorization": f"Bearer {b_token}", "Client-Id": TWITCH_CLIENT_ID, "Content-Type": "application/json"}
+                
+                tw_res = await http_client.patch(url, headers=headers, json={"is_enabled": status})
+                if tw_res.status_code not in [200, 204]:
+                    logging.warning(f"Ошибка переключения награды на Twitch: {tw_res.text}")
+    else:
+        logging.error(f"Ошибка БД при поиске награды {id}: {r_resp.text}")
 
-    # Обновляем в БД
-    await supabase.patch("/rest/v1/twitch_rewards", params={"id": f"eq.{id}"}, json={"is_active": status})
+    # Обновляем статус в нашей базе
+    db_res = await supabase.patch("/rest/v1/twitch_rewards", params={"id": f"eq.{id}"}, json={"is_active": status})
+    if db_res.status_code not in [200, 204]:
+        raise HTTPException(status_code=400, detail=f"Ошибка БД: {db_res.text}")
+        
     return {"status": "ok"}
 
 # ==============================================================================
