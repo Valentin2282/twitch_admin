@@ -118,11 +118,34 @@ async def boxes_page(request: Request):
 async def login():
     if not TWITCH_CLIENT_ID:
         raise HTTPException(status_code=500, detail="TWITCH_CLIENT_ID не настроен")
+    
+    # Полный фарш прав для будущего функционала
+    scopes_list = [
+        "user:read:email",
+        "channel:read:redemptions",
+        "channel:manage:redemptions",     # Награды
+        "channel:read:polls",
+        "channel:manage:polls",           # Опросы
+        "channel:read:predictions",
+        "channel:manage:predictions",     # Прогнозы (ставки баллами)
+        "channel:manage:broadcast",       # Управление названием и игрой стрима
+        "channel:read:subscriptions",     # Чтение сабов
+        "bits:read",                      # Чтение битсов
+        "channel:moderate",               # Базовые права модератора
+        "chat:read",
+        "chat:edit",                      # Чтение и отправка сообщений
+        "moderator:manage:announcements", # Отправка /announce
+        "moderator:manage:chat_messages", # Удаление сообщений
+        "moderator:manage:banned_users",  # Бан/таймаут юзеров
+        "channel:manage:schedule"         # Управление расписанием
+    ]
+    scopes = "+".join(scopes_list)
+    
     url = (
         f"https://id.twitch.tv/oauth2/authorize?response_type=code"
         f"&client_id={TWITCH_CLIENT_ID}"
         f"&redirect_uri={REDIRECT_URI}"
-        f"&scope=user:read:email+channel:read:redemptions"
+        f"&scope={scopes}"
     )
     return RedirectResponse(url)
 
@@ -172,12 +195,34 @@ async def broadcaster_login():
     """Отправляет на Twitch для привязки второго аккаунта с принудительным запросом пароля"""
     if not TWITCH_CLIENT_ID:
         raise HTTPException(status_code=500, detail="TWITCH_CLIENT_ID не настроен")
+        
+    scopes_list = [
+        "user:read:email",
+        "channel:read:redemptions",
+        "channel:manage:redemptions",
+        "channel:read:polls",
+        "channel:manage:polls",
+        "channel:read:predictions",
+        "channel:manage:predictions",
+        "channel:manage:broadcast",
+        "channel:read:subscriptions",
+        "bits:read",
+        "channel:moderate",
+        "chat:read",
+        "chat:edit",
+        "moderator:manage:announcements",
+        "moderator:manage:chat_messages",
+        "moderator:manage:banned_users",
+        "channel:manage:schedule"
+    ]
+    scopes = "+".join(scopes_list)
+    
     url = (
         f"https://id.twitch.tv/oauth2/authorize?response_type=code"
         f"&client_id={TWITCH_CLIENT_ID}"
         f"&redirect_uri={BROADCASTER_REDIRECT_URI}"
-        f"&scope=user:read:email+channel:read:redemptions+channel:manage:redemptions"
-        f"&force_verify=true" # 🔥 ЭТОТ ПАРАМЕТР ЗАСТАВИТ TWITCH ЗАПРОСИТЬ ЛОГИН
+        f"&scope={scopes}"
+        f"&force_verify=true"
     )
     return RedirectResponse(url)
 
