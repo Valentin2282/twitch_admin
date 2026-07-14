@@ -489,7 +489,7 @@ async def create_admin_twitch_reward(req: RewardCreateRequest, request: Request,
     if res.status_code in [200, 201, 204]: return {"status": "success"}
     raise HTTPException(status_code=400, detail=res.text)
 
-@@app.post("/api/v1/admin/rewards/toggle")
+@app.post("/api/v1/admin/rewards/toggle")
 async def toggle_admin_twitch_reward(id: int, status: bool, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
     
