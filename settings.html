@@ -455,11 +455,18 @@
                 const response = await fetch('/api/v1/admin/rewards');
                 const data = await response.json();
                 
-                // Рендерим селектор каналов параллельно
+                // Рендерим селектор каналов параллельно и собираем карту статусов
                 const channelSelect = document.getElementById('reward-channel');
                 channelSelect.innerHTML = '';
+                
+                const channelMap = {};
+                const channelStatusMap = {};
+                
                 data.channels.forEach(ch => {
-                    channelSelect.innerHTML += `<option value="${ch}">${ch}</option>`;
+                    // ch - это объект с бэкенда {id, login, display_name, profile_image, is_online}
+                    channelSelect.innerHTML += `<option value="${ch.id}">🟣 ${ch.display_name} (${ch.login})</option>`;
+                    channelMap[ch.id] = ch.display_name;
+                    channelStatusMap[ch.id] = ch.is_online; // Сохраняем статус стрима
                 });
 
                 tbody.innerHTML = '';
@@ -470,11 +477,29 @@
 
                 data.rewards.forEach(r => {
                     const statusClass = r.is_active ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20';
+                    const boxName = r.linked_box_id ? `Коробка #${r.linked_box_id}` : r.reward_type;
+                    
+                    // ОПРЕДЕЛЯЕМ ИМЯ И СТАТУС КАНАЛА
+                    const channelName = r.broadcaster_id && channelMap[r.broadcaster_id] 
+                        ? channelMap[r.broadcaster_id] 
+                        : 'Общий / Старый';
+                        
+                    const isOnline = r.broadcaster_id ? channelStatusMap[r.broadcaster_id] : false;
+                    
+                    // Формируем HTML для бейджика стрима (маленькие буквы под каналом)
+                    const streamDot = isOnline ? '<span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>' : '<span class="w-1.5 h-1.5 rounded-full bg-zinc-600"></span>';
+                    const streamText = isOnline ? '<span class="text-green-500">стрим онлайн</span>' : '<span class="text-zinc-500">стрим оффлайн</span>';
+
                     const tr = `
                         <tr class="hover:bg-zinc-800/20 transition-colors">
+                            <td class="py-2 px-3 text-purple-400 font-semibold leading-tight">
+                                ${channelName}
+                                <div class="flex items-center gap-1 mt-0.5 text-[9px] uppercase tracking-wide font-bold">
+                                    ${streamDot} ${streamText}
+                                </div>
+                            </td>
                             <td class="py-2 px-3 text-zinc-200 font-medium">${r.title}</td>
-                            <td class="py-2 px-3 text-zinc-400">${r.reward_type}</td>
-                            <td class="py-2 px-3 text-zinc-400">${r.target_value || 0} сообщений</td>
+                            <td class="py-2 px-3 text-zinc-400">${boxName}</td>
                             <td class="py-2 px-3 text-center text-zinc-500">${r.auto_steam ? '✅' : '❌'}</td>
                             <td class="py-2 px-3 text-center">
                                 <span class="px-1.5 py-0.5 rounded border text-[10px] ${statusClass}">${r.is_active ? 'ACTIVE' : 'DISABLED'}</span>
@@ -492,18 +517,25 @@
         }
 
         async function createTwitchReward() {
+            // Собираем все поля из HTML безопасно (даже если каких-то нет на странице, они получат дефолтное значение)
             const payload = {
-                title: document.getElementById('reward-title').value,
-                reward_type: document.getElementById('reward-type').value,
-                steam_item_name: document.getElementById('reward-steam-name').value,
-                auto_steam: document.getElementById('reward-auto-steam').checked,
-                reward_amount: parseInt(document.getElementById('reward-amount').value) || 0,
-                target_value: parseInt(document.getElementById('reward-gate-value').value) || 0,
-                notify_admin: document.getElementById('reward-notify').checked,
-                show_user_input: document.getElementById('reward-refund').checked // Храним флаг рефанда тут для пустышки
+                title: document.getElementById('reward-title') ? document.getElementById('reward-title').value : '',
+                broadcaster_id: document.getElementById('reward-channel') ? document.getElementById('reward-channel').value : '',
+                reward_type: document.getElementById('reward-type') ? document.getElementById('reward-type').value : 'skin_giveaway',
+                cost: document.getElementById('reward-cost') ? parseInt(document.getElementById('reward-cost').value) : 100,
+                target_audience: document.getElementById('reward-target-audience') ? document.getElementById('reward-target-audience').value : 'all',
+                linked_box_id: document.getElementById('reward-box-id') && document.getElementById('reward-box-id').value ? parseInt(document.getElementById('reward-box-id').value) : null,
+                steam_item_name: document.getElementById('reward-steam-name') ? document.getElementById('reward-steam-name').value : '',
+                auto_steam: document.getElementById('reward-auto-steam') ? document.getElementById('reward-auto-steam').checked : false,
+                reward_amount: document.getElementById('reward-amount') ? parseInt(document.getElementById('reward-amount').value) || 0 : 0,
+                target_value: document.getElementById('reward-gate-value') ? parseInt(document.getElementById('reward-gate-value').value) || 0 : 0,
+                gate_period: document.getElementById('reward-gate-period') ? document.getElementById('reward-gate-period').value : 'session',
+                notify_admin: document.getElementById('reward-notify') ? document.getElementById('reward-notify').checked : true,
+                show_user_input: document.getElementById('reward-refund') ? document.getElementById('reward-refund').checked : true
             };
 
             if (!payload.title) return alert('Введите название награды!');
+            if (!payload.broadcaster_id) return alert('Выберите канал для создания награды!');
 
             try {
                 const res = await fetch('/api/v1/admin/rewards/create', {
@@ -514,12 +546,14 @@
                 if (res.ok) {
                     alert('Награда успешно зафиксирована в системе!');
                     loadTwitchRewards();
+                } else {
+                    const err = await res.json();
+                    alert('Ошибка создания: ' + (err.detail || 'Сбой на сервере'));
                 }
             } catch (e) {
-                alert('Ошибка создания');
+                alert('Сетевая ошибка создания: ' + e);
             }
         }
-
         async function toggleRewardStatus(id, newStatus) {
             try {
                 await fetch(`/api/v1/admin/rewards/toggle?id=${id}&status=${newStatus}`, { method: 'POST' });
