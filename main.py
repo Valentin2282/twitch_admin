@@ -546,9 +546,10 @@ class RewardCreateRequest(BaseModel):
     auto_steam: Optional[bool] = False
     reward_amount: Optional[int] = 10
     target_value: Optional[int] = 0
-    gate_period: Optional[str] = "session" # 🔥 Добавили период
+    gate_period: Optional[str] = "session"
     notify_admin: Optional[bool] = True
     show_user_input: Optional[bool] = True
+    target_audience: Optional[str] = "all"
 
 @app.post("/api/v1/admin/rewards/create")
 async def create_admin_twitch_reward(req: RewardCreateRequest, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -582,11 +583,9 @@ async def create_admin_twitch_reward(req: RewardCreateRequest, request: Request,
     except Exception as e:
         logging.error(f"Сбой Твича: {e}")
 
-    # Сохраняем в БД с учетом периода
     payload = req.dict(exclude_unset=True)
-    gate_period = payload.pop("gate_period", "session") # Убираем поле, чтобы не падала БД
+    gate_period = payload.pop("gate_period", "session")
     
-    # 🔥 Формируем правильный condition_type для умного гейта
     condition_map = {
         "session": "twitch_messages_session",
         "week": "twitch_messages_week",
@@ -1219,18 +1218,21 @@ class MarketCSGO:
         return response
 
 
+@app.get("/api/v1/cron/process_newbies")
 @app.post("/api/v1/cron/process_newbies")
-async def process_newbies_cron(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    # 1. Захватываем ТОЛЬКО НОВИЧКОВ (user_id IS NULL), которые ожидают выдачи.
+async def process_newbies_cron(request: Request, cron_secret: Optional[str] = None, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    expected_secret = os.getenv("CRON_SECRET", "HateLavkaSecretKey")
+    if cron_secret != expected_secret:
+        raise HTTPException(status_code=401, detail="Unauthorized: Invalid cron_secret")
+
     res = await supabase.get("/rest/v1/twitch_reward_purchases", params={
-        "user_id": "is.null",
-        "status": "eq.Не привязан", 
+        "status": "in.(Не привязан,Ожидает выдачи)", 
         "limit": 3,
         "order": "id.asc"
     })
     
     if res.status_code != 200 or not res.json():
-        return {"status": "ok", "message": "Нет новичков в очереди"}
+        return {"status": "ok", "message": "Нет пользователей в очереди"}
         
     purchases = res.json()
     
@@ -1239,10 +1241,8 @@ async def process_newbies_cron(request: Request, supabase: httpx.AsyncClient = D
         reward_id = p["reward_id"]
         trade_link = p.get("trade_link")
         
-        # 2. Сразу лочим заявку в БД
         await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "В обработке"})
         
-        # 3. Если нет трейд-ссылки
         if not trade_link:
             await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={
                 "status": "Ошибка: Нет ссылки", 
@@ -1250,17 +1250,14 @@ async def process_newbies_cron(request: Request, supabase: httpx.AsyncClient = D
             })
             continue
             
-        # 4. Узнаем, что за скин он должен получить
         rew_res = await supabase.get("/rest/v1/twitch_rewards", params={"id": f"eq.{reward_id}", "select": "title, steam_item_name"})
         if not rew_res.json(): continue
         
         target_name = rew_res.json()[0].get("steam_item_name") or rew_res.json()[0].get("title")
         
-        # 5. Узнаем базовую цену скина из нашего кэша
         mc_res = await supabase.get("/rest/v1/market_cache", params={"market_hash_name": f"eq.{target_name}", "select": "price_rub"})
         target_price_rub = mc_res.json()[0].get("price_rub", 50.0) if mc_res.json() else 50.0
         
-        # === 6. ПРЯМАЯ ПОКУПКА ЧЕРЕЗ МАРКЕТ ===
         try:
             TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY") 
             if not TM_API_KEY:
@@ -1297,3 +1294,26 @@ async def process_newbies_cron(request: Request, supabase: httpx.AsyncClient = D
             await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Ошибка скрипта Маркета"})
             
     return {"status": "ok"}
+
+class CleanupRequest(BaseModel):
+    start_date: str
+    end_date: str
+
+@app.get("/api/v1/admin/purchases")
+async def get_admin_purchases(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
+    res = await supabase.get("/rest/v1/twitch_reward_purchases", params={"order": "id.desc", "limit": "100"})
+    return res.json() if res.status_code == 200 else []
+
+@app.delete("/api/v1/admin/purchases/cleanup")
+async def cleanup_purchases(req: CleanupRequest, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
+    
+    res = await supabase.delete("/rest/v1/twitch_reward_purchases", params={
+        "created_at": f"gte.{req.start_date}T00:00:00Z",
+        "and": f"(created_at.lte.{req.end_date}T23:59:59Z)"
+    })
+    
+    if res.status_code in [200, 204]:
+        return {"status": "ok"}
+    raise HTTPException(status_code=400, detail=f"Ошибка БД: {res.text}")
