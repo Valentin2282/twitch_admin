@@ -169,14 +169,15 @@ BROADCASTER_REDIRECT_URI = "https://twitch-admin.vercel.app/api/v1/auth/broadcas
 
 @app.get("/api/v1/auth/broadcaster_login")
 async def broadcaster_login():
-    """Отправляет на Twitch для привязки второго аккаунта (стримера) без потери админки"""
+    """Отправляет на Twitch для привязки второго аккаунта с принудительным запросом пароля"""
     if not TWITCH_CLIENT_ID:
         raise HTTPException(status_code=500, detail="TWITCH_CLIENT_ID не настроен")
     url = (
         f"https://id.twitch.tv/oauth2/authorize?response_type=code"
         f"&client_id={TWITCH_CLIENT_ID}"
         f"&redirect_uri={BROADCASTER_REDIRECT_URI}"
-        f"&scope=user:read:email+channel:read:redemptions+channel:manage:redemptions" # Нужны права на создание наград!
+        f"&scope=user:read:email+channel:read:redemptions+channel:manage:redemptions"
+        f"&force_verify=true" # 🔥 ЭТОТ ПАРАМЕТР ЗАСТАВИТ TWITCH ЗАПРОСИТЬ ЛОГИН
     )
     return RedirectResponse(url)
 
