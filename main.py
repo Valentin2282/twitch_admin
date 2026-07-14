@@ -310,6 +310,33 @@ async def logout():
 # 📊 3. АДМИН ПАНЕЛЬ И ДАШБОРДЫ
 # ==============================================================================
 
+@app.get("/api/v1/admin/stream_status")
+async def get_stream_status(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """Читает статус стрима из таблицы settings"""
+    if not request.cookies.get("admin_session"): 
+        raise HTTPException(status_code=401)
+
+    try:
+        # Ищем оба ключа, которые могут указывать на онлайн
+        res = await supabase.get("/rest/v1/settings", params={
+            "key": "in.(twitch_stream_status,twitch_status_755238101)"
+        })
+        
+        is_online = False
+        if res.status_code == 200:
+            settings_data = res.json()
+            for item in settings_data:
+                val = item.get("value")
+                # value в jsonb может распарситься как bool или как строка
+                if val is True or val == "true" or val == True:
+                    is_online = True
+                    break
+                    
+        return {"is_online": is_online}
+    except Exception as e:
+        logging.error(f"Ошибка получения статуса стрима из БД: {e}")
+        return {"is_online": False}
+
 @app.get("/api/v1/admin/twitch_status")
 async def get_twitch_status(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     # 1. Проверяем сессию админа
