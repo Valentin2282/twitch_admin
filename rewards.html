@@ -39,11 +39,14 @@
     <main class="flex-1 content-area flex flex-col h-full overflow-hidden">
         <header class="h-14 flex items-center justify-between px-6 border-b border-zinc-800 bg-[#09090b]/80 backdrop-blur z-10">
             <h2 class="text-base font-semibold text-zinc-100">Управление триггерами и наградная отчетность</h2>
+            <a href="/api/v1/auth/broadcaster_login" class="flex items-center gap-2 px-3 py-1.5 bg-[#9146FF]/10 hover:bg-[#9146FF]/20 text-[#9146FF] border border-[#9146FF]/30 rounded text-xs font-semibold transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                Обновить токен стримера
+            </a>
         </header>
         
         <div class="flex-1 p-6 overflow-y-auto space-y-6">
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                <!-- Конфигуратор -->
                 <div class="glass-panel rounded-lg p-5 h-fit space-y-4">
                     <h3 class="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Кастомизировать награду</h3>
                     
@@ -71,7 +74,6 @@
                         </select>
                     </div>
 
-                    <!-- Выбор коробки -->
                     <div id="field-box" class="space-y-3">
                         <div>
                             <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Прикрепить Коробку (Payload)</label>
@@ -91,12 +93,25 @@
                     </div>
 
                     <div class="border-t border-zinc-800/80 pt-3 space-y-3">
-                        <h4 class="text-[11px] uppercase text-zinc-400 font-semibold tracking-wider">Умные гейты защиты</h4>
-                        <div>
-                            <label class="text-[11px] text-zinc-500 block mb-1 uppercase font-medium">Минимум сообщений за сессию</label>
-                            <input type="number" id="reward-gate-value" value="0" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-1.5 focus:outline-none">
-                        </div>
                         <div class="flex items-center justify-between">
+                            <h4 class="text-[11px] uppercase text-zinc-400 font-semibold tracking-wider">Умные гейты защиты</h4>
+                        </div>
+                        
+                        <div class="flex gap-3">
+                            <div class="flex-1">
+                                <label class="text-[11px] text-zinc-500 block mb-1 uppercase font-medium">Период</label>
+                                <select id="reward-gate-period" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-1.5 focus:outline-none">
+                                    <option value="session">За сессию</option>
+                                    <option value="week">За неделю</option>
+                                    <option value="month">За месяц</option>
+                                </select>
+                            </div>
+                            <div class="flex-1">
+                                <label class="text-[11px] text-zinc-500 block mb-1 uppercase font-medium">Минимум сообщений</label>
+                                <input type="number" id="reward-gate-value" value="0" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-1.5 focus:outline-none">
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between mt-2">
                             <span class="text-xs text-zinc-300">Авто-возврат баллов при отказе</span>
                             <input type="checkbox" id="reward-refund" checked class="rounded bg-[#09090b] border-zinc-700 text-[#9146FF] focus:ring-0">
                         </div>
@@ -105,14 +120,12 @@
                     <button onclick="createTwitchReward()" class="w-full bg-[#9146FF] hover:bg-[#7b3ad6] text-white text-xs font-semibold py-2 rounded transition-colors">Внедрить награду</button>
                 </div>
 
-                <!-- Таблица триггеров -->
                 <div class="glass-panel rounded-lg p-5 xl:col-span-2 overflow-hidden flex flex-col h-[400px]">
                     <h3 class="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2 mb-3">Активные наградные гейты</h3>
                     <div class="flex-1 overflow-auto">
                         <table class="w-full text-left border-collapse">
                             <thead class="bg-[#09090b] text-[10px] uppercase text-zinc-500 border-b border-zinc-800 sticky top-0">
                                 <tr>
-                                    <!-- 🔥 НОВАЯ КОЛОНКА КАНАЛА -->
                                     <th class="py-2 px-3">Канал</th>
                                     <th class="py-2 px-3">Название</th>
                                     <th class="py-2 px-3">Привязанная Коробка</th>
@@ -127,7 +140,6 @@
                 </div>
             </div>
 
-            <!-- ЖУРНАЛ -->
             <div class="glass-panel rounded-lg p-5">
                 <div class="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
                     <h3 class="text-sm font-semibold text-zinc-100">Журнал вызовов команды !подарок (Отчетность)</h3>
@@ -202,8 +214,7 @@
                     
                     tbody.innerHTML += `
                         <tr class="hover:bg-zinc-800/20 transition-colors">
-                            <td class="py-2 px-3 text-purple-400 font-semibold">${channelName}</td> <!-- 🔥 ДОБАВЛЕН ВЫВОД КАНАЛА -->
-                            <td class="py-2 px-3 text-zinc-200 font-medium">${r.title}</td>
+                            <td class="py-2 px-3 text-purple-400 font-semibold">${channelName}</td> <td class="py-2 px-3 text-zinc-200 font-medium">${r.title}</td>
                             <td class="py-2 px-3 text-[#9146FF] font-semibold">${boxName}</td>
                             <td class="py-2 px-3 text-center">${r.auto_steam ? '✅' : '❌'}</td>
                             <td class="py-2 px-3 text-center">
@@ -259,6 +270,7 @@
                 cost: parseInt(document.getElementById('reward-cost').value) || 100,
                 auto_steam: document.getElementById('reward-auto-steam').checked,
                 target_value: parseInt(document.getElementById('reward-gate-value').value) || 0,
+                gate_period: document.getElementById('reward-gate-period').value,
                 show_user_input: document.getElementById('reward-refund').checked,
                 linked_box_id: document.getElementById('reward-box-id').value ? parseInt(document.getElementById('reward-box-id').value) : null,
                 steam_item_name: "", 
