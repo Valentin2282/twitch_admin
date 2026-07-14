@@ -59,6 +59,24 @@
         </header>
         
         <div id="tab-dashboard" class="flex-1 p-6 overflow-y-auto space-y-4 block">
+            
+            <!-- 🔥 Блок статусов аккаунтов Twitch -->
+            <div class="glass-panel rounded-lg p-5 border-l-2 border-l-[#9146FF]">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xs uppercase tracking-wider text-zinc-300 font-semibold flex items-center gap-2">
+                        <svg class="w-4 h-4 text-[#9146FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                        Мониторинг авторизации каналов
+                    </h3>
+                    <a href="/api/v1/auth/broadcaster_login" class="px-3 py-1 bg-[#9146FF]/10 text-[#9146FF] rounded text-[10px] uppercase font-bold hover:bg-[#9146FF]/20 transition-colors border border-[#9146FF]/30">
+                        + Привязать / Обновить
+                    </a>
+                </div>
+                <div id="twitch-status-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div class="text-xs text-zinc-500">Загрузка статусов...</div>
+                </div>
+            </div>
+
+            <!-- Существующие виджеты -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div onclick="switchTab('users')" class="glass-panel rounded-lg p-5 clickable-card group relative overflow-hidden">
                     <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -281,6 +299,57 @@
             }
         }
 
+        // --- ЗАГРУЗКА СТАТУСОВ АККАУНТОВ TWITCH ---
+        async function loadTwitchStatuses() {
+            const container = document.getElementById('twitch-status-container');
+            try {
+                // Вызываем эндпоинт проверки статусов (бэкенд должен вернуть массив [{login: "x", is_valid: true/false}])
+                const response = await fetch('/api/v1/admin/twitch_status');
+                if (!response.ok) throw new Error('Endpoint not found');
+                
+                const accounts = await response.json();
+                container.innerHTML = '';
+                
+                if (accounts.length === 0) {
+                    container.innerHTML = '<div class="text-xs text-zinc-500">Нет привязанных аккаунтов.</div>';
+                    return;
+                }
+
+                accounts.forEach(acc => {
+                    const isValid = acc.is_valid;
+                    const statusIcon = isValid 
+                        ? `<div class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>` 
+                        : `<div class="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)] animate-pulse"></div>`;
+                        
+                    const statusText = isValid 
+                        ? `<span class="text-green-400 text-[10px] uppercase font-bold tracking-wide">Токен Активен</span>` 
+                        : `<a href="/api/v1/auth/broadcaster_login" class="text-red-400 text-[10px] uppercase font-bold tracking-wide hover:underline">ОБНОВИТЬ ТОКЕН</a>`;
+                        
+                    const borderClass = isValid ? 'border-zinc-800' : 'border-red-500/50 bg-red-500/5';
+
+                    container.innerHTML += `
+                        <div class="bg-[#09090b] border ${borderClass} rounded-md p-3 flex items-center justify-between transition-colors">
+                            <div class="flex items-center gap-3">
+                                ${statusIcon}
+                                <span class="font-medium text-zinc-200 truncate">@${acc.login}</span>
+                            </div>
+                            <div class="ml-2">${statusText}</div>
+                        </div>
+                    `;
+                });
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="bg-[#09090b] border border-red-500/30 rounded p-3 flex items-center justify-between w-full lg:col-span-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                            <span class="font-medium text-zinc-200">Бэкенд не вернул статусы</span>
+                        </div>
+                        <div class="text-[10px] text-zinc-500">Создайте эндпоинт /api/v1/admin/twitch_status</div>
+                    </div>
+                `;
+            }
+        }
+
         // --- ЗАГРУЗКА ДАШБОРДА ---
         async function loadDashboardStats() {
             try {
@@ -460,6 +529,8 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             loadDashboardStats();
+            loadTwitchStatuses(); // 🔥 Вызов подгрузки статусов
+            
             const savedTab = localStorage.getItem('activeAdminTab') || 'dashboard';
             // Не даем открыть вкладку rewards в settings.html
             if (savedTab === 'rewards') {
