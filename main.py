@@ -364,7 +364,6 @@ async def get_twitch_status(request: Request, supabase: httpx.AsyncClient = Depe
         
     users_data = res.json()
     
-    # 3. Функция валидации конкретного токена
     # Запрашиваем настройки статусов перед проверкой токенов
     set_res = await supabase.get("/rest/v1/settings", params={"key": "in.(twitch_stream_status,twitch_status_755238101)"})
     stream_statuses = {}
@@ -387,12 +386,6 @@ async def get_twitch_status(request: Request, supabase: httpx.AsyncClient = Depe
         if not access_token:
             return {"login": login, "is_valid": False, "is_online": is_stream_online}
             
-        val_res = await http_client.get(
-            "https://id.twitch.tv/oauth2/validate",
-            headers={"Authorization": f"OAuth {access_token}"}
-        )
-        return {"login": login, "is_valid": val_res.status_code == 200, "is_online": is_stream_online}
-            
         # Легкий запрос к Twitch для проверки жизни токена
         val_res = await http_client.get(
             "https://id.twitch.tv/oauth2/validate",
@@ -400,7 +393,7 @@ async def get_twitch_status(request: Request, supabase: httpx.AsyncClient = Depe
         )
         
         # Если статус 200 — токен жив, иначе 401 (протух)
-        return {"login": login, "is_valid": val_res.status_code == 200}
+        return {"login": login, "is_valid": val_res.status_code == 200, "is_online": is_stream_online}
         
     # 4. Проверяем все токены одновременно (параллельно), чтобы не тормозить загрузку панели
     tasks = [check_token(u) for u in users_data]
@@ -736,8 +729,10 @@ async def create_admin_twitch_reward(req: RewardCreateRequest, request: Request,
 
 @app.get("/api/v1/admin/rewards")
 async def get_admin_rewards_panel(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    try: jwt.decode(request.cookies.get("admin_session", ""), JWT_SECRET, algorithms=["HS256"])
-    except jwt.PyJWTError: raise HTTPException(status_code=401)
+    try: 
+        jwt.decode(request.cookies.get("admin_session", ""), JWT_SECRET, algorithms=["HS256"])
+    except jwt.PyJWTError: 
+        raise HTTPException(status_code=401)
 
     try:
         # 1. Тянем статусы из БД
@@ -778,6 +773,19 @@ async def get_admin_rewards_panel(request: Request, supabase: httpx.AsyncClient 
 
         if not channels_metadata:
             channels_metadata = [{"id": b, "login": f"Channel_{b}", "display_name": f"ID: {b}", "profile_image": "", "is_online": stream_statuses.get(b, False)} for b in ALLOWED_IDS]
+
+        # ЭТОТ БЛОК БЫЛ ОБРЕЗАН В ТВОЕМ СООБЩЕНИИ (ОН НУЖЕН ЧТОБЫ КОД РАБОТАЛ)
+        res_rw, res_gl = await asyncio.gather(
+            supabase.get("/rest/v1/twitch_rewards", params={"order": "id.desc"}),
+            supabase.get("/rest/v1/gift_logs", params={"order": "id.desc", "limit": "50"})
+        )
+        return {
+            "channels": channels_metadata, 
+            "rewards": res_rw.json() if res_rw.status_code == 200 else [],
+            "gift_logs": res_gl.json() if res_gl.status_code == 200 else []
+        }
+    except Exception:
+        return {"channels": [], "rewards": [], "gift_logs": []}
             
 @app.post("/api/v1/admin/rewards/toggle")
 async def toggle_admin_twitch_reward(id: int, status: bool, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
