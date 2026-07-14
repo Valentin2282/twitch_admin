@@ -5,6 +5,9 @@ import pathlib
 import time
 import asyncio
 import logging
+import re
+import base64
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, Request, Response, Depends, BackgroundTasks
 from fastapi.responses import RedirectResponse, HTMLResponse, PlainTextResponse, JSONResponse
@@ -1110,3 +1113,187 @@ async def get_box_players(
         return res.json() if res.status_code == 200 else []
     except Exception:
         return []
+
+# ==============================================================================
+# 🛒 8. ИНТЕГРАЦИЯ CS MARKET И CRON ДЛЯ НОВИЧКОВ
+# ==============================================================================
+
+class MarketCSGO:
+    def __init__(self, api_key: str, use_proxy: bool = True):
+        self.api_key = api_key
+        self.base_url = "https://cs2.market/api/v2" 
+        self.use_proxy = use_proxy
+
+    @staticmethod
+    def parse_trade_link(trade_link: str):
+        try:
+            trade_link = trade_link.strip()
+            parsed_url = urllib.parse.urlparse(trade_link)
+            query_params = urllib.parse.parse_qs(parsed_url.query)
+            raw_partner = query_params.get('partner', [None])[0]
+            raw_token = query_params.get('token', [None])[0]
+            
+            partner = re.sub(r'\D', '', str(raw_partner)) if raw_partner else None
+            token = re.sub(r'[^a-zA-Z0-9_-]', '', str(raw_token)) if raw_token else None
+            
+            if partner and token:
+                return partner, token
+            return None, None
+        except Exception:
+            return None, None
+
+    async def _make_request(self, endpoint: str, params: dict = None) -> dict:
+        if params is None: params = {}
+        params['key'] = self.api_key
+        
+        query_string = "&".join([f"{k}={urllib.parse.quote(str(v), safe='')}" for k, v in params.items()])
+        url = f"{self.base_url}/{endpoint}?{query_string}"
+        
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": '"Windows"'
+        }
+
+        PROXY_URL = "http://HatelovestreamertO5:bf0127fM6@node-ru-229.astroproxy.com:10065"
+        custom_timeout = httpx.Timeout(15.0, connect=10.0)
+
+        client_args = {"headers": headers}
+        if self.use_proxy:
+            client_args["proxy"] = PROXY_URL
+
+        async with httpx.AsyncClient(**client_args) as client:
+            try:
+                response = await client.get(url, timeout=custom_timeout)
+                if response.status_code == 200:
+                    return response.json()
+                return {"success": False, "error": f"status_{response.status_code}"}
+            except httpx.ConnectTimeout:
+                logging.warning("[MARKET] Мертвый IP прокси (ConnectTimeout).")
+                return {"success": False, "error": "timeout_limit"}
+            except httpx.ReadTimeout:
+                logging.warning("[MARKET] Маркет долго думает (ReadTimeout).")
+                return {"success": False, "error": "timeout_limit"}
+            except Exception as e:
+                logging.warning(f"[MARKET] Сбой: {e}.")
+                return {"success": False, "error": "timeout_limit"}
+
+    async def buy_for_user(self, hash_name: str, max_price_rub: float, trade_link: str, custom_id: str): 
+        partner, token = self.parse_trade_link(trade_link)
+        if not partner or not token:
+            return {"success": False, "error": "Неверная трейд-ссылка"}
+
+        if max_price_rub <= 20:
+            ceiling_rub = max_price_rub * 3.0 
+        elif max_price_rub <= 100:
+            ceiling_rub = max_price_rub * 2.0
+        else:
+            ceiling_rub = max_price_rub * 1.3
+
+        price_in_kopecks = int(ceiling_rub * 100)
+
+        params = {
+            "hash_name": hash_name,
+            "price": price_in_kopecks, 
+            "partner": partner,
+            "token": token,
+            "custom_id": custom_id
+        }
+        
+        logging.info(f"[MARKET] Прямой выкуп '{hash_name}' с бюджетом до {ceiling_rub:.2f} руб. (custom_id: {custom_id})")
+        
+        response = await self._make_request("buy-for", params)
+        
+        if isinstance(response, dict) and not response.get("success") and "error" in response:
+            err_str = response.get("error", "")
+            if err_str.startswith("status_"):
+                err_code = int(err_str.split("_")[1])
+                return {"success": False, "error": f"Маркет недоступен (HTTP {err_code})", "code": err_code}
+            elif err_str == "timeout_limit":
+                return {"success": False, "error": "Маркет завис (Таймаут)", "code": 504}
+
+        response['custom_id'] = custom_id 
+        return response
+
+
+@app.post("/api/v1/cron/process_newbies")
+async def process_newbies_cron(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # 1. Захватываем ТОЛЬКО НОВИЧКОВ (user_id IS NULL), которые ожидают выдачи.
+    res = await supabase.get("/rest/v1/twitch_reward_purchases", params={
+        "user_id": "is.null",
+        "status": "eq.Не привязан", 
+        "limit": 3,
+        "order": "id.asc"
+    })
+    
+    if res.status_code != 200 or not res.json():
+        return {"status": "ok", "message": "Нет новичков в очереди"}
+        
+    purchases = res.json()
+    
+    for p in purchases:
+        p_id = p["id"]
+        reward_id = p["reward_id"]
+        trade_link = p.get("trade_link")
+        
+        # 2. Сразу лочим заявку в БД
+        await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "В обработке"})
+        
+        # 3. Если нет трейд-ссылки
+        if not trade_link:
+            await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={
+                "status": "Ошибка: Нет ссылки", 
+                "viewed_by_admin": False
+            })
+            continue
+            
+        # 4. Узнаем, что за скин он должен получить
+        rew_res = await supabase.get("/rest/v1/twitch_rewards", params={"id": f"eq.{reward_id}", "select": "title, steam_item_name"})
+        if not rew_res.json(): continue
+        
+        target_name = rew_res.json()[0].get("steam_item_name") or rew_res.json()[0].get("title")
+        
+        # 5. Узнаем базовую цену скина из нашего кэша
+        mc_res = await supabase.get("/rest/v1/market_cache", params={"market_hash_name": f"eq.{target_name}", "select": "price_rub"})
+        target_price_rub = mc_res.json()[0].get("price_rub", 50.0) if mc_res.json() else 50.0
+        
+        # === 6. ПРЯМАЯ ПОКУПКА ЧЕРЕЗ МАРКЕТ ===
+        try:
+            TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY") 
+            if not TM_API_KEY:
+                logging.error("CSGO_MARKET_API_KEY не установлен в Vercel!")
+                await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Ошибка: Нет API ключа"})
+                continue
+                
+            market = MarketCSGO(api_key=TM_API_KEY)
+            unique_market_id = f"tw_nb_{p_id}_{int(time.time())}"
+            
+            market_res = await market.buy_for_user(
+                hash_name=target_name,
+                max_price_rub=target_price_rub,
+                trade_link=trade_link,
+                custom_id=unique_market_id
+            )
+            
+            if market_res.get("success"):
+                await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={
+                    "status": "Выдан", 
+                    "rewarded_at": datetime.now(timezone.utc).isoformat(),
+                    "viewed_by_admin": True,
+                    "viewed_by_admin_name": "Маркет (Прямая выдача)"
+                })
+            else:
+                err_msg = market_res.get("error", "Ошибка Маркета")
+                await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={
+                    "status": f"Ошибка: {err_msg}",
+                    "viewed_by_admin": False
+                })
+                
+        except Exception as e:
+            logging.error(f"Сбой Маркета: {e}")
+            await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Ошибка скрипта Маркета"})
+            
+    return {"status": "ok"}
