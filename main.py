@@ -365,13 +365,33 @@ async def get_twitch_status(request: Request, supabase: httpx.AsyncClient = Depe
     users_data = res.json()
     
     # 3. Функция валидации конкретного токена
+    # Запрашиваем настройки статусов перед проверкой токенов
+    set_res = await supabase.get("/rest/v1/settings", params={"key": "in.(twitch_stream_status,twitch_status_755238101)"})
+    stream_statuses = {}
+    if set_res.status_code == 200:
+        for s in set_res.json():
+            val = s.get("value")
+            is_on = (val is True or val == "true" or val == True)
+            if s["key"] == "twitch_status_755238101":
+                stream_statuses["755238101"] = is_on
+            elif s["key"] == "twitch_stream_status":
+                stream_statuses["883996654"] = is_on
+
+    # 3. Функция валидации конкретного токена
     async def check_token(user):
-        login = user.get("twitch_login") or f"ID:{user.get('twitch_id')}"
+        twitch_id = str(user.get('twitch_id'))
+        login = user.get("twitch_login") or f"ID:{twitch_id}"
         access_token = user.get("twitch_access_token")
+        is_stream_online = stream_statuses.get(twitch_id, False) # Забираем статус для конкретного канала
         
-        # Если токена вообще нет в базе — сразу пишем, что он протух/отсутствует
         if not access_token:
-            return {"login": login, "is_valid": False}
+            return {"login": login, "is_valid": False, "is_online": is_stream_online}
+            
+        val_res = await http_client.get(
+            "https://id.twitch.tv/oauth2/validate",
+            headers={"Authorization": f"OAuth {access_token}"}
+        )
+        return {"login": login, "is_valid": val_res.status_code == 200, "is_online": is_stream_online}
             
         # Легкий запрос к Twitch для проверки жизни токена
         val_res = await http_client.get(
@@ -720,6 +740,18 @@ async def get_admin_rewards_panel(request: Request, supabase: httpx.AsyncClient 
     except jwt.PyJWTError: raise HTTPException(status_code=401)
 
     try:
+        # 1. Тянем статусы из БД
+        set_res = await supabase.get("/rest/v1/settings", params={"key": "in.(twitch_stream_status,twitch_status_755238101)"})
+        stream_statuses = {}
+        if set_res.status_code == 200:
+            for s in set_res.json():
+                val = s.get("value")
+                is_on = (val is True or val == "true" or val == True)
+                if s["key"] == "twitch_status_755238101":
+                    stream_statuses["755238101"] = is_on
+                elif s["key"] == "twitch_stream_status":
+                    stream_statuses["883996654"] = is_on  # ID для hatelove_ttv
+
         channels_metadata = []
         token_resp = await http_client.post(
             "https://id.twitch.tv/oauth2/token",
@@ -734,25 +766,19 @@ async def get_admin_rewards_panel(request: Request, supabase: httpx.AsyncClient 
             )
             if tw_res.status_code == 200:
                 channels_metadata = [
-                    {"id": u["id"], "login": u["login"], "display_name": u["display_name"], "profile_image": u["profile_image_url"]}
+                    {
+                        "id": u["id"], 
+                        "login": u["login"], 
+                        "display_name": u["display_name"], 
+                        "profile_image": u["profile_image_url"],
+                        "is_online": stream_statuses.get(u["id"], False) # Прокидываем статус!
+                    }
                     for u in tw_res.json().get("data", [])
                 ]
 
         if not channels_metadata:
-            channels_metadata = [{"id": b, "login": f"Channel_{b}", "display_name": f"ID: {b}", "profile_image": ""} for b in ALLOWED_IDS]
-
-        res_rw, res_gl = await asyncio.gather(
-            supabase.get("/rest/v1/twitch_rewards", params={"order": "id.desc"}),
-            supabase.get("/rest/v1/gift_logs", params={"order": "id.desc", "limit": "50"})
-        )
-        return {
-            "channels": channels_metadata, 
-            "rewards": res_rw.json() if res_rw.status_code == 200 else [],
-            "gift_logs": res_gl.json() if res_gl.status_code == 200 else []
-        }
-    except Exception:
-        return {"channels": [], "rewards": [], "gift_logs": []}
-
+            channels_metadata = [{"id": b, "login": f"Channel_{b}", "display_name": f"ID: {b}", "profile_image": "", "is_online": stream_statuses.get(b, False)} for b in ALLOWED_IDS]
+            
 @app.post("/api/v1/admin/rewards/toggle")
 async def toggle_admin_twitch_reward(id: int, status: bool, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
