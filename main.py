@@ -1473,7 +1473,7 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
             logging.error(f"Сбой Маркета: {e}")
             await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Ошибка скрипта Маркета"})
             
-    return {"status": "ok"}
+    return {"status": "ok"} 
 
 class CleanupRequest(BaseModel):
     start_date: str
