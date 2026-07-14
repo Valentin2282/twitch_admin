@@ -356,15 +356,16 @@ async def handle_fossabot_guess(request: Request, background_tasks: BackgroundTa
 class RewardCreateRequest(BaseModel):
     title: str
     reward_type: str
-    broadcaster_id: str  # 🔥 НОВОЕ: ID выбранного стримера
-    linked_box_id: Optional[int] = None # 🔥 НОВОЕ: Для коробок
+    broadcaster_id: str
+    cost: int  # 🔥 НОВОЕ: Стоимость в баллах Твича
+    linked_box_id: Optional[int] = None
     steam_item_name: Optional[str] = ""
     auto_steam: Optional[bool] = False
     reward_amount: Optional[int] = 10
     target_value: Optional[int] = 0
     notify_admin: Optional[bool] = True
     show_user_input: Optional[bool] = True
-
+    
 @app.get("/api/v1/admin/rewards")
 async def get_admin_rewards_panel(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     try: jwt.decode(request.cookies.get("admin_session", ""), JWT_SECRET, algorithms=["HS256"])
@@ -452,51 +453,37 @@ async def delete_admin_twitch_reward(reward_id: int, request: Request, supabase:
 async def create_admin_twitch_reward(req: RewardCreateRequest, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
     
-    # 1. Достаем токен выбранного стримера
+    # Достаем токен выбранного стримера
     token_res = await supabase.get("/rest/v1/users", params={"twitch_id": f"eq.{req.broadcaster_id}", "select": "twitch_access_token"})
     token_data = token_res.json()
-    
     if not token_data or not token_data[0].get("twitch_access_token"):
-        raise HTTPException(status_code=400, detail="Токен стримера не найден. Стример должен привязать Twitch в боте.")
-    
+        raise HTTPException(status_code=400, detail="Токен стримера не найден.")
     broadcaster_token = token_data[0]["twitch_access_token"]
 
-    # 2. Создаем награду физически на Twitch
+    # Создаем награду на Twitch с указанной ценой
     twitch_reward_id = None
     try:
         twitch_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={req.broadcaster_id}"
-        headers = {
-            "Authorization": f"Bearer {broadcaster_token}",
-            "Client-Id": TWITCH_CLIENT_ID,
-            "Content-Type": "application/json"
-        }
-        # Устанавливаем цену в 1 балл для гибридной раздачи, или берем из формы
-        cost = 1 if req.reward_type == "skin_giveaway" else (req.reward_amount or 10)
-        twitch_payload = {
-            "title": req.title,
-            "cost": cost,
-            "is_user_input_required": req.show_user_input
-        }
-        tw_res = await http_client.post(twitch_url, headers=headers, json=twitch_payload)
+        headers = {"Authorization": f"Bearer {broadcaster_token}", "Client-Id": TWITCH_CLIENT_ID, "Content-Type": "application/json"}
         
+        tw_res = await http_client.post(twitch_url, headers=headers, json={
+            "title": req.title,
+            "cost": req.cost, # 🔥 ПЕРЕДАЕМ ЦЕНУ НА ТВИЧ
+            "is_user_input_required": req.show_user_input
+        })
         if tw_res.status_code == 200:
             twitch_reward_id = tw_res.json()["data"][0]["id"]
-        elif tw_res.status_code == 400 and "DUPLICATE_REWARD" in tw_res.text:
-            pass # Если награда уже есть на Твиче, просто продолжаем (или можно сделать парсинг её ID)
-        else:
-            logging.warning(f"Ошибка Twitch API при создании награды: {tw_res.text}")
+        elif tw_res.status_code != 400: # 400 - это скорее всего дубликат, прощаем
+            logging.warning(f"Ошибка Твича: {tw_res.text}")
     except Exception as e:
-        logging.error(f"Сбой создания награды на Twitch: {e}")
+        logging.error(f"Сбой Твича: {e}")
 
-    # 3. Сохраняем в твою БД
+    # Сохраняем в БД
     payload = req.dict(exclude_unset=True)
     payload["promocode_amount"] = req.reward_amount
     payload["condition_type"] = "twitch_messages_session" if req.target_value > 0 else "none"
     payload["is_active"] = True
-    
-    # Записываем ID созданной на Твиче награды, если она успешно создалась
-    if twitch_reward_id:
-        payload["twitch_reward_id"] = twitch_reward_id 
+    if twitch_reward_id: payload["twitch_reward_id"] = twitch_reward_id 
         
     res = await supabase.post("/rest/v1/twitch_rewards", json=payload)
     if res.status_code in [200, 201, 204]: return {"status": "success"}
@@ -505,6 +492,22 @@ async def create_admin_twitch_reward(req: RewardCreateRequest, request: Request,
 @app.post("/api/v1/admin/rewards/toggle")
 async def toggle_admin_twitch_reward(id: int, status: bool, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
+    
+    # 🔥 НОВОЕ: Выключаем награду прямо на Твиче
+    r_resp = await supabase.get("/rest/v1/twitch_rewards", params={"id": f"eq.{id}", "select": "twitch_reward_id,broadcaster_id"})
+    r_data = r_resp.json()
+    if r_data and r_data[0].get("twitch_reward_id") and r_data[0].get("broadcaster_id"):
+        b_id = r_data[0]["broadcaster_id"]
+        t_id = r_data[0]["twitch_reward_id"]
+        
+        t_resp = await supabase.get("/rest/v1/users", params={"twitch_id": f"eq.{b_id}", "select": "twitch_access_token"})
+        if t_resp.json() and t_resp.json()[0].get("twitch_access_token"):
+            b_token = t_resp.json()[0]["twitch_access_token"]
+            url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={b_id}&id={t_id}"
+            headers = {"Authorization": f"Bearer {b_token}", "Client-Id": TWITCH_CLIENT_ID, "Content-Type": "application/json"}
+            await http_client.patch(url, headers=headers, json={"is_enabled": status})
+
+    # Обновляем в БД
     await supabase.patch("/rest/v1/twitch_rewards", params={"id": f"eq.{id}"}, json={"is_active": status})
     return {"status": "ok"}
 
