@@ -232,6 +232,57 @@ async def logout():
 # 📊 3. АДМИН ПАНЕЛЬ И ДАШБОРДЫ
 # ==============================================================================
 
+@app.get("/api/v1/admin/twitch_status")
+async def get_twitch_status(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # 1. Проверяем сессию админа
+    token = request.cookies.get("admin_session")
+    if not token: 
+        raise HTTPException(status_code=401)
+    try:
+        jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401)
+
+    # Если разрешенных ID нет, возвращаем пустоту
+    if not ALLOWED_IDS:
+        return []
+
+    # 2. Достаем стримерские аккаунты из базы
+    allowed_ids_str = ",".join(ALLOWED_IDS)
+    res = await supabase.get("/rest/v1/users", params={
+        "twitch_id": f"in.({allowed_ids_str})",
+        "select": "twitch_id,twitch_login,twitch_access_token"
+    })
+    
+    if res.status_code != 200:
+        return []
+        
+    users_data = res.json()
+    
+    # 3. Функция валидации конкретного токена
+    async def check_token(user):
+        login = user.get("twitch_login") or f"ID:{user.get('twitch_id')}"
+        access_token = user.get("twitch_access_token")
+        
+        # Если токена вообще нет в базе — сразу пишем, что он протух/отсутствует
+        if not access_token:
+            return {"login": login, "is_valid": False}
+            
+        # Легкий запрос к Twitch для проверки жизни токена
+        val_res = await http_client.get(
+            "https://id.twitch.tv/oauth2/validate",
+            headers={"Authorization": f"OAuth {access_token}"}
+        )
+        
+        # Если статус 200 — токен жив, иначе 401 (протух)
+        return {"login": login, "is_valid": val_res.status_code == 200}
+        
+    # 4. Проверяем все токены одновременно (параллельно), чтобы не тормозить загрузку панели
+    tasks = [check_token(u) for u in users_data]
+    status_list = await asyncio.gather(*tasks)
+    
+    return status_list
+
 @app.get("/api/v1/admin/stats")
 async def get_admin_dashboard_stats(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
