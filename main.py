@@ -319,7 +319,7 @@ async def get_stream_status(request: Request, supabase: httpx.AsyncClient = Depe
     try:
         # Ищем оба ключа, которые могут указывать на онлайн
         res = await supabase.get("/rest/v1/settings", params={
-            "key": "in.(twitch_stream_status,twitch_status_755238101)"
+            "key": "in.(twitch_status_883996654,twitch_status_755238101)"
         })
         
         is_online = False
@@ -365,7 +365,7 @@ async def get_twitch_status(request: Request, supabase: httpx.AsyncClient = Depe
     users_data = res.json()
     
     # Запрашиваем настройки статусов перед проверкой токенов
-    set_res = await supabase.get("/rest/v1/settings", params={"key": "in.(twitch_stream_status,twitch_status_755238101)"})
+    set_res = await supabase.get("/rest/v1/settings", params={"key": "in.(twitch_status_883996654,twitch_status_755238101)"})
     stream_statuses = {}
     if set_res.status_code == 200:
         for s in set_res.json():
@@ -373,7 +373,7 @@ async def get_twitch_status(request: Request, supabase: httpx.AsyncClient = Depe
             is_on = (val is True or val == "true" or val == True)
             if s["key"] == "twitch_status_755238101":
                 stream_statuses["755238101"] = is_on
-            elif s["key"] == "twitch_stream_status":
+            elif s["key"] == "twitch_status_883996654":
                 stream_statuses["883996654"] = is_on
 
     # 3. Функция валидации конкретного токена
@@ -736,7 +736,7 @@ async def get_admin_rewards_panel(request: Request, supabase: httpx.AsyncClient 
 
     try:
         # 1. Тянем статусы из БД
-        set_res = await supabase.get("/rest/v1/settings", params={"key": "in.(twitch_stream_status,twitch_status_755238101)"})
+        set_res = await supabase.get("/rest/v1/settings", params={"key": "in.(twitch_status_883996654,twitch_status_755238101)"})
         stream_statuses = {}
         if set_res.status_code == 200:
             for s in set_res.json():
@@ -744,7 +744,7 @@ async def get_admin_rewards_panel(request: Request, supabase: httpx.AsyncClient 
                 is_on = (val is True or val == "true" or val == True)
                 if s["key"] == "twitch_status_755238101":
                     stream_statuses["755238101"] = is_on
-                elif s["key"] == "twitch_stream_status":
+                elif s["key"] == "twitch_status_883996654":
                     stream_statuses["883996654"] = is_on  # ID для hatelove_ttv
 
         channels_metadata = []
@@ -1301,12 +1301,12 @@ async def supabase_stream_status_webhook(
         key = record.get("key")
         
         # 2. Если изменили не статус стрима — игнорим и не тратим ресурсы
-        if key not in ["twitch_stream_status", "twitch_status_755238101"]:
+        if key not in ["twitch_status_883996654", "twitch_status_755238101"]:
             return {"status": "ignored", "message": "Изменен другой ключ"}
             
         # 3. Важная проверка: проверяем ОБА стрима. 
         # Вдруг один выключили, а второй еще идет? Крон должен работать!
-        set_res = await supabase.get("/rest/v1/settings", params={"key": "in.(twitch_stream_status,twitch_status_755238101)"})
+        set_res = await supabase.get("/rest/v1/settings", params={"key": "in.(twitch_status_883996654,twitch_status_755238101)"})
         
         any_online = False
         if set_res.status_code == 200:
