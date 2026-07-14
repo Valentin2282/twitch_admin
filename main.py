@@ -1221,10 +1221,56 @@ class MarketCSGO:
 @app.get("/api/v1/cron/process_newbies")
 @app.post("/api/v1/cron/process_newbies")
 async def process_newbies_cron(request: Request, cron_secret: Optional[str] = None, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # 1. Защита эндпоинта
     expected_secret = os.getenv("CRON_SECRET", "HateLavkaSecretKey")
     if cron_secret != expected_secret:
         raise HTTPException(status_code=401, detail="Unauthorized: Invalid cron_secret")
 
+    # ==========================================
+    # 🛑 УМНЫЙ ГЕЙТВЕЙ: ПРОВЕРКА ОНЛАЙНА СТРИМА
+    # ==========================================
+    if not TWITCH_CLIENT_ID or not TWITCH_CLIENT_SECRET:
+        return {"status": "error", "message": "Нет ключей Twitch для проверки онлайна"}
+
+    try:
+        # Получаем технический токен приложения Twitch
+        token_resp = await http_client.post(
+            "https://id.twitch.tv/oauth2/token",
+            data={
+                "client_id": TWITCH_CLIENT_ID, 
+                "client_secret": TWITCH_CLIENT_SECRET, 
+                "grant_type": "client_credentials"
+            }
+        )
+        if token_resp.status_code != 200:
+            logging.error(f"Twitch Auth Error: {token_resp.text}")
+            return {"status": "error", "message": "Не удалось получить токен Twitch"}
+            
+        app_token = token_resp.json()["access_token"]
+        
+        # Спрашиваем у Твича, идут ли сейчас стримы у наших ALLOWED_IDS
+        streams_resp = await http_client.get(
+            "https://api.twitch.tv/helix/streams",
+            headers={"Client-ID": TWITCH_CLIENT_ID, "Authorization": f"Bearer {app_token}"},
+            params=[("user_id", b_id) for b_id in ALLOWED_IDS]
+        )
+        
+        if streams_resp.status_code != 200:
+            logging.error(f"Twitch Stream API Error: {streams_resp.text}")
+            return {"status": "error", "message": "Ошибка проверки статуса стрима"}
+            
+        streams_data = streams_resp.json().get("data", [])
+        
+        # Если массив data пустой, значит стрим оффлайн
+        if not streams_data:
+            return {"status": "skipped", "message": "Стрим оффлайн. Выдача наград приостановлена."}
+            
+    except Exception as e:
+        logging.error(f"Сбой при проверке онлайна Твича: {e}")
+        return {"status": "error", "message": "Сбой сети при проверке онлайна"}
+    # ==========================================
+
+    # 2. Если мы дошли сюда, значит стрим ИДЕТ! Начинаем выдачу.
     res = await supabase.get("/rest/v1/twitch_reward_purchases", params={
         "status": "in.(Не привязан,Ожидает выдачи)", 
         "limit": 3,
@@ -1241,6 +1287,7 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
         reward_id = p["reward_id"]
         trade_link = p.get("trade_link")
         
+        # Сразу лочим заявку в БД
         await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "В обработке"})
         
         if not trade_link:
@@ -1250,14 +1297,17 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
             })
             continue
             
+        # Узнаем, что за скин
         rew_res = await supabase.get("/rest/v1/twitch_rewards", params={"id": f"eq.{reward_id}", "select": "title, steam_item_name"})
         if not rew_res.json(): continue
         
         target_name = rew_res.json()[0].get("steam_item_name") or rew_res.json()[0].get("title")
         
+        # Узнаем базовую цену из кэша
         mc_res = await supabase.get("/rest/v1/market_cache", params={"market_hash_name": f"eq.{target_name}", "select": "price_rub"})
         target_price_rub = mc_res.json()[0].get("price_rub", 50.0) if mc_res.json() else 50.0
         
+        # === ПРЯМАЯ ПОКУПКА ЧЕРЕЗ МАРКЕТ ===
         try:
             TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY") 
             if not TM_API_KEY:
