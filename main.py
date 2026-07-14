@@ -182,8 +182,18 @@ async def broadcaster_login():
     return RedirectResponse(url)
 
 @app.get("/api/v1/auth/broadcaster_callback")
-async def broadcaster_callback(code: str):
-    """Принимает код стримера, получает токен и кладет в БД, не меняя куки админа"""
+async def broadcaster_callback(
+    code: Optional[str] = None, 
+    error: Optional[str] = None, 
+    error_description: Optional[str] = None
+):
+    if error or not code:
+        error_msg = error_description or "Код авторизации не получен."
+        return HTMLResponse(
+            content=f"<h2 style='color:red;'>Сбой привязки канала</h2><p>{error_msg}</p>", 
+            status_code=400
+        )
+
     token_data = {
         "client_id": TWITCH_CLIENT_ID,
         "client_secret": TWITCH_CLIENT_SECRET,
@@ -194,34 +204,53 @@ async def broadcaster_callback(code: str):
     
     token_res = await http_client.post("https://id.twitch.tv/oauth2/token", data=token_data)
     if token_res.status_code != 200:
-        raise HTTPException(status_code=400, detail="Ошибка обмена кода от Twitch для стримера")
+        return HTMLResponse(content=f"<h2 style='color:red;'>Ошибка обмена кода стримера</h2><p>{token_res.text}</p>")
         
     t_json = token_res.json()
     access_token = t_json.get("access_token")
     refresh_token = t_json.get("refresh_token")
     
-    # Узнаем, какой именно аккаунт сейчас авторизовался
     user_res = await http_client.get(
         "https://api.twitch.tv/helix/users",
         headers={"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID}
     )
     
     if user_res.status_code != 200:
-        raise HTTPException(status_code=400, detail="Ошибка получения профиля стримера")
+        return HTMLResponse(content="<h2 style='color:red;'>Ошибка получения профиля канала</h2>")
         
     u_data = user_res.json().get("data", [])[0]
     twitch_id = u_data.get("id")
+    twitch_login = u_data.get("login")
     
-    # Обновляем или создаем запись в Supabase, кладем свежий токен
-    await supabase_client.post("/rest/v1/users", json={
-        "twitch_id": twitch_id,
-        "twitch_login": u_data.get("login"),
-        "twitch_access_token": access_token,
-        "twitch_refresh_token": refresh_token
-    }, headers={"Prefer": "resolution=merge-duplicates"})
+    # 🔥 ИЗМЕНЕНИЕ ЗДЕСЬ: Используем PATCH вместо POST
+    db_res = await supabase_client.patch(
+        "/rest/v1/users", 
+        params={"twitch_id": f"eq.{twitch_id}"},
+        json={
+            "twitch_login": twitch_login,
+            "twitch_access_token": access_token,
+            "twitch_refresh_token": refresh_token
+        },
+        headers={"Prefer": "return=representation"} # Просим БД вернуть обновленную строку
+    )
     
-    # Возвращаем админа обратно в панель
-    return RedirectResponse(url="/rewards")
+    # Если PATCH вернул пустой список [], значит такого twitch_id нет в таблице
+    if db_res.status_code == 200 and len(db_res.json()) == 0:
+        return HTMLResponse(
+            content=f"""
+            <div style="font-family: sans-serif; background: #09090b; color: #e4e4e7; height: 100vh; padding: 2rem;">
+                <h2 style='color:#ef4444;'>Аккаунт не найден в базе лавки!</h2>
+                <p>Twitch аккаунт <b>@{twitch_login}</b> еще не зарегистрирован в системе.</p>
+                <p>Сначала зайди с этого аккаунта в Telegram-бота и привяжи Twitch, чтобы создать профиль, а затем повтори авторизацию здесь.</p>
+                <br><a href='/rewards' style="color: #9146FF;">Вернуться назад</a>
+            </div>
+            """
+        )
+        
+    if db_res.status_code not in [200, 204]:
+        return HTMLResponse(content=f"<h2 style='color:red;'>Ошибка базы данных</h2><p>{db_res.text}</p>")
+    
+    return RedirectResponse(url="/settings")
 
 @app.get("/api/v1/auth/logout")
 async def logout():
