@@ -424,12 +424,16 @@ async def get_admin_users(
 
 @app.get("/api/v1/debug/fix_twitch_subs")
 async def fix_twitch_subs(request: Request):
+    """
+    АДМИНСКАЯ ВЕРСИЯ: Только жесткое удаление подписок. 
+    Админка не должна слушать Twitch, чтобы не было дублей!
+    """
     try:
         jwt.decode(request.cookies.get("admin_session", ""), JWT_SECRET, algorithms=["HS256"])
     except jwt.PyJWTError:
         raise HTTPException(status_code=401)
 
-    if not all([TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_WEBHOOK_SECRET, WEB_APP_URL]):
+    if not all([TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET]):
          return {"error": "Отсутствуют переменные окружения"}
 
     token_resp = await http_client.post(
@@ -439,28 +443,21 @@ async def fix_twitch_subs(request: Request):
     if token_resp.status_code != 200: return {"error": "Twitch Auth Failed"}
     
     access_token = token_resp.json()["access_token"]
-    headers = {"Client-ID": TWITCH_CLIENT_ID, "Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
-    callback_url = f"{WEB_APP_URL}/api/v1/webhooks/twitch"
+    headers = {"Client-ID": TWITCH_CLIENT_ID, "Authorization": f"Bearer {access_token}"}
 
+    # 🔥 АГРЕССИВНОЕ УДАЛЕНИЕ: Сносим ВСЕ подписки админского приложения
     subs_resp = await http_client.get("https://api.twitch.tv/helix/eventsub/subscriptions", headers=headers)
+    deleted_count = 0
+    
     if subs_resp.status_code == 200:
         for sub in subs_resp.json().get("data", []):
-            if sub["status"] != "enabled" or callback_url in sub["transport"]["callback"]:
-                await http_client.delete(f"https://api.twitch.tv/helix/eventsub/subscriptions?id={sub['id']}", headers=headers)
+            await http_client.delete(f"https://api.twitch.tv/helix/eventsub/subscriptions?id={sub['id']}", headers=headers)
+            deleted_count += 1
 
-    event_types = ["channel.channel_points_custom_reward_redemption.add", "stream.online", "stream.offline"]
-    created_subs = []
-    
-    for b_id in ALLOWED_IDS:
-        for etype in event_types:
-            payload = {
-                "type": etype, "version": "1", "condition": {"broadcaster_user_id": b_id},
-                "transport": {"method": "webhook", "callback": callback_url, "secret": TWITCH_WEBHOOK_SECRET}
-            }
-            res = await http_client.post("https://api.twitch.tv/helix/eventsub/subscriptions", headers=headers, json=payload)
-            created_subs.append({f"Channel {b_id} - {etype}": res.status_code})
-
-    return {"message": "Успех", "target_webhook": callback_url, "results": created_subs}
+    return {
+        "message": "Успех! Админский бот очищен и больше не слушает Twitch (дубли устранены).", 
+        "deleted_count": deleted_count
+    }
 
 # ==============================================================================
 # 🔥 5. ВЫДЕЛЕННЫЙ БРОНЕЖИЛЕТ FOSSABOT (МАКСИМАЛЬНАЯ СКОРОСТЬ)
