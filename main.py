@@ -1278,6 +1278,75 @@ class MarketCSGO:
         response['custom_id'] = custom_id 
         return response
 
+# ==============================================================================
+# 📡 WEBHOOK ОТ SUPABASE: АВТО-УПРАВЛЕНИЕ CRON-JOB ПРИ СМЕНЕ СТАТУСА
+# ==============================================================================
+
+@app.post("/api/v1/internal/supabase_webhook")
+async def supabase_stream_status_webhook(
+    request: Request, 
+    webhook_secret: str = "", 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Сюда бьет Supabase каждый раз, когда меняется таблица settings"""
+    
+    # 1. Защита от чужих запросов
+    expected_secret = os.getenv("WEBHOOK_SECRET", "HateLavkaSecretKey")
+    if webhook_secret != expected_secret:
+        raise HTTPException(status_code=401, detail="Неверный секретный ключ")
+        
+    try:
+        payload = await request.json()
+        record = payload.get("record", {})
+        key = record.get("key")
+        
+        # 2. Если изменили не статус стрима — игнорим и не тратим ресурсы
+        if key not in ["twitch_stream_status", "twitch_status_755238101"]:
+            return {"status": "ignored", "message": "Изменен другой ключ"}
+            
+        # 3. Важная проверка: проверяем ОБА стрима. 
+        # Вдруг один выключили, а второй еще идет? Крон должен работать!
+        set_res = await supabase.get("/rest/v1/settings", params={"key": "in.(twitch_stream_status,twitch_status_755238101)"})
+        
+        any_online = False
+        if set_res.status_code == 200:
+            for s in set_res.json():
+                val = s.get("value")
+                if val is True or val == "true" or val == True:
+                    any_online = True
+                    break
+                    
+        # 4. Управляем cron-job.org
+        cron_api_key = os.getenv("CRON_API")
+        job_id = os.getenv("CRON_JOB_ID")
+        
+        if not cron_api_key or not job_id:
+            logging.error("Нет ключей CRON_API или CRON_JOB_ID в Vercel")
+            return {"status": "error", "message": "Ключи не настроены"}
+            
+        # Отправляем PATCH запрос к API cron-job.org
+        url = f"https://api.cron-job.org/jobs/{job_id}"
+        headers = {
+            "Authorization": f"Bearer {cron_api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        # Если any_online=True, задача включится. Если False - выключится
+        cron_payload = {"job": {"enabled": any_online}}
+        cron_res = await http_client.patch(url, headers=headers, json=cron_payload)
+        
+        if cron_res.status_code == 200:
+            state = "ВКЛЮЧЕН 🟢" if any_online else "ВЫКЛЮЧЕН 🔴"
+            logging.info(f"Supabase Webhook сработал: {key}. Крон {state}!")
+            return {"status": "ok", "cron_state": any_online}
+        else:
+            logging.error(f"Ошибка cron-job.org: {cron_res.text}")
+            return {"status": "error", "message": "cron-job API error"}
+            
+    except Exception as e:
+        logging.error(f"Сбой в вебхуке Supabase: {e}")
+        return {"status": "error", "message": str(e)}
+
 
 @app.get("/api/v1/cron/process_newbies")
 @app.post("/api/v1/cron/process_newbies")
