@@ -643,6 +643,45 @@ async def create_admin_twitch_reward(req: RewardCreateRequest, request: Request,
     if res.status_code in [200, 201, 204]: return {"status": "success"}
     raise HTTPException(status_code=400, detail=res.text)
 
+@app.get("/api/v1/admin/rewards")
+async def get_admin_rewards_panel(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    try: jwt.decode(request.cookies.get("admin_session", ""), JWT_SECRET, algorithms=["HS256"])
+    except jwt.PyJWTError: raise HTTPException(status_code=401)
+
+    try:
+        channels_metadata = []
+        token_resp = await http_client.post(
+            "https://id.twitch.tv/oauth2/token",
+            data={"client_id": TWITCH_CLIENT_ID, "client_secret": TWITCH_CLIENT_SECRET, "grant_type": "client_credentials"}
+        )
+        if token_resp.status_code == 200:
+            app_token = token_resp.json()["access_token"]
+            tw_res = await http_client.get(
+                "https://api.twitch.tv/helix/users",
+                headers={"Client-ID": TWITCH_CLIENT_ID, "Authorization": f"Bearer {app_token}"},
+                params=[("id", b_id) for b_id in ALLOWED_IDS]
+            )
+            if tw_res.status_code == 200:
+                channels_metadata = [
+                    {"id": u["id"], "login": u["login"], "display_name": u["display_name"], "profile_image": u["profile_image_url"]}
+                    for u in tw_res.json().get("data", [])
+                ]
+
+        if not channels_metadata:
+            channels_metadata = [{"id": b, "login": f"Channel_{b}", "display_name": f"ID: {b}", "profile_image": ""} for b in ALLOWED_IDS]
+
+        res_rw, res_gl = await asyncio.gather(
+            supabase.get("/rest/v1/twitch_rewards", params={"order": "id.desc"}),
+            supabase.get("/rest/v1/gift_logs", params={"order": "id.desc", "limit": "50"})
+        )
+        return {
+            "channels": channels_metadata, 
+            "rewards": res_rw.json() if res_rw.status_code == 200 else [],
+            "gift_logs": res_gl.json() if res_gl.status_code == 200 else []
+        }
+    except Exception:
+        return {"channels": [], "rewards": [], "gift_logs": []}
+
 @app.post("/api/v1/admin/rewards/toggle")
 async def toggle_admin_twitch_reward(id: int, status: bool, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
