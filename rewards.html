@@ -43,6 +43,7 @@
         
         <div class="flex-1 p-6 overflow-y-auto space-y-6">
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <!-- Конфигуратор -->
                 <div class="glass-panel rounded-lg p-5 h-fit space-y-4">
                     <h3 class="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2">Кастомизировать награду</h3>
                     
@@ -70,6 +71,7 @@
                         </select>
                     </div>
 
+                    <!-- Выбор коробки -->
                     <div id="field-box" class="space-y-3">
                         <div>
                             <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Прикрепить Коробку (Payload)</label>
@@ -103,12 +105,15 @@
                     <button onclick="createTwitchReward()" class="w-full bg-[#9146FF] hover:bg-[#7b3ad6] text-white text-xs font-semibold py-2 rounded transition-colors">Внедрить награду</button>
                 </div>
 
+                <!-- Таблица триггеров -->
                 <div class="glass-panel rounded-lg p-5 xl:col-span-2 overflow-hidden flex flex-col h-[400px]">
                     <h3 class="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2 mb-3">Активные наградные гейты</h3>
                     <div class="flex-1 overflow-auto">
                         <table class="w-full text-left border-collapse">
                             <thead class="bg-[#09090b] text-[10px] uppercase text-zinc-500 border-b border-zinc-800 sticky top-0">
                                 <tr>
+                                    <!-- 🔥 НОВАЯ КОЛОНКА КАНАЛА -->
+                                    <th class="py-2 px-3">Канал</th>
                                     <th class="py-2 px-3">Название</th>
                                     <th class="py-2 px-3">Привязанная Коробка</th>
                                     <th class="py-2 px-3 text-center">Auto Steam</th>
@@ -122,6 +127,7 @@
                 </div>
             </div>
 
+            <!-- ЖУРНАЛ -->
             <div class="glass-panel rounded-lg p-5">
                 <div class="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
                     <h3 class="text-sm font-semibold text-zinc-100">Журнал вызовов команды !подарок (Отчетность)</h3>
@@ -175,19 +181,28 @@
                 
                 const channelSelect = document.getElementById('reward-channel');
                 channelSelect.innerHTML = '';
+                
+                // 🔥 СОЗДАЕМ КАРТУ КАНАЛОВ ДЛЯ ТАБЛИЦЫ
+                const channelMap = {};
                 data.channels.forEach(ch => {
                     channelSelect.innerHTML += `<option value="${ch.id}">🟣 ${ch.display_name} (${ch.login})</option>`;
+                    channelMap[ch.id] = ch.display_name;
                 });
 
                 tbody.innerHTML = '';
                 data.rewards.forEach(r => {
-                    // 🔥 НОВОЕ: Клибальный тумблер статуса!
                     const statusClass = r.is_active ? 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20' : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/30 hover:bg-zinc-500/20';
                     const statusText = r.is_active ? 'ACTIVE' : 'DISABLED';
                     const boxName = r.linked_box_id ? `Коробка #${r.linked_box_id}` : '—';
                     
+                    // 🔥 ОПРЕДЕЛЯЕМ ИМЯ КАНАЛА ДЛЯ ТАБЛИЦЫ
+                    const channelName = r.broadcaster_id && channelMap[r.broadcaster_id] 
+                        ? channelMap[r.broadcaster_id] 
+                        : 'Общий / Старый';
+                    
                     tbody.innerHTML += `
                         <tr class="hover:bg-zinc-800/20 transition-colors">
+                            <td class="py-2 px-3 text-purple-400 font-semibold">${channelName}</td> <!-- 🔥 ДОБАВЛЕН ВЫВОД КАНАЛА -->
                             <td class="py-2 px-3 text-zinc-200 font-medium">${r.title}</td>
                             <td class="py-2 px-3 text-[#9146FF] font-semibold">${boxName}</td>
                             <td class="py-2 px-3 text-center">${r.auto_steam ? '✅' : '❌'}</td>
@@ -222,7 +237,6 @@
             } catch (e) {}
         }
 
-        // 🔥 НОВАЯ ФУНКЦИЯ ПЕРЕКЛЮЧЕНИЯ СТАТУСА
         async function toggleTwitchReward(id, status) {
             try {
                 const res = await fetch(`/api/v1/admin/rewards/toggle?id=${id}&status=${status}`, { method: 'POST' });
@@ -242,7 +256,7 @@
                 title: document.getElementById('reward-title').value,
                 broadcaster_id: document.getElementById('reward-channel').value, 
                 reward_type: document.getElementById('reward-type').value,
-                cost: parseInt(document.getElementById('reward-cost').value) || 100, // 🔥 НОВОЕ: Передаем цену с формы
+                cost: parseInt(document.getElementById('reward-cost').value) || 100,
                 auto_steam: document.getElementById('reward-auto-steam').checked,
                 target_value: parseInt(document.getElementById('reward-gate-value').value) || 0,
                 show_user_input: document.getElementById('reward-refund').checked,
