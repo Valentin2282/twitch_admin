@@ -1378,9 +1378,45 @@ async def create_admin_raffle(req: RaffleCreateRequest, request: Request, supaba
 
 @app.get("/api/v1/admin/raffles/list")
 async def get_admin_raffles(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
-    res = await supabase.get("/rest/v1/raffles", params={"order": "id.desc", "limit": "20"})
-    return res.json() if res.status_code == 200 else []
+    if not request.cookies.get("admin_session"): 
+        raise HTTPException(status_code=401)
+    
+    # 1. Получаем список розыгрышей (лимит можно увеличить, чтобы статистика считалась точнее)
+    res = await supabase.get("/rest/v1/raffles", params={"order": "id.desc", "limit": "100"})
+    if res.status_code != 200:
+        return []
+        
+    raffles = res.json()
+    if not raffles:
+        return []
+
+    # 2. Собираем уникальные названия скинов для поиска картинок
+    titles = list(set(r.get("title") for r in raffles if r.get("title")))
+    
+    if titles:
+        # Формируем строку для in. запроса PostgREST: ("Скин 1","Скин 2")
+        titles_escaped = ",".join(f'"{t}"' for t in titles)
+        
+        # 3. Запрашиваем картинки из кэша
+        cache_res = await supabase.get(
+            "/rest/v1/market_cache", 
+            params={
+                "select": "market_hash_name,image_url",
+                "market_hash_name": f"in.({titles_escaped})"
+            }
+        )
+        
+        if cache_res.status_code == 200:
+            # Создаем словарь { "Название скина": "Ссылка на картинку" }
+            images_map = {item["market_hash_name"]: item["image_url"] for item in cache_res.json()}
+            
+            # 4. Раздаем картинки розыгрышам
+            for r in raffles:
+                # Если в самом розыгрыше картинки нет, берем из кэша
+                if not r.get("image_url"):
+                    r["image_url"] = images_map.get(r.get("title"))
+
+    return raffles
      
 # =========================================================================
 # ⚙️ 2. СКРЫТЫЙ ЭНДПОИНТ-ВОРКЕР (Спокойно закупает скин за 10 секунд)
