@@ -1390,46 +1390,59 @@ async def get_admin_raffles(request: Request, supabase: httpx.AsyncClient = Depe
     if not raffles:
         return []
 
-    # 2. Собираем уникальные названия скинов
-    titles = list(set(r.get("title") for r in raffles if r.get("title")))
+    # 2. Собираем уникальные названия скинов.
+    # .split(" (")[0] отсечет износ, если ты его случайно написал при создании (например "AK-47 | Redline (FT)")
+    titles = list(set(r.get("title").split(" (")[0] for r in raffles if r.get("title")))
     
     if titles:
-        # 3. Собираем фильтр для поиска по подстроке (ilike)
-        # Ограничиваем до 50 уникальных скинов за раз, чтобы URL запрос не получился слишком длинным
-        or_conditions = []
-        for t in titles[:50]:
-            safe_t = t.replace('"', '""') # Экранируем кавычки, если они есть
-            # PostgREST синтаксис: market_hash_name.ilike."*Название скина*"
-            or_conditions.append(f'market_hash_name.ilike."*{safe_t}*"')
+        search_names = []
+        # Наиболее частые износы в Steam + пустая строка (для наклеек и кейсов)
+        wears = [
+            "", 
+            " (Field-Tested)", 
+            " (Minimal Wear)", 
+            " (Factory New)", 
+            " (Well-Worn)", 
+            " (Battle-Scarred)"
+        ]
         
-        or_param = f"({','.join(or_conditions)})"
+        # Генерируем точные имена для Primary Key (в разы быстрее любого поиска)
+        for t in titles:
+            for w in wears:
+                search_names.append(f'"{t}{w}"')
         
-        # 4. Запрашиваем картинки (найдет любые качества скина: FN, MW, FT и т.д.)
-        cache_res = await supabase.get(
-            "/rest/v1/market_cache", 
-            params={
-                "select": "market_hash_name,image_url",
-                "or": or_param,
-                "limit": "200" # Берем с запасом, так как на 1 скин может быть 5 качеств
-            }
-        )
+        images_map = {}
         
-        if cache_res.status_code == 200:
-            cache_data = cache_res.json()
+        # Разбиваем на порции по 150 штук, чтобы не перегрузить длину URL-адреса
+        chunk_size = 150
+        for i in range(0, len(search_names), chunk_size):
+            chunk = search_names[i:i+chunk_size]
+            names_str = ",".join(chunk)
             
-            # 5. Раздаем картинки
-            for r in raffles:
-                if not r.get("image_url") and r.get("title"):
-                    search_title = r["title"].lower()
-                    # Ищем первую попавшуюся картинку, в названии которой есть имя нашего розыгрыша
-                    match = next((
-                        item["image_url"] 
-                        for item in cache_data 
-                        if item.get("image_url") and search_title in item["market_hash_name"].lower()
-                    ), None)
-                    
-                    if match:
-                        r["image_url"] = match
+            # Бьем прямо в индекс Primary Key. Лимиты тут не нужны.
+            cache_res = await supabase.get(
+                "/rest/v1/market_cache", 
+                params={
+                    "select": "market_hash_name,image_url",
+                    "market_hash_name": f"in.({names_str})"
+                }
+            )
+            
+            if cache_res.status_code == 200:
+                for item in cache_res.json():
+                    if item.get("image_url"):
+                        # Отрезаем износ у найденного скина, чтобы получить базовое имя
+                        base_name = item["market_hash_name"].split(" (")[0]
+                        # Сохраняем первую найденную картинку
+                        if base_name not in images_map:
+                            images_map[base_name] = item["image_url"]
+                            
+        # 3. Раздаем картинки нашим розыгрышам
+        for r in raffles:
+            if not r.get("image_url") and r.get("title"):
+                base_title = r["title"].split(" (")[0]
+                if base_title in images_map:
+                    r["image_url"] = images_map[base_title]
 
     return raffles
 
