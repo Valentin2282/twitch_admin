@@ -4,10 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MAX Admin - Розыгрыши</title>
-    <!-- Подключаем Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Кастомный скроллбар */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #18181b; }
         ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
@@ -16,12 +14,11 @@
 </head>
 <body class="bg-zinc-950 text-zinc-100 h-screen flex overflow-hidden font-sans">
 
-    <!-- Боковое меню (Сайдбар) -->
+    <!-- Боковое меню -->
     <aside class="w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col">
         <div class="h-16 flex items-center px-6 border-b border-zinc-800">
             <span class="text-xl font-bold tracking-wider text-white">MAX <span class="text-blue-500">PANEL</span></span>
         </div>
-
         <nav class="flex-1 px-3 py-5 space-y-1">
             <a href="/dashboard" class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium hover:bg-zinc-800/50 hover:text-zinc-100">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
@@ -36,7 +33,6 @@
                 Розыгрыши
             </a>
         </nav>
-        
         <div class="p-4 border-t border-zinc-800 text-sm text-zinc-500">
             HATElavka © 2026
         </div>
@@ -44,213 +40,172 @@
 
     <!-- Основной контент -->
     <main class="flex-1 overflow-y-auto relative">
-        <!-- Шапка -->
-        <header class="h-16 flex items-center justify-between px-8 border-b border-zinc-800 bg-zinc-950/50 backdrop-blur-sm sticky top-0 z-10">
-            <h1 class="text-2xl font-semibold text-zinc-100">Управление розыгрышами</h1>
-            <button onclick="toggleModal('createRaffleModal')" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md font-medium transition-colors flex items-center gap-2">
+        <header class="h-16 flex items-center justify-between px-8 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-10">
+            <h1 class="text-2xl font-semibold text-zinc-100">Активные розыгрыши</h1>
+            <button onclick="toggleModal('createRaffleModal')" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md font-medium transition-colors flex items-center gap-2 shadow-lg shadow-blue-500/20">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                 Создать розыгрыш
             </button>
         </header>
 
         <div class="p-8 max-w-7xl mx-auto space-y-8">
-            
-            <!-- Статистика / Сводка -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-                    <div class="text-zinc-400 text-sm mb-1">Активных розыгрышей</div>
-                    <div class="text-3xl font-bold text-blue-500" id="stat-active">0</div>
+            <!-- Статистика (Только активные) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-sm">
+                    <div class="text-zinc-400 text-sm mb-2 uppercase tracking-wider font-semibold">Розыгрышей в процессе</div>
+                    <div class="text-4xl font-bold text-blue-500" id="stat-active">0</div>
                 </div>
-                <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-                    <div class="text-zinc-400 text-sm mb-1">Участников (всего)</div>
-                    <div class="text-3xl font-bold text-zinc-100" id="stat-total">-</div>
-                </div>
-                <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-                    <div class="text-zinc-400 text-sm mb-1">Завершено розыгрышей</div>
-                    <div class="text-3xl font-bold text-zinc-100" id="stat-prizes">0</div>
+                <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-sm">
+                    <div class="text-zinc-400 text-sm mb-2 uppercase tracking-wider font-semibold">Участвует людей</div>
+                    <div class="text-4xl font-bold text-zinc-100" id="stat-total">0</div>
                 </div>
             </div>
 
-            <!-- Список розыгрышей (Сетка) -->
-            <div>
-                <h2 class="text-lg font-medium text-zinc-100 mb-4">Активные розыгрыши</h2>
-                
-                <!-- Плитка по 3 колонки на больших экранах -->
-                <div id="raffles-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <!-- Заглушка загрузки -->
-                    <div class="col-span-full p-12 text-center text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-lg">
-                        <span class="animate-pulse">Загрузка розыгрышей...</span>
-                    </div>
+            <!-- Сетка скинов (3 в ряд) -->
+            <div id="raffles-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="col-span-full p-12 text-center text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-xl">
+                    <span class="animate-pulse">Загрузка данных из БД...</span>
                 </div>
             </div>
         </div>
     </main>
 
-    <!-- Модальное окно создания розыгрыша -->
+    <!-- Модальное окно создания -->
     <div id="createRaffleModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
-        <!-- Фон затемнения -->
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="toggleModal('createRaffleModal')"></div>
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="toggleModal('createRaffleModal')"></div>
         
-        <!-- Контент модалки -->
         <div class="relative bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl w-full max-w-lg p-6 m-4">
-            <div class="flex justify-between items-center mb-5">
-                <h2 class="text-xl font-bold text-white">Новый розыгрыш</h2>
-                <button onclick="toggleModal('createRaffleModal')" class="text-zinc-400 hover:text-white">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-white">Запуск нового розыгрыша</h2>
+                <button onclick="toggleModal('createRaffleModal')" class="text-zinc-400 hover:text-white transition">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
 
             <form action="/api/v1/admin/raffles/create" method="POST" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-zinc-400 mb-1">Название приза</label>
-                    <input type="text" name="title" placeholder="Например: AK-47 | Redline" class="w-full bg-zinc-950 border border-zinc-800 text-zinc-100 rounded-md px-4 py-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" required>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-zinc-400 mb-1">URL картинки (необязательно)</label>
-                    <input type="url" name="image_url" placeholder="https://.../image.png" class="w-full bg-zinc-950 border border-zinc-800 text-zinc-100 rounded-md px-4 py-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    <label class="block text-sm font-medium text-zinc-400 mb-1">Точное название скина (market_hash_name)</label>
+                    <input type="text" name="title" placeholder="Например: Zeus x27 | Swamp DDPAT (Well-Worn)" class="w-full bg-zinc-950 border border-zinc-800 text-zinc-100 rounded-md px-4 py-2.5 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" required>
+                    <p class="text-xs text-zinc-500 mt-1">Картинка подтянется автоматически из market_cache</p>
                 </div>
                 
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-2 gap-4 mt-2">
                     <div>
-                        <label class="block text-sm font-medium text-zinc-400 mb-1">Количество победителей</label>
-                        <input type="number" name="winners_count" value="1" min="1" class="w-full bg-zinc-950 border border-zinc-800 text-zinc-100 rounded-md px-4 py-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                        <label class="block text-sm font-medium text-zinc-400 mb-1">Кол-во победителей</label>
+                        <input type="number" name="winners_count" value="1" min="1" class="w-full bg-zinc-950 border border-zinc-800 text-zinc-100 rounded-md px-4 py-2.5 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-zinc-400 mb-1">Длительность (мин)</label>
-                        <input type="number" name="duration" value="60" min="1" class="w-full bg-zinc-950 border border-zinc-800 text-zinc-100 rounded-md px-4 py-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                        <input type="number" name="duration" value="60" min="1" class="w-full bg-zinc-950 border border-zinc-800 text-zinc-100 rounded-md px-4 py-2.5 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-zinc-400 mb-1">Условия (необязательно)</label>
-                    <textarea name="description" rows="2" placeholder="Быть на стриме..." class="w-full bg-zinc-950 border border-zinc-800 text-zinc-100 rounded-md px-4 py-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none"></textarea>
-                </div>
-
                 <div class="pt-4 flex justify-end gap-3 border-t border-zinc-800 mt-6">
-                    <button type="button" onclick="toggleModal('createRaffleModal')" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-md font-medium transition">Отмена</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-medium transition shadow-lg shadow-blue-500/20">Запустить</button>
+                    <button type="button" onclick="toggleModal('createRaffleModal')" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-md font-medium transition">Отмена</button>
+                    <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-medium transition shadow-lg shadow-blue-500/20">Запустить</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Скрипт для модалки -->
     <script>
         function toggleModal(modalID) {
-            const modal = document.getElementById(modalID);
-            if (modal.classList.contains('hidden')) {
-                modal.classList.remove('hidden');
-            } else {
-                modal.classList.add('hidden');
-            }
+            document.getElementById(modalID).classList.toggle('hidden');
         }
-    </script>
 
-    <!-- Скрипт загрузки и рендера MAX -->
-    <script>
-    document.addEventListener("DOMContentLoaded", async () => {
-        try {
-            const response = await fetch('/api/v1/admin/raffles/list');
-            if (!response.ok) throw new Error('Ошибка загрузки');
-            
-            const raffles = await response.json();
-            const container = document.getElementById('raffles-container');
-            
-            if (!raffles || raffles.length === 0) {
-                container.innerHTML = `
-                    <div class="col-span-full p-12 text-center text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-lg">
-                        Пока нет ни одного розыгрыша. Создайте первый!
-                    </div>`;
-                return;
-            }
-
-            container.innerHTML = '';
-            let activeCount = 0;
-            let completedCount = 0;
-            let totalParticipants = 0;
-
-            // 1. Сначала считаем статистику по всем розыгрышам (включая завершенные)
-            raffles.forEach(raffle => {
-                if (raffle.status === 'active') activeCount++;
-                else completedCount++;
-                totalParticipants += (raffle.participants_count || 0);
-            });
-
-            // Обновляем статистику наверху
-            document.getElementById('stat-active').textContent = activeCount;
-            document.getElementById('stat-total').textContent = totalParticipants;
-            document.getElementById('stat-prizes').textContent = completedCount;
-
-            // 2. Отрисовываем ТОЛЬКО активные розыгрыши
-            const activeRaffles = raffles.filter(r => r.status === 'active');
-
-            if (activeRaffles.length === 0) {
-                container.innerHTML = `
-                    <div class="col-span-full p-12 text-center text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-lg">
-                        В данный момент нет активных розыгрышей.
-                    </div>`;
-                return;
-            }
-
-            activeRaffles.forEach(raffle => {
-                // Если картинки нет в базе (image_url или image), ставим красивую заглушку
-                const imageUrl = raffle.image_url || raffle.image || 'https://placehold.co/400x300/27272a/71717a?text=Нет+фото';
+        document.addEventListener("DOMContentLoaded", async () => {
+            try {
+                const response = await fetch('/api/v1/admin/raffles/list');
+                if (!response.ok) throw new Error('Network response was not ok');
                 
-                // Форматируем дату конца
-                const endDate = raffle.end_time ? new Date(raffle.end_time).toLocaleString('ru-RU', {
-                    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
-                }) : 'Неизвестно';
+                const allRaffles = await response.json();
+                const container = document.getElementById('raffles-container');
+                
+                // Фильтруем: оставляем ТОЛЬКО активные розыгрыши (завершенные нам не нужны вообще)
+                const activeRaffles = allRaffles.filter(r => r.status === 'active');
 
-                const html = `
-                <div class="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden flex flex-col hover:border-zinc-700 transition-colors group shadow-lg">
+                if (!activeRaffles || activeRaffles.length === 0) {
+                    container.innerHTML = `
+                        <div class="col-span-full p-12 text-center text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-xl">
+                            В данный момент нет активных розыгрышей.
+                        </div>`;
+                    document.getElementById('stat-active').textContent = '0';
+                    document.getElementById('stat-total').textContent = '0';
+                    return;
+                }
+
+                container.innerHTML = '';
+                let totalParticipants = 0;
+
+                activeRaffles.forEach(raffle => {
+                    const participants = raffle.participants_count || 0;
+                    totalParticipants += participants;
+
+                    // Картинка отдается приоритетом. Если с бэка не пришла, ставим красивую заглушку MAX
+                    const imageUrl = raffle.image_url || 'https://placehold.co/400x300/18181b/3f3f46?text=Image+Not+Found';
                     
-                    <!-- Блок с картинкой -->
-                    <div class="h-48 bg-zinc-800 relative flex items-center justify-center p-4 border-b border-zinc-800">
-                        <img src="${imageUrl}" alt="${raffle.title}" class="max-h-full max-w-full object-contain filter drop-shadow-md group-hover:scale-105 transition-transform duration-300">
-                        <div class="absolute top-3 right-3">
-                            <span class="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded shadow">АКТИВЕН</span>
-                        </div>
-                    </div>
+                    const endDate = raffle.end_time ? new Date(raffle.end_time).toLocaleString('ru-RU', {
+                        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                    }) : '—';
 
-                    <!-- Контент карточки -->
-                    <div class="p-5 flex-1 flex flex-col">
-                        <h3 class="text-lg font-bold text-zinc-100 mb-3 truncate" title="${raffle.title}">${raffle.title}</h3>
+                    const html = `
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden flex flex-col hover:border-zinc-700 hover:shadow-xl transition-all group relative">
                         
-                        <div class="text-sm text-zinc-400 space-y-2 mb-6 flex-1">
-                            <div class="flex justify-between items-center bg-zinc-950/50 p-2 rounded">
-                                <span>Участников:</span>
-                                <strong class="text-zinc-100 text-base">${raffle.participants_count || 0}</strong>
-                            </div>
-                            <div class="flex justify-between items-center p-2">
-                                <span>Конец:</span>
-                                <strong class="text-zinc-200">${endDate}</strong>
+                        <!-- Блок с картинкой (Главный акцент) -->
+                        <div class="h-56 bg-gradient-to-b from-zinc-800/80 to-zinc-900 relative flex items-center justify-center p-6 border-b border-zinc-800 overflow-hidden">
+                            <!-- Фоновое свечение -->
+                            <div class="absolute inset-0 bg-blue-500/5 blur-3xl rounded-full scale-150"></div>
+                            
+                            <img src="${imageUrl}" alt="${raffle.title}" class="relative z-10 max-h-full max-w-full object-contain filter drop-shadow-2xl group-hover:scale-110 transition-transform duration-500 ease-out">
+                            
+                            <div class="absolute top-3 right-3 z-20">
+                                <span class="bg-zinc-900/80 text-blue-400 border border-blue-500/30 text-xs font-bold px-3 py-1.5 rounded-md backdrop-blur-md shadow-lg flex items-center gap-2">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                                    АКТИВЕН
+                                </span>
                             </div>
                         </div>
 
-                        <!-- Кнопки управления -->
-                        <div class="flex gap-2 mt-auto">
-                            <button class="flex-1 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm font-medium rounded transition">Управление</button>
-                            <button class="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded transition" title="Завершить досрочно">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                            </button>
+                        <!-- Информация -->
+                        <div class="p-5 flex-1 flex flex-col bg-zinc-900">
+                            <h3 class="text-lg font-bold text-zinc-100 mb-4 line-clamp-2" title="${raffle.title}">${raffle.title}</h3>
+                            
+                            <div class="space-y-2 mb-6 flex-1">
+                                <div class="flex justify-between items-center bg-zinc-950/50 px-3 py-2 rounded-lg border border-zinc-800/50">
+                                    <span class="text-sm text-zinc-500">Участников</span>
+                                    <strong class="text-zinc-100">${participants}</strong>
+                                </div>
+                                <div class="flex justify-between items-center bg-zinc-950/50 px-3 py-2 rounded-lg border border-zinc-800/50">
+                                    <span class="text-sm text-zinc-500">Завершение</span>
+                                    <strong class="text-zinc-300 text-sm">${endDate}</strong>
+                                </div>
+                            </div>
+
+                            <!-- Кнопки -->
+                            <div class="flex gap-2 mt-auto">
+                                <button class="flex-1 px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm font-medium rounded-lg transition-colors border border-zinc-700/50">Управление</button>
+                                <button class="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-colors flex items-center justify-center" title="Завершить досрочно">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
+                    `;
+                    container.innerHTML += html;
+                });
 
-                </div>
+                document.getElementById('stat-active').textContent = activeRaffles.length;
+                document.getElementById('stat-total').textContent = totalParticipants;
+
+            } catch (e) {
+                console.error(e);
+                document.getElementById('raffles-container').innerHTML = `
+                    <div class="col-span-full p-12 text-center text-red-400 bg-zinc-900 border border-zinc-800 rounded-xl">
+                        Ошибка загрузки данных. Проверьте консоль.
+                    </div>
                 `;
-                container.innerHTML += html;
-            });
-
-        } catch (e) {
-            console.error(e);
-            document.getElementById('raffles-container').innerHTML = `
-                <div class="col-span-full p-12 text-center text-red-400 bg-zinc-900 border border-zinc-800 rounded-lg">
-                    Ошибка загрузки данных из базы. Убедитесь, что сервер работает.
-                </div>
-            `;
-        }
-    });
+            }
+        });
     </script>
 </body>
 </html>
