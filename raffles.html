@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAX Admin - Розыгрыши</title>
+    <!-- Подключаем Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Кастомный скроллбар для эстетики */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #18181b; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 h-screen flex overflow-hidden font-sans">
+
+    <!-- Боковое меню (Сайдбар) -->
+    <aside class="w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col">
+        <div class="h-16 flex items-center px-6 border-b border-zinc-800">
+            <span class="text-xl font-bold tracking-wider text-white">MAX <span class="text-blue-500">PANEL</span></span>
+        </div>
+
+        <nav class="flex-1 px-3 py-5 space-y-1">
+            <a href="/dashboard" class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium hover:bg-zinc-800/50 hover:text-zinc-100">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                Дашборд
+            </a>
+            <a href="/rewards" class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium hover:bg-zinc-800/50 hover:text-zinc-100">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Награды Twitch
+            </a>
+            <a href="/raffles" class="nav-item active w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-100 font-medium bg-zinc-800 block">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                Розыгрыши
+            </a>
+        </nav>
+        
+        <div class="p-4 border-t border-zinc-800 text-sm text-zinc-500">
+            HATElavka © 2026
+        </div>
+    </aside>
+
+    <!-- Основной контент -->
+    <main class="flex-1 overflow-y-auto relative">
+        <!-- Шапка -->
+        <header class="h-16 flex items-center justify-between px-8 border-b border-zinc-800 bg-zinc-950/50 backdrop-blur-sm sticky top-0 z-10">
+            <h1 class="text-2xl font-semibold text-zinc-100">Управление розыгрышами</h1>
+            <button onclick="toggleModal('createRaffleModal')" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md font-medium transition-colors flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Создать розыгрыш
+            </button>
+        </header>
+
+        <div class="p-8 max-w-7xl mx-auto space-y-8">
+            
+            <!-- Статистика / Сводка -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
+                    <div class="text-zinc-400 text-sm mb-1">Активных розыгрышей</div>
+                    <div class="text-3xl font-bold text-zinc-100">2</div>
+                </div>
+                <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
+                    <div class="text-zinc-400 text-sm mb-1">Всего участников</div>
+                    <div class="text-3xl font-bold text-zinc-100">1,204</div>
+                </div>
+                <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
+                    <div class="text-zinc-400 text-sm mb-1">Раздано призов</div>
+                    <div class="text-3xl font-bold text-zinc-100">45</div>
+                </div>
+            </div>
+
+            <!-- Список розыгрышей -->
+            <div class="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
+                    <h2 class="text-lg font-medium text-zinc-100">Текущие и недавние розыгрыши</h2>
+                </div>
+                
+                <div class="divide-y divide-zinc-800">
+                    
+                    <!-- Карточка розыгрыша (Активный) -->
+                    <div class="p-6 flex flex-col md:flex-row gap-6 items-start md:items-center justify-between hover:bg-zinc-800/30 transition-colors">
+                        <div class="flex items-center gap-5">
+                            <div class="w-16 h-16 rounded bg-zinc-800 flex items-center justify-center flex-shrink-0 border border-zinc-700">
+                                <!-- Заглушка под картинку скина/приза -->
+                                <span class="text-2xl">🔫</span>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-3 mb-1">
+                                    <h3 class="text-lg font-semibold text-zinc-100">AK-47 | Redline (FT)</h3>
+                                    <span class="bg-green-500/10 text-green-400 text-xs font-medium px-2.5 py-0.5 rounded border border-green-500/20">Активен</span>
+                                </div>
+                                <div class="text-sm text-zinc-400 flex gap-4">
+                                    <span>Участников: <strong class="text-zinc-200">342</strong></span>
+                                    <span>Конец: <strong class="text-zinc-200">через 2 часа</strong></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2 w-full md:w-auto">
+                            <button class="flex-1 md:flex-none px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm font-medium rounded transition">Управление</button>
+                            <button class="flex-1 md:flex-none px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-sm font-medium rounded transition">Завершить досрочно</button>
+                        </div>
+                    </div>
+
+                    <!-- Карточка розыгрыша (Завершенный) -->
+                    <div class="p-6 flex flex-col md:flex-row gap-6 items-start md:items-center justify-between hover:bg-zinc-800/30 transition-colors opacity-75">
+                        <div class="flex items-center gap-5">
+                            <div class="w-16 h-16 rounded bg-zinc-800 flex items-center justify-center flex-shrink-0 border border-zinc-700">
+                                <span class="text-2xl">🔪</span>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-3 mb-1">
+                                    <h3 class="text-lg font-semibold text-zinc-100">Керамбит | Убийство</h3>
+                                    <span class="bg-zinc-500/10 text-zinc-400 text-xs font-medium px-2.5 py-0.5 rounded border border-zinc-500/20">Завершен</span>
+                                </div>
+                                <div class="text-sm text-zinc-400 flex gap-4">
+                                    <span>Участников: <strong class="text-zinc-200">856</strong></span>
+                                    <span>Победитель: <strong class="text-blue-400">@randomviewer</strong></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2 w-full md:w-auto">
+                            <button class="flex-1 md:flex-none px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm font-medium rounded transition">Результаты</button>
+                            <button class="flex-1 md:flex-none px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm font-medium rounded transition" title="Реролл победителя">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Модальное окно создания розыгрыша (Скрыто по умолчанию) -->
+    <div id="createRaffleModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+        <!-- Фон затемнения -->
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="toggleModal('createRaffleModal')"></div>
+        
+        <!-- Контент модалки -->
+        <div class="relative bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl w-full max-w-lg p-6 m-4">
+            <div class="flex justify-between items-center mb-5">
+                <h2 class="text-xl font-bold text-white">Новый розыгрыш</h2>
+                <button onclick="toggleModal('createRaffleModal')" class="text-zinc-400 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <form action="/api/raffles/create" method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-zinc-400 mb-1">Название приза</label>
+                    <input type="text" name="title" placeholder="Например: M4A1-S | Сайрекс" class="w-full bg-zinc-950 border border-zinc-800 text-zinc-100 rounded-md px-4 py-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" required>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-zinc-400 mb-1">Количество победителей</label>
+                        <input type="number" name="winners_count" value="1" min="1" class="w-full bg-zinc-950 border border-zinc-800 text-zinc-100 rounded-md px-4 py-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-zinc-400 mb-1">Длительность (в минутах)</label>
+                        <input type="number" name="duration" value="60" min="1" class="w-full bg-zinc-950 border border-zinc-800 text-zinc-100 rounded-md px-4 py-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-zinc-400 mb-1">Описание / Условия (необязательно)</label>
+                    <textarea name="description" rows="3" placeholder="Быть подписанным на ТГ, находиться на стриме..." class="w-full bg-zinc-950 border border-zinc-800 text-zinc-100 rounded-md px-4 py-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none"></textarea>
+                </div>
+
+                <div class="pt-4 flex justify-end gap-3 border-t border-zinc-800 mt-6">
+                    <button type="button" onclick="toggleModal('createRaffleModal')" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-md font-medium transition">Отмена</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-medium transition shadow-lg shadow-blue-500/20">Запустить розыгрыш</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Простой скрипт для открытия/закрытия модалки -->
+    <script>
+        function toggleModal(modalID) {
+            const modal = document.getElementById(modalID);
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
