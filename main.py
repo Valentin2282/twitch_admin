@@ -1381,7 +1381,7 @@ async def get_admin_raffles(request: Request, supabase: httpx.AsyncClient = Depe
     if not request.cookies.get("admin_session"): 
         raise HTTPException(status_code=401)
     
-    # 1. Получаем список розыгрышей (лимит можно увеличить, чтобы статистика считалась точнее)
+    # 1. Получаем список розыгрышей
     res = await supabase.get("/rest/v1/raffles", params={"order": "id.desc", "limit": "100"})
     if res.status_code != 200:
         return []
@@ -1390,34 +1390,49 @@ async def get_admin_raffles(request: Request, supabase: httpx.AsyncClient = Depe
     if not raffles:
         return []
 
-    # 2. Собираем уникальные названия скинов для поиска картинок
+    # 2. Собираем уникальные названия скинов
     titles = list(set(r.get("title") for r in raffles if r.get("title")))
     
     if titles:
-        # Формируем строку для in. запроса PostgREST: ("Скин 1","Скин 2")
-        titles_escaped = ",".join(f'"{t}"' for t in titles)
+        # 3. Собираем фильтр для поиска по подстроке (ilike)
+        # Ограничиваем до 50 уникальных скинов за раз, чтобы URL запрос не получился слишком длинным
+        or_conditions = []
+        for t in titles[:50]:
+            safe_t = t.replace('"', '""') # Экранируем кавычки, если они есть
+            # PostgREST синтаксис: market_hash_name.ilike."*Название скина*"
+            or_conditions.append(f'market_hash_name.ilike."*{safe_t}*"')
         
-        # 3. Запрашиваем картинки из кэша
+        or_param = f"({','.join(or_conditions)})"
+        
+        # 4. Запрашиваем картинки (найдет любые качества скина: FN, MW, FT и т.д.)
         cache_res = await supabase.get(
             "/rest/v1/market_cache", 
             params={
                 "select": "market_hash_name,image_url",
-                "market_hash_name": f"in.({titles_escaped})"
+                "or": or_param,
+                "limit": "200" # Берем с запасом, так как на 1 скин может быть 5 качеств
             }
         )
         
         if cache_res.status_code == 200:
-            # Создаем словарь { "Название скина": "Ссылка на картинку" }
-            images_map = {item["market_hash_name"]: item["image_url"] for item in cache_res.json()}
+            cache_data = cache_res.json()
             
-            # 4. Раздаем картинки розыгрышам
+            # 5. Раздаем картинки
             for r in raffles:
-                # Если в самом розыгрыше картинки нет, берем из кэша
-                if not r.get("image_url"):
-                    r["image_url"] = images_map.get(r.get("title"))
+                if not r.get("image_url") and r.get("title"):
+                    search_title = r["title"].lower()
+                    # Ищем первую попавшуюся картинку, в названии которой есть имя нашего розыгрыша
+                    match = next((
+                        item["image_url"] 
+                        for item in cache_data 
+                        if item.get("image_url") and search_title in item["market_hash_name"].lower()
+                    ), None)
+                    
+                    if match:
+                        r["image_url"] = match
 
     return raffles
-     
+
 # =========================================================================
 # ⚙️ 2. СКРЫТЫЙ ЭНДПОИНТ-ВОРКЕР (Спокойно закупает скин за 10 секунд)
 # =========================================================================
@@ -1433,8 +1448,6 @@ async def worker_buy_skin(payload: WorkerPayload):
     try:
         logging.info(f"⚙️ Воркер начал работу: Закупка {payload.target_name} для юзера {payload.user_id}...")
         
-        # ЭТО ЗАГЛУШКА, Т.К. get_background_client и fulfill_item_delivery не импортированы в этом файле. 
-        # Скорее всего они у тебя в другом воркере, поэтому оставляем как было, чтобы не ломать логику.
         db = await get_background_client() 
         
         await fulfill_item_delivery(
