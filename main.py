@@ -1335,17 +1335,23 @@ async def create_admin_raffle(req: RaffleCreateRequest, request: Request, supaba
     end_time = start_time + timedelta(minutes=req.duration_minutes)
     
     raf_payload = {
+        "title": req.title,
+        "type": "twitch_direct", # Специальный тип для розыгрышей новичков
         "status": "active",
         "start_time": start_time.isoformat(),
         "end_time": end_time.isoformat(),
         "settings": {
-            "required_twitch_reward_id": internal_reward_id, # ID из нашей базы
+            "required_twitch_reward_id": internal_reward_id,
             "prize_name": req.prize_name,
             "prize_price": req.prize_price,
             "duration_minutes": req.duration_minutes
         }
     }
     db_raf = await supabase.post("/rest/v1/raffles", json=raf_payload, headers={"Prefer": "return=representation"})
+    
+    if db_raf.status_code not in [200, 201]:
+        raise HTTPException(status_code=400, detail=f"Ошибка БД: {db_raf.text}")
+        
     raffle_id = db_raf.json()[0]["id"]
 
     # 5. Отправляем задачу в QStash
