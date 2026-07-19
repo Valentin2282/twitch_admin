@@ -30,6 +30,7 @@ TWITCH_WEBHOOK_SECRET = os.getenv("TWITCH_WEBHOOK_SECRET", "")
 WEB_APP_URL = os.getenv("WEB_APP_URL", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+QSTASH_TOKEN = os.getenv("QSTASH_TOKEN", "")
 
 REDIRECT_URI = "https://twitch-admin.vercel.app/api/v1/auth/callback"
 
@@ -1257,6 +1258,123 @@ async def handle_fossabot_gift(request: Request):
     except Exception as e:
         print(f"Fossabot Gift Error: {e}")
         return "ㅤ" # Молчим при ошибке
+
+# ==============================================================================
+# 🎟️ РОЗЫГРЫШИ (RAFFLES) ДЛЯ НОВИЧКОВ
+# ==============================================================================
+
+@app.get("/raffles", response_class=HTMLResponse)
+async def raffles_page(request: Request):
+    token = request.cookies.get("admin_session")
+    if not token: return RedirectResponse(url="/")
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        return HTMLResponse(content=get_html("raffles.html").replace("{{USERNAME}}", payload.get('login', 'Admin')))
+    except jwt.PyJWTError:
+        return RedirectResponse(url="/")
+
+class RaffleCreateRequest(BaseModel):
+    title: str
+    cost: int
+    broadcaster_id: str
+    prize_name: str
+    prize_price: float
+    duration_minutes: int
+
+@app.post("/api/v1/admin/raffles/create")
+async def create_admin_raffle(req: RaffleCreateRequest, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
+    if not QSTASH_TOKEN or not WEB_APP_URL:
+        raise HTTPException(status_code=500, detail="QSTASH_TOKEN или WEB_APP_URL не настроены в Vercel!")
+        
+    # 1. Достаем токен стримера
+    token_res = await supabase.get("/rest/v1/users", params={"twitch_id": f"eq.{req.broadcaster_id}", "select": "twitch_access_token"})
+    token_data = token_res.json()
+    if not token_data or not token_data[0].get("twitch_access_token"):
+        raise HTTPException(status_code=400, detail="Токен стримера не найден.")
+    broadcaster_token = token_data[0]["twitch_access_token"]
+
+    # 2. Создаем награду на Twitch. ЖЕСТКО требуем ввод текста (для трейд-ссылки)
+    twitch_reward_id = None
+    twitch_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={req.broadcaster_id}"
+    headers = {"Authorization": f"Bearer {broadcaster_token}", "Client-Id": TWITCH_CLIENT_ID, "Content-Type": "application/json"}
+    
+    tw_res = await http_client.post(twitch_url, headers=headers, json={
+        "title": req.title,
+        "cost": req.cost,
+        "is_user_input_required": True, # Обязательно для трейд-ссылки!
+        "background_color": "#E0115F" # Красивый цвет для розыгрышей
+    })
+    
+    if tw_res.status_code == 200:
+        twitch_reward_id = tw_res.json()["data"][0]["id"]
+    else:
+        raise HTTPException(status_code=400, detail=f"Ошибка Twitch: {tw_res.text}")
+
+    # 3. Сохраняем награду в нашу БД twitch_rewards (чтобы крон-новичков ее видел)
+    rw_payload = {
+        "title": req.title,
+        "reward_type": "raffle",
+        "broadcaster_id": req.broadcaster_id,
+        "cost": req.cost,
+        "twitch_reward_id": twitch_reward_id,
+        "is_active": True,
+        "steam_item_name": req.prize_name,
+        "show_user_input": True,
+        "condition_type": "none"
+    }
+    db_rw = await supabase.post("/rest/v1/twitch_rewards", json=rw_payload, headers={"Prefer": "return=representation"})
+    
+    if db_rw.status_code not in [200, 201]:
+        raise HTTPException(status_code=400, detail="Ошибка создания награды в БД")
+    
+    internal_reward_id = db_rw.json()[0]["id"]
+
+    # 4. Создаем запись о Розыгрыше (raffles)
+    start_time = datetime.now(timezone.utc)
+    end_time = start_time + timedelta(minutes=req.duration_minutes)
+    
+    raf_payload = {
+        "status": "active",
+        "start_time": start_time.isoformat(),
+        "end_time": end_time.isoformat(),
+        "settings": {
+            "required_twitch_reward_id": internal_reward_id, # ID из нашей базы
+            "prize_name": req.prize_name,
+            "prize_price": req.prize_price,
+            "duration_minutes": req.duration_minutes
+        }
+    }
+    db_raf = await supabase.post("/rest/v1/raffles", json=raf_payload, headers={"Prefer": "return=representation"})
+    raffle_id = db_raf.json()[0]["id"]
+
+    # 5. Отправляем задачу в QStash
+    delay_seconds = req.duration_minutes * 60
+    target_webhook_url = f"{WEB_APP_URL.rstrip('/')}/api/raffles/twitch-direct/{raffle_id}/finalize"
+    
+    qstash_headers = {
+        "Authorization": f"Bearer {QSTASH_TOKEN}",
+        "Upstash-Delay": f"{delay_seconds}s",
+        "Content-Type": "application/json"
+    }
+    
+    q_res = await http_client.post(
+        f"https://qstash.upstash.io/v2/publish/{target_webhook_url}",
+        headers=qstash_headers,
+        json={} # Можно передать пустое тело, id уже в URL
+    )
+    
+    if q_res.status_code not in [200, 201]:
+        logging.error(f"Ошибка QStash: {q_res.text}")
+        # Розыгрыш создан, но таймер не завелся - придется закрывать руками
+        
+    return {"status": "success", "raffle_id": raffle_id}
+
+@app.get("/api/v1/admin/raffles/list")
+async def get_admin_raffles(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
+    res = await supabase.get("/rest/v1/raffles", params={"order": "id.desc", "limit": "20"})
+    return res.json() if res.status_code == 200 else []
      
 # =========================================================================
 # ⚙️ 2. СКРЫТЫЙ ЭНДПОИНТ-ВОРКЕР (Спокойно закупает скин за 10 секунд)
