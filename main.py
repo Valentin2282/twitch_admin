@@ -741,6 +741,123 @@ async def handle_fossabot_guess(request: Request, background_tasks: BackgroundTa
 # 🎁 6. НАГРАДЫ TWITCH И КОРОБКИ
 # ==============================================================================
 
+class TwitchRaffleCreateRequest(BaseModel):
+    title: str
+    cost: int
+    winners_count: int = 1
+    broadcaster_id: str
+    is_for_newbies: bool = False
+    min_lifetime_msgs: int = 0
+    image_url: Optional[str] = None
+
+@app.post("/api/v1/admin/raffles/create_twitch")
+async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
+    
+    token_res = await supabase.get("/rest/v1/users", params={"twitch_id": f"eq.{req.broadcaster_id}", "select": "twitch_access_token"})
+    if token_res.status_code != 200 or not token_res.json():
+        raise HTTPException(status_code=400, detail="Токен стримера не найден")
+    broadcaster_token = token_res.json()[0]["twitch_access_token"]
+
+    reward_title = f"Розыгрыш: {req.title}"
+    twitch_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={req.broadcaster_id}"
+    headers = {"Authorization": f"Bearer {broadcaster_token}", "Client-Id": TWITCH_CLIENT_ID, "Content-Type": "application/json"}
+    
+    tw_res = await http_client.post(twitch_url, headers=headers, json={
+        "title": reward_title,
+        "cost": req.cost,
+        "is_user_input_required": True, # Требуем трейд ссылку!
+        "background_color": "#9146FF"
+    })
+    
+    if tw_res.status_code != 200:
+        raise HTTPException(status_code=400, detail=f"Ошибка Twitch: {tw_res.text}")
+        
+    twitch_reward_id = tw_res.json()["data"][0]["id"]
+
+    # Сохраняем в таблицу raffles БЕЗ end_time, чтобы QSTASH его не съел
+    raf_payload = {
+        "title": req.title,
+        "type": "twitch_fossabot", 
+        "status": "active",
+        "start_time": datetime.now(timezone.utc).isoformat(),
+        "settings": {
+            "required_twitch_reward_id": twitch_reward_id,
+            "twitch_reward_title": reward_title,
+            "winners_count": req.winners_count,
+            "prize_image": req.image_url,
+            # Наши новые параметры для Twitch-механики:
+            "is_for_newbies": req.is_for_newbies,
+            "min_lifetime_msgs": req.min_lifetime_msgs
+        }
+    }
+    
+    db_raf = await supabase.post("/rest/v1/raffles", json=raf_payload)
+    if db_raf.status_code not in [200, 201, 204]:
+        raise HTTPException(status_code=400, detail="Ошибка БД при сохранении розыгрыша")
+        
+    return {"status": "success", "message": "Twitch розыгрыш запущен!"}
+
+from fastapi.responses import PlainTextResponse
+
+@app.get("/api/v1/twitch/fossabot/raffle", response_class=PlainTextResponse)
+async def handle_fossabot_raffle(
+    username: str = Query(...), 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    try:
+        username_clean = username.lower().strip().replace("@", "")
+
+        # 1. Достаем активный Twitch-розыгрыш
+        res = await supabase.get("/rest/v1/raffles", params={
+            "status": "eq.active",
+            "type": "eq.twitch_fossabot",
+            "select": "id,title,settings",
+            "limit": "1"
+        })
+        
+        if res.status_code != 200 or not res.json():
+            return f"@{username_clean}, сейчас нет активных розыгрышей! 🐸"
+            
+        raffle = res.json()[0]
+        settings = raffle["settings"]
+        reward_title = settings.get("twitch_reward_title", "Участие в розыгрыше")
+        is_for_newbies = settings.get("is_for_newbies", False)
+        min_msgs = settings.get("min_lifetime_msgs", 0)
+
+        # 2. ИЩЕМ ЮЗЕРА В БД
+        user_res = await supabase.get("/rest/v1/users", params={
+            "twitch_login": f"eq.{username_clean}",
+            "select": "total_message_count"
+        })
+        
+        user_exists = len(user_res.json()) > 0 if user_res.status_code == 200 else False
+        
+        # ЛОГИКА ФИЛЬТРАЦИИ:
+        if is_for_newbies:
+            # Если розыгрыш ТОЛЬКО для новичков, а юзер есть в базе — отклоняем
+            if user_exists:
+                return f"@{username_clean}, этот розыгрыш только для новых зрителей! ❌"
+        else:
+            # Если розыгрыш НЕ для новичков (для всех), проверяем кол-во сообщений
+            if not user_exists:
+                return f"@{username_clean}, тебя нет в базе! Привяжи аккаунт в ТГ-боте для участия. ❌"
+                
+            user_data = user_res.json()[0]
+            if user_data.get("total_message_count", 0) < min_msgs:
+                return f"@{username_clean}, у тебя недостаточно сообщений на стриме для участия (нужно {min_msgs}). Общайся больше! ❌"
+
+        # 3. Юзер прошел проверки! Говорим ему забрать награду.
+        # Записывать его в БД пока НЕ НАДО (он запишется, когда реально купит награду).
+        return (
+            f"@{username_clean}, ты прошел проверку! "
+            f"❗️ДЛЯ УЧАСТИЯ: Забери награду «{reward_title}» за баллы канала и ОБЯЗАТЕЛЬНО вставь туда свою трейд-ссылку!"
+        )
+
+    except Exception as e:
+        logging.error(f"FossaBot Raffle Error: {e}")
+        return f"@{username_clean}, упс, база данных словила маслину. Попробуй позже."
+
 class RewardCreateRequest(BaseModel):
     title: str
     reward_type: str
