@@ -800,22 +800,22 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
 
 from fastapi.responses import PlainTextResponse
 
-@app.get("/api/v1/twitch/fossabot/raffle", response_class=PlainTextResponse)
+@app.get("/api/v1/twitch/fossabot_raffle", response_class=PlainTextResponse)
 async def handle_fossabot_raffle(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    # Забираем токен Фоссабота точно так же, как в fossabot_gift
-    token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
-    if not token: 
-        return "ㅤ" # Невидимый символ от пустого спама
-
     try:
+        # Забираем токен Фоссабота точно так же, как в fossabot_gift
+        token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
+        if not token: 
+            return "❌ Ошибка: Токен Фоссабота не передан."
+
         # 1. Запрашиваем контекст из Fossabot (кто написал команду)
-        fb_res = await http_client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=3.0)
+        fb_res = await http_client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=5.0)
         if fb_res.status_code != 200: 
             return "❌ Ошибка связи с сервером Fossabot."
             
         msg_data = fb_res.json().get("message")
         if not msg_data: 
-            return "ㅤ"
+            return "❌ Ошибка: Пустой ответ от Fossabot API."
 
         twitch_login = msg_data["user"]["login"].lower()
         twitch_display = msg_data["user"]["display_name"]
@@ -866,7 +866,8 @@ async def handle_fossabot_raffle(request: Request, supabase: httpx.AsyncClient =
 
     except Exception as e:
         logging.error(f"FossaBot Raffle Error: {e}")
-        return f"@{twitch_display}, упс, база данных словила маслину. Попробуй позже."
+        # Теперь исключение не упадет, даже если twitch_display еще не создана
+        return f"❌ Ошибка в коде (база данных или синтаксис). Проверь логи Vercel."
         
 class RewardCreateRequest(BaseModel):
     title: str
