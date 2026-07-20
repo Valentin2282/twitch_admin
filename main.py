@@ -849,7 +849,7 @@ async def handle_fossabot_raffle(request: Request, supabase: httpx.AsyncClient =
             "select": "id,title,settings",
             "limit": "1"
         })
-        print(f"[FOSSABOT RAFFLE] Ответ БД (розыгрыш): {res.status_code}, текст: {res.text}")
+        print(f"[FOSSABOT RAFFLE] Ответ БД (розыгрыш): {res.status_code}")
         
         if res.status_code != 200 or not res.json():
             print("[FOSSABOT RAFFLE] Розыгрышей за баллы нет.")
@@ -863,19 +863,21 @@ async def handle_fossabot_raffle(request: Request, supabase: httpx.AsyncClient =
         
         print(f"[FOSSABOT RAFFLE] Условия: новички={is_for_newbies}, мин.сообщений={min_msgs}")
 
-        # 3. ИЩЕМ ЮЗЕРА В БД
+        # 3. ИЩЕМ ЮЗЕРА В БД (🔥 ТЕПЕРЬ ИЩЕМ ЕЩЕ И ССЫЛКУ)
         print("[FOSSABOT RAFFLE] Ищем юзера в БД...")
         user_res = await supabase.get("/rest/v1/users", params={
             "twitch_login": f"eq.{twitch_login}",
-            "select": "telegram_id, total_message_count"
+            "select": "telegram_id, total_message_count, trade_link"
         })
-        print(f"[FOSSABOT RAFFLE] Ответ БД (юзер): {user_res.status_code}, данные: {user_res.text}")
         
         user_data = user_res.json() if user_res.status_code == 200 else []
         is_linked = len(user_data) > 0 and user_data[0].get("telegram_id") is not None
         db_msgs = user_data[0].get("total_message_count", 0) if user_data else 0
+        
+        # Проверяем, есть ли у него привязанная трейд-ссылка
+        has_trade_link = user_data[0].get("trade_link") if is_linked else None
 
-        print(f"[FOSSABOT RAFFLE] Привязан: {is_linked}, Сообщений в БД: {db_msgs}")
+        print(f"[FOSSABOT RAFFLE] Привязан: {is_linked}, Ссылка есть: {bool(has_trade_link)}")
 
         # 🛑 ЛОГИКА ФИЛЬТРАЦИИ:
         if is_for_newbies and is_linked:
@@ -886,12 +888,18 @@ async def handle_fossabot_raffle(request: Request, supabase: httpx.AsyncClient =
             print("[FOSSABOT RAFFLE] Отказ: мало сообщений.")
             return f"@{twitch_display}, у тебя недостаточно сообщений в чате (нужно {min_msgs}, а у тебя {db_msgs}). Общайся больше! ❌"
 
-        # 4. Юзер прошел проверки!
+        # 4. Юзер прошел проверки! Отдаем умный ответ.
         print("[FOSSABOT RAFFLE] УСПЕХ! Выдаем инструкцию.")
-        return (
-            f"@{twitch_display}, ты прошел проверку! "
-            f"❗️ДЛЯ УЧАСТИЯ: Забери награду «{reward_title}» за баллы канала и ОБЯЗАТЕЛЬНО вставь туда свою трейд-ссылку!"
-        )
+        if has_trade_link:
+            return (
+                f"@{twitch_display}, ты в базе! ❗️ДЛЯ УЧАСТИЯ: Купи награду «{reward_title}» "
+                f"и просто отправь туда плюсик «+», трейд-ссылку мы возьмем из твоего профиля! 🎁"
+            )
+        else:
+            return (
+                f"@{twitch_display}, ты прошел проверку! ❗️ДЛЯ УЧАСТИЯ: Купи награду «{reward_title}» "
+                f"и ОБЯЗАТЕЛЬНО вставь туда свою трейд-ссылку! 🎁"
+            )
 
     except Exception as e:
         print(f"!!!!! [FOSSABOT RAFFLE] КРИТИЧЕСКАЯ ОШИБКА !!!!!\n{e}")
@@ -1904,7 +1912,16 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
         # Сразу лочим заявку в БД
         await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "В обработке"})
         
-        if not trade_link:
+        # 🔥 УМНЫЙ ПОДХВАТ ССЫЛКИ ИЗ ПРОФИЛЯ
+        if not trade_link or len(trade_link) < 20:
+            purchaser_login = p.get("user_name", "").lower()
+            if purchaser_login:
+                db_user = await supabase.get("/rest/v1/users", params={"twitch_login": f"eq.{purchaser_login}", "select": "trade_link"})
+                if db_user.status_code == 200 and db_user.json() and db_user.json()[0].get("trade_link"):
+                    trade_link = db_user.json()[0]["trade_link"] # Берем ссылку из базы!
+        
+        # Если ссылки так и не нашли
+        if not trade_link or len(trade_link) < 20:
             await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={
                 "status": "Ошибка: Нет ссылки", 
                 "viewed_by_admin": False
@@ -1957,7 +1974,7 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
             logging.error(f"Сбой Маркета: {e}")
             await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Ошибка скрипта Маркета"})
             
-    return {"status": "ok"} 
+    return {"status": "ok"}
 
 class CleanupRequest(BaseModel):
     start_date: str
