@@ -756,20 +756,31 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
     
     token_res = await supabase.get("/rest/v1/users", params={"twitch_id": f"eq.{req.broadcaster_id}", "select": "twitch_access_token"})
     if token_res.status_code != 200 or not token_res.json():
-        raise HTTPException(status_code=400, detail="Токен стримера не найден")
+        # Если токена вообще нет - отдаем 401
+        raise HTTPException(status_code=401, detail="Токен стримера не найден")
+        
     broadcaster_token = token_res.json()[0]["twitch_access_token"]
 
     reward_title = f"Розыгрыш: {req.title}"
+    
+    # Twitch принимает максимум 45 символов. Если больше - обрезаем и ставим троеточие
+    if len(reward_title) > 45:
+        reward_title = reward_title[:44] + "…"
+
     twitch_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={req.broadcaster_id}"
     headers = {"Authorization": f"Bearer {broadcaster_token}", "Client-Id": TWITCH_CLIENT_ID, "Content-Type": "application/json"}
     
     tw_res = await http_client.post(twitch_url, headers=headers, json={
         "title": reward_title,
         "cost": req.cost,
-        "is_user_input_required": True, # Требуем трейд ссылку!
+        "is_user_input_required": True,
         "background_color": "#9146FF"
     })
     
+    # 🔥 НОВОЕ: Если Твич отвечает "401 Unauthorized" (протух или не совпадает), прокидываем этот 401 на фронтенд
+    if tw_res.status_code == 401:
+        raise HTTPException(status_code=401, detail="Токен истек или недействителен")
+        
     if tw_res.status_code != 200:
         raise HTTPException(status_code=400, detail=f"Ошибка Twitch: {tw_res.text}")
         
