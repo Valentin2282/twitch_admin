@@ -803,10 +803,17 @@ from fastapi.responses import PlainTextResponse
 @app.get("/api/v1/twitch/fossabot/raffle", response_class=PlainTextResponse)
 async def handle_fossabot_raffle(
     username: str = Query(...), 
+    msgs: str = Query("0"), # Принимаем сообщения напрямую от Фоссабота
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     try:
         username_clean = username.lower().strip().replace("@", "")
+        
+        # Безопасно парсим кол-во сообщений
+        try:
+            msgs_count = int(msgs)
+        except ValueError:
+            msgs_count = 0
 
         # 1. Достаем активный Twitch-розыгрыш
         res = await supabase.get("/rest/v1/raffles", params={
@@ -817,7 +824,7 @@ async def handle_fossabot_raffle(
         })
         
         if res.status_code != 200 or not res.json():
-            return f"@{username_clean}, сейчас нет активных розыгрышей! 🐸"
+            return f"@{username_clean}, сейчас нет активных розыгрышей за баллы! 🐸"
             
         raffle = res.json()[0]
         settings = raffle["settings"]
@@ -828,27 +835,21 @@ async def handle_fossabot_raffle(
         # 2. ИЩЕМ ЮЗЕРА В БД
         user_res = await supabase.get("/rest/v1/users", params={
             "twitch_login": f"eq.{username_clean}",
-            "select": "total_message_count"
+            "select": "telegram_id"
         })
         
         user_exists = len(user_res.json()) > 0 if user_res.status_code == 200 else False
         
-        # ЛОГИКА ФИЛЬТРАЦИИ:
-        if is_for_newbies:
-            # Если розыгрыш ТОЛЬКО для новичков, а юзер есть в базе — отклоняем
-            if user_exists:
-                return f"@{username_clean}, этот розыгрыш только для новых зрителей! ❌"
-        else:
-            # Если розыгрыш НЕ для новичков (для всех), проверяем кол-во сообщений
-            if not user_exists:
-                return f"@{username_clean}, тебя нет в базе! Привяжи аккаунт в ТГ-боте для участия. ❌"
-                
-            user_data = user_res.json()[0]
-            if user_data.get("total_message_count", 0) < min_msgs:
-                return f"@{username_clean}, у тебя недостаточно сообщений на стриме для участия (нужно {min_msgs}). Общайся больше! ❌"
+        # 🛑 ЛОГИКА ФИЛЬТРАЦИИ (НАОБОРОТ):
+        if is_for_newbies and user_exists:
+            # Юзер УЖЕ есть в базе (пользуется ТГ). Гоним его в основные розыгрыши!
+            return f"@{username_clean}, у тебя уже привязан ТГ-бот! Участвуй в основных розыгрышах там, оставь этот новичкам! ❌"
+            
+        # Проверяем сообщения (данные от Фоссабота)
+        if msgs_count < min_msgs:
+            return f"@{username_clean}, у тебя недостаточно сообщений в чате (нужно {min_msgs}, а у тебя {msgs_count}). Общайся больше! ❌"
 
-        # 3. Юзер прошел проверки! Говорим ему забрать награду.
-        # Записывать его в БД пока НЕ НАДО (он запишется, когда реально купит награду).
+        # 3. Юзер прошел проверки!
         return (
             f"@{username_clean}, ты прошел проверку! "
             f"❗️ДЛЯ УЧАСТИЯ: Забери награду «{reward_title}» за баллы канала и ОБЯЗАТЕЛЬНО вставь туда свою трейд-ссылку!"
