@@ -3,258 +3,347 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stream Admin | Награды и Логи</title>
+    <title>Admin - Розыгрыши</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { background-color: #09090b; color: #a1a1aa; font-family: 'Inter', sans-serif; font-size: 0.875rem; }
-        .sidebar { background-color: #09090b; border-right: 1px solid #27272a; }
-        .glass-panel { background-color: #18181b; border: 1px solid #27272a; }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #09090b; }
-        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #18181b; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+        
+        /* Кастомный рендж для системы возвратов */
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 16px; height: 16px; border-radius: 50%; 
+            background: #3b82f6; cursor: pointer;
+        }
     </style>
 </head>
-<body class="flex h-screen overflow-hidden text-sm">
+<body class="bg-zinc-950 text-zinc-100 h-screen flex overflow-hidden font-sans">
 
     <!-- Боковое меню -->
-    <aside class="sidebar w-56 flex-shrink-0 hidden md:flex flex-col z-20">
-        <div class="h-14 flex items-center px-5 border-b border-zinc-800">
-            <span class="text-lg font-bold text-zinc-100 tracking-wider">HATE<span class="text-[#9146FF]">LAVKA</span></span>
+    <aside class="w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col z-20">
+        <div class="h-16 flex items-center px-6 border-b border-zinc-800">
+            <span class="text-xl font-bold tracking-wider text-white">ADMIN <span class="text-blue-500">PANEL</span></span>
         </div>
         <nav class="flex-1 px-3 py-5 space-y-1">
-            <a href="/settings" class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium hover:bg-zinc-800/50 hover:text-zinc-100 block">
+            <a href="/dashboard" class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium hover:bg-zinc-800/50 hover:text-zinc-100 transition-colors">
                 <i class="fa-solid fa-chart-line w-4 text-center"></i> Дашборд
             </a>
-            <a href="/rewards" class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-100 font-medium bg-zinc-800 border-left-2 block">
-                <i class="fa-brands fa-twitch w-4 text-center text-[#9146FF]"></i> Награды Twitch
+            <a href="/rewards" class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium hover:bg-zinc-800/50 hover:text-zinc-100 transition-colors">
+                <i class="fa-brands fa-twitch w-4 text-center"></i> Награды Twitch
             </a>
-            <a href="/boxes" class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-400 font-medium hover:bg-zinc-800/50 hover:text-zinc-100 block">
-                <i class="fa-solid fa-box w-4 text-center"></i> Коробки (Кейсы)
+            <a href="/raffles" class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-zinc-100 font-medium bg-zinc-800 transition-colors">
+                <i class="fa-solid fa-gift w-4 text-center"></i> Розыгрыши
             </a>
         </nav>
-        <div class="p-3 border-t border-zinc-800">
-            <a href="/api/v1/auth/logout" class="flex items-center justify-center gap-2 py-1.5 rounded-md text-xs text-red-400/80 hover:bg-red-500/10 hover:text-red-400 transition-colors">Выйти</a>
+        <div class="p-4 border-t border-zinc-800 text-sm text-zinc-500 text-center">
+            HATElavka © 2026
         </div>
     </aside>
 
     <!-- Основной контент -->
-    <main class="flex-1 content-area flex flex-col h-full overflow-hidden relative">
-        <header class="h-14 flex items-center justify-between px-6 border-b border-zinc-800 bg-[#09090b]/80 backdrop-blur z-10 flex-shrink-0">
-            <h2 class="text-base font-semibold text-zinc-100">Управление триггерами и наградная отчетность</h2>
-            <a href="/api/v1/auth/broadcaster_login" class="flex items-center gap-2 px-3 py-1.5 bg-[#9146FF]/10 hover:bg-[#9146FF]/20 text-[#9146FF] border border-[#9146FF]/30 rounded text-xs font-semibold transition-colors shadow-lg shadow-[#9146FF]/10">
-                <i class="fa-solid fa-rotate"></i> Обновить токен стримера
-            </a>
+    <main class="flex-1 flex flex-col overflow-hidden relative">
+        <header class="h-16 flex items-center justify-between px-8 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-10 flex-shrink-0">
+            <h1 class="text-2xl font-semibold text-zinc-100">Управление розыгрышами</h1>
+            <button onclick="toggleModal('createRaffleModal')" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-lg shadow-blue-500/20">
+                <i class="fa-solid fa-plus"></i> Создать розыгрыш
+            </button>
         </header>
-        
-        <div class="flex-1 p-6 overflow-y-auto space-y-6">
-            
-            <!-- ДВУХКОЛОНОЧНАЯ ФОРМА СОЗДАНИЯ НАГРАДЫ -->
-            <div class="glass-panel rounded-xl p-6 shadow-sm border border-zinc-800">
-                <h3 class="text-base font-bold text-zinc-100 border-b border-zinc-800/80 pb-3 mb-5 flex items-center gap-2">
-                    <i class="fa-solid fa-wand-magic-sparkles text-[#9146FF]"></i> Конструктор награды Twitch
-                </h3>
+
+        <div class="flex-1 overflow-y-auto p-8">
+            <div class="max-w-7xl mx-auto space-y-8">
                 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <!-- ЛЕВАЯ КОЛОНКА: ЛОГИКА -->
-                    <div class="space-y-4">
-                        <h4 class="text-xs uppercase tracking-wider text-zinc-400 font-bold flex items-center gap-2 mb-3"><i class="fa-solid fa-gear"></i> Настройки выдачи</h4>
-                        
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Аккаунт (Стример)</label>
-                                <select id="reward-channel" onchange="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2.5 focus:outline-none focus:border-[#9146FF]"></select>
-                            </div>
-                            <div>
-                                <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Стоимость (Баллы)</label>
-                                <input type="number" id="reward-cost" value="100" oninput="updatePreview()" class="w-full bg-[#09090b] border border-[#9146FF]/50 text-zinc-200 text-xs rounded px-3 py-2.5 focus:outline-none focus:border-[#9146FF]">
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Для кого награда</label>
-                            <select id="reward-target-audience" onchange="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2.5 focus:outline-none focus:border-[#9146FF]">
-                                <option value="all">Для всех зрителей</option>
-                                <option value="newbies">Только для новичков</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Тип начисления</label>
-                            <select id="reward-type" onchange="toggleRewardTypeFields(); updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2.5 focus:outline-none">
-                                <option value="skin_giveaway">🎁 Гибридная автовыдача (Скин или Коробка)</option>
-                                <option value="promocode">⭐ Промокод на звезды</option>
-                                <option value="tickets">🎟️ Билеты лавки</option>
-                            </select>
-                        </div>
-
-                        <div id="field-box" class="space-y-3 bg-zinc-900/50 p-3 rounded-lg border border-zinc-800">
-                            <div>
-                                <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Прикрепить Коробку (Опционально)</label>
-                                <select id="reward-box-id" onchange="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
-                                    <option value="">Без коробки (Конкретный скин со склада)</option>
-                                </select>
-                            </div>
-                            <div class="flex items-center gap-2 pt-1">
-                                <input type="checkbox" id="reward-auto-steam" checked class="rounded bg-[#09090b] border-zinc-700 text-[#9146FF] focus:ring-0">
-                                <label for="reward-auto-steam" class="text-xs text-zinc-300 cursor-pointer">Стрелять трейдом в Steam (auto_steam)</label>
-                            </div>
-                        </div>
-
-                        <div id="field-amount" class="hidden">
-                            <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Количество выдаваемой валюты</label>
-                            <input type="number" id="reward-amount" value="10" oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2.5 focus:outline-none">
-                        </div>
-
-                        <div class="border-t border-zinc-800/80 pt-4 space-y-3">
-                            <h4 class="text-[11px] uppercase text-zinc-400 font-semibold tracking-wider">Умные гейты защиты</h4>
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label class="text-[11px] text-zinc-500 block mb-1 uppercase font-medium">Период</label>
-                                    <select id="reward-gate-period" onchange="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2 focus:outline-none">
-                                        <option value="session">За стрим</option>
-                                        <option value="week">За неделю</option>
-                                        <option value="month">За месяц</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="text-[11px] text-zinc-500 block mb-1 uppercase font-medium">Мин. сообщений</label>
-                                    <input type="number" id="reward-gate-value" value="0" oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2 focus:outline-none">
-                                </div>
-                            </div>
-                            <div class="flex items-center justify-between mt-2 bg-zinc-900/30 p-2 rounded border border-zinc-800">
-                                <span class="text-xs text-zinc-300">Авто-возврат баллов при отказе</span>
-                                <input type="checkbox" id="reward-refund" checked class="rounded bg-[#09090b] border-zinc-700 text-red-500 focus:ring-0">
-                            </div>
-                        </div>
+                <!-- Статистика -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-sm">
+                        <div class="text-zinc-400 text-sm mb-2 uppercase tracking-wider font-semibold">Розыгрышей в процессе</div>
+                        <div class="text-4xl font-bold text-blue-500" id="stat-active">0</div>
                     </div>
-
-                    <!-- ПРАВАЯ КОЛОНКА: СКЛАД И ПРЕВЬЮ -->
-                    <div class="space-y-4">
-                        <div class="flex justify-between items-center mb-3">
-                            <h4 class="text-xs uppercase tracking-wider text-[#9146FF] font-bold flex items-center gap-2"><i class="fa-solid fa-gift"></i> Оформление приза</h4>
-                            <button type="button" onclick="openLibrarySearch()" class="text-[11px] bg-[#9146FF]/20 text-[#9146FF] border border-[#9146FF]/30 px-3 py-1.5 rounded hover:bg-[#9146FF]/40 transition shadow-sm">
-                                <i class="fa-solid fa-magnifying-glass"></i> Искать на складе
-                            </button>
-                        </div>
-                        
-                        <div>
-                            <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Название награды / Команда / Скин</label>
-                            <input type="text" id="reward-title" placeholder="Пример: !подарок или AWP | Asiimov" oninput="updatePreview()" class="w-full bg-[#09090b] border border-[#9146FF]/50 text-zinc-200 text-xs rounded px-3 py-2.5 focus:outline-none focus:border-[#9146FF]">
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Качество (Wear)</label>
-                                <select id="inp-quality" onchange="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2.5 focus:outline-none focus:border-[#9146FF]">
-                                    <option value="">Без качества</option>
-                                    <option value="FN">Factory New (FN)</option>
-                                    <option value="MW">Minimal Wear (MW)</option>
-                                    <option value="FT">Field-Tested (FT)</option>
-                                    <option value="WW">Well-Worn (WW)</option>
-                                    <option value="BS">Battle-Scarred (BS)</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">Редкость (Цвет)</label>
-                                <select id="inp-rarity-color" onchange="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2.5 focus:outline-none focus:border-[#9146FF]">
-                                    <option value="#b0c3d9">Серый</option>
-                                    <option value="#5e98d9">Синий</option>
-                                    <option value="#4b69ff" selected>Фиолетовый</option>
-                                    <option value="#8847ff">Розовый</option>
-                                    <option value="#d32ce6">Малиновый</option>
-                                    <option value="#eb4b4b">Красный</option>
-                                    <option value="#ffd700">★ Золотой</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Скрытое поле для картинки -->
-                        <input type="hidden" id="inp-img">
-
-                        <!-- Превью Twitch -->
-                        <div id="preview-box" class="bg-[#251833] rounded-xl p-4 border-l-4 border-[#9146FF] relative transition-colors mt-4 shadow-lg">
-                            <div class="absolute top-2 right-3 text-[9px] text-[#9146FF] uppercase tracking-widest font-bold">Twitch Reward Preview</div>
-                            <img src="" id="prev-img" class="w-full h-28 object-contain rounded bg-black/30 mb-3 hidden">
-                            <div id="prev-txt" class="text-[13px] whitespace-pre-wrap leading-relaxed text-zinc-200">Тут будет превью...</div>
-                            <div class="mt-3 bg-[#9146FF]/20 text-[#c296ff] text-center py-2 rounded-lg text-xs font-semibold border border-[#9146FF]/30 transition-colors cursor-pointer hover:bg-[#9146FF]/30">
-                                Забрать награду 🎁
-                            </div>
-                        </div>
-
-                        <button onclick="createTwitchReward()" class="w-full bg-[#9146FF] hover:bg-[#7b3ad6] text-white text-sm font-semibold py-3 rounded-lg transition-colors shadow-lg shadow-[#9146FF]/20 flex justify-center items-center gap-2 mt-4">
-                            <i class="fa-solid fa-rocket"></i> Внедрить награду на канал
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- ТАБЛИЦЫ: АКТИВНЫЕ ГЕЙТЫ И ЛОГИ -->
-            <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                <!-- Гейты -->
-                <div class="glass-panel rounded-xl p-5 overflow-hidden flex flex-col h-[400px]">
-                    <h3 class="text-sm font-semibold text-zinc-100 border-b border-zinc-800 pb-2 mb-3">Активные наградные гейты</h3>
-                    <div class="flex-1 overflow-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead class="bg-[#09090b] text-[10px] uppercase text-zinc-500 border-b border-zinc-800 sticky top-0 z-10">
-                                <tr>
-                                    <th class="py-2 px-3">Канал</th>
-                                    <th class="py-2 px-3">Название</th>
-                                    <th class="py-2 px-3">Коробка</th>
-                                    <th class="py-2 px-3 text-center">Статус</th>
-                                    <th class="py-2 px-3 text-center">Действия</th>
-                                </tr>
-                            </thead>
-                            <tbody id="rewards-table-body" class="text-xs divide-y divide-zinc-800/40"></tbody>
-                        </table>
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-sm">
+                        <div class="text-zinc-400 text-sm mb-2 uppercase tracking-wider font-semibold">Участвует людей</div>
+                        <div class="text-4xl font-bold text-zinc-100" id="stat-total">0</div>
                     </div>
                 </div>
 
-                <!-- Логи -->
-                <div class="glass-panel rounded-xl p-5 overflow-hidden flex flex-col h-[400px]">
-                    <div class="flex items-center justify-between border-b border-zinc-800 pb-2 mb-3">
-                        <h3 class="text-sm font-semibold text-zinc-100">Логи выдачи предметов</h3>
-                        <button onclick="openCleanupModal()" class="px-3 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded text-xs font-semibold transition-colors">
-                            <i class="fa-solid fa-trash-can mr-1"></i> Очистить
-                        </button>
-                    </div>
-                    <div class="flex-1 overflow-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead class="bg-[#09090b] text-[10px] uppercase text-zinc-500 border-b border-zinc-800 sticky top-0 z-10">
-                                <tr>
-                                    <th class="py-2 px-3">Дата</th>
-                                    <th class="py-2 px-3">Зритель</th>
-                                    <th class="py-2 px-3 text-center">Статус</th>
-                                    <th class="py-2 px-3 text-right">Выдано</th>
-                                </tr>
-                            </thead>
-                            <tbody id="purchases-table-body" class="text-xs divide-y divide-zinc-800/40"></tbody>
-                        </table>
+                <!-- Навигация по статусам (Табы) -->
+                <div class="flex space-x-2 bg-zinc-900/50 p-1 rounded-lg w-fit border border-zinc-800">
+                    <button onclick="filterList('active')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium bg-zinc-800 text-zinc-100 shadow">Активные</button>
+                    <button onclick="filterList('scheduled')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50">Отложенные</button>
+                    <button onclick="filterList('completed')" class="tab-btn px-4 py-2 rounded-md text-sm font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50">Завершенные</button>
+                </div>
+
+                <!-- Сетка скинов -->
+                <div id="raffles-container" class="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-6 pb-20">
+                    <div class="col-span-full p-12 text-center text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-xl">
+                        <i class="fa-solid fa-circle-notch fa-spin text-2xl mb-3"></i><br>
+                        Загрузка данных...
                     </div>
                 </div>
             </div>
         </div>
     </main>
 
-    <!-- Модальное окно СКЛАДА -->
+    <!-- Модальное окно СОЗДАНИЯ РОЗЫГРЫША (Огромный конструктор) -->
+    <div id="createRaffleModal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="toggleModal('createRaffleModal')"></div>
+        
+        <div class="relative bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="flex justify-between items-center p-6 border-b border-zinc-800 bg-zinc-900/50">
+                <h2 class="text-xl font-bold text-white flex items-center gap-3"><i class="fa-solid fa-wand-magic-sparkles text-blue-500"></i> Конструктор розыгрыша</h2>
+                <button onclick="toggleModal('createRaffleModal')" class="text-zinc-500 hover:text-white transition-colors bg-zinc-800 hover:bg-zinc-700 w-8 h-8 rounded-full flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-6">
+                <form id="create-form" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    
+                    <!-- ЛЕВАЯ КОЛОНКА: МЕХАНИКИ И УСЛОВИЯ -->
+                    <div class="space-y-6">
+                        
+                        <!-- Выбор Платформы -->
+                        <div class="bg-zinc-900 p-1.5 rounded-xl border border-zinc-800 flex relative">
+                            <label class="flex-1 text-center relative z-10 cursor-pointer">
+    <input type="radio" name="platform" value="tg" class="peer sr-only" onchange="togglePlatform()">
+    <div class="py-2.5 text-sm font-bold text-zinc-400 peer-checked:text-blue-100 transition-colors">
+        <i class="fa-brands fa-telegram"></i> Telegram Бот
+    </div>
+</label>
+<label class="flex-1 text-center relative z-10 cursor-pointer">
+    <!-- ДОБАВИЛИ checked СЮДА 👇 -->
+    <input type="radio" name="platform" value="twitch" checked class="peer sr-only" onchange="togglePlatform()">
+    <div class="py-2.5 text-sm font-bold text-zinc-400 peer-checked:text-purple-100 transition-colors">
+        <i class="fa-brands fa-twitch"></i> Twitch (FossaBot)
+    </div>
+</label>
+                            <label class="flex-1 text-center relative z-10 cursor-pointer">
+                                <input type="radio" name="platform" value="twitch" class="peer sr-only" onchange="togglePlatform()">
+                                <div class="py-2.5 text-sm font-bold text-zinc-400 peer-checked:text-purple-100 transition-colors">
+                                    <i class="fa-brands fa-twitch"></i> Twitch (FossaBot)
+                                </div>
+                            </label>
+                            <!-- Ползунок фона -->
+                            <div class="absolute top-1.5 bottom-1.5 left-1.5 w-[calc(50%-6px)] bg-blue-600 rounded-lg transition-all duration-300 ease-in-out" id="platform-slider"></div>
+                        </div>
+
+                        <!-- Механика -->
+                        <div class="bg-zinc-900 p-5 rounded-xl border border-zinc-800 space-y-4">
+                            <h3 class="text-sm uppercase tracking-wider text-blue-400 font-bold flex items-center gap-2" id="basic-title"><i class="fa-solid fa-gear"></i> Базовые настройки</h3>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-zinc-400 mb-1">Тип победителя</label>
+                                    <select name="type" class="w-full bg-zinc-950 border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500">
+                                        <option value="inline_random">🎲 Случайный</option>
+                                        <option value="most_active">🔥 Топ активности</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-zinc-400 mb-1">Время старта (Отложенный)</label>
+                                    <input type="datetime-local" name="start_time" id="inp-start-time" class="w-full bg-zinc-950 border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500 style-calendar">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-zinc-400 mb-1">⏰ Авто-завершение (МСК)</label>
+                                <input type="datetime-local" name="end_time" required onchange="updatePreview()" class="w-full bg-zinc-950 border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500">
+                            </div>
+                        </div>
+
+                        <!-- УСЛОВИЯ ТЕЛЕГРАМ БОТА -->
+                        <div id="tg-conditions" class="bg-zinc-900 p-5 rounded-xl border border-zinc-800 space-y-4">
+                            <h3 class="text-sm uppercase tracking-wider text-blue-400 font-bold flex items-center gap-2"><i class="fa-solid fa-list-check"></i> Условия входа (Telegram)</h3>
+                            
+                            <div class="flex items-center justify-between bg-zinc-950 p-3 rounded-lg border border-zinc-800">
+                                <span class="text-sm font-medium">📢 Обязательная подписка (TG)</span>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" name="sub_req" checked onchange="updatePreview()" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-300 after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-zinc-400 mb-1">🎫 Билеты (Стоимость)</label>
+                                    <input type="number" name="ticket_cost" placeholder="0" oninput="toggleRefundBox(); updatePreview()" class="w-full bg-zinc-950 border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-zinc-400 mb-1">👥 Мин. участников</label>
+                                    <input type="number" name="min_participants" placeholder="0" oninput="updatePreview()" class="w-full bg-zinc-950 border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-zinc-400 mb-1">⭐️ Уровень BP</label>
+                                    <input type="number" name="min_bp_level" placeholder="0" oninput="updatePreview()" class="w-full bg-zinc-950 border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-zinc-400 mb-1">🏷 Обязательный тег (ник)</label>
+                                    <input type="text" name="name_tag" placeholder="Например: HATE" oninput="updatePreview()" class="w-full bg-zinc-950 border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-zinc-400 mb-1">💬 Сообщения на Twitch</label>
+                                <div class="flex gap-2">
+                                    <select name="msg_period" onchange="autoSetEndTime(); updatePreview()" class="flex-1 bg-zinc-950 border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500">
+                                        <option value="daily">За текущий стрим</option>
+                                        <option value="weekly">За неделю</option>
+                                        <option value="monthly">За месяц</option>
+                                    </select>
+                                    <input type="number" name="min_msgs" placeholder="0" oninput="updatePreview()" class="w-24 bg-zinc-950 border border-zinc-800 text-sm text-center text-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500">
+                                </div>
+                            </div>
+
+                            <!-- Refund Box -->
+                            <div id="refund-section" class="hidden bg-red-950/20 border border-red-900/50 p-4 rounded-lg transition-all">
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="text-sm font-bold text-red-400"><i class="fa-solid fa-money-bill-transfer"></i> Система возврата</span>
+                                    <label class="relative inline-flex items-center cursor-pointer scale-90">
+                                        <input type="checkbox" name="is_refund_enabled" id="refund-check" checked onchange="toggleSliderVisibility()" class="sr-only peer">
+                                        <div class="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-300 after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                                    </label>
+                                </div>
+                                <div id="refund-controls" class="transition-opacity">
+                                    <div class="flex justify-between text-xs text-zinc-400 mb-2">
+                                        <span>Процент возврата при отмене:</span>
+                                        <span id="refund-val" class="font-bold text-white">100%</span>
+                                    </div>
+                                    <input type="range" name="refund_percent" min="0" max="100" value="100" oninput="document.getElementById('refund-val').innerText=this.value+'%'" class="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- УСЛОВИЯ TWITCH (FOSSABOT) -->
+                        <div id="twitch-conditions" class="hidden bg-purple-900/10 p-5 rounded-xl border border-purple-900/30 space-y-4">
+                            <h3 class="text-sm uppercase tracking-wider text-purple-400 font-bold flex items-center gap-2"><i class="fa-brands fa-twitch"></i> Настройки FossaBot</h3>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-purple-400 mb-1">Цена награды (баллы)</label>
+                                    <input type="number" name="twitch_cost" value="500" min="1" oninput="updatePreview()" class="w-full bg-zinc-950 border border-purple-900/50 text-zinc-100 rounded-lg px-3 py-2.5 focus:outline-none focus:border-purple-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-zinc-400 mb-1">Канал стримера</label>
+                                    <select name="twitch_broadcaster" onchange="updatePreview()" class="w-full bg-zinc-950 border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-purple-500">
+                                        <option value="883996654">HATElove_ttv</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4 mt-2">
+                                <div class="flex flex-col justify-center">
+                                    <div class="flex items-center justify-between bg-zinc-950 p-2.5 rounded-lg border border-zinc-800 h-full">
+                                        <span class="text-xs font-medium text-zinc-300">Только для новичков?</span>
+                                        <label class="relative inline-flex items-center cursor-pointer scale-75 m-0">
+                                            <input type="checkbox" name="is_for_newbies" onchange="updatePreview()" class="sr-only peer">
+                                            <div class="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-300 after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-zinc-400 mb-1">Мин. сообщений (За всё время)</label>
+                                    <input type="number" name="min_lifetime_msgs" placeholder="0" oninput="updatePreview()" class="w-full bg-zinc-950 border border-zinc-800 text-zinc-100 rounded-lg px-3 py-2.5 focus:outline-none focus:border-purple-500">
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- ПРАВАЯ КОЛОНКА: ПРИЗ И ПРЕВЬЮ -->
+                    <div class="space-y-6">
+                        <div class="bg-zinc-900 p-5 rounded-xl border border-zinc-800 space-y-4">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-sm uppercase tracking-wider text-blue-400 font-bold flex items-center gap-2" id="prize-title"><i class="fa-solid fa-gift"></i> Оформление приза</h3>
+                                <button type="button" onclick="openLibrarySearch()" class="text-xs bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded hover:bg-blue-600/40 transition">
+                                    <i class="fa-solid fa-magnifying-glass"></i> Искать на складе
+                                </button>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-zinc-400 mb-1">Название приза</label>
+                                <input type="text" name="prize" id="inp-prize" placeholder="AWP | Asiimov" required oninput="updatePreview()" class="w-full bg-zinc-950 border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500">
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-zinc-400 mb-1">Качество (Wear)</label>
+                                    <select name="quality" id="inp-quality" onchange="updatePreview()" class="w-full bg-zinc-950 border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500">
+                                        <option value="">Без качества</option>
+                                        <option value="FN">Factory New (Прямо с завода)</option>
+                                        <option value="MW">Minimal Wear (Немного поношенное)</option>
+                                        <option value="FT">Field-Tested (После полевых испытаний)</option>
+                                        <option value="WW">Well-Worn (Поношенное)</option>
+                                        <option value="BS">Battle-Scarred (Закаленное в боях)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-zinc-400 mb-1">Редкость (Цвет)</label>
+                                    <select name="rarity_color" id="inp-rarity-color" onchange="updatePreview()" class="w-full bg-zinc-950 border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500">
+                                        <option value="#b0c3d9">Серый (Ширпотреб)</option>
+                                        <option value="#5e98d9">Синий (Промышленное)</option>
+                                        <option value="#4b69ff" selected>Фиолетовый (Армейское)</option>
+                                        <option value="#8847ff">Розовый (Запрещенное)</option>
+                                        <option value="#d32ce6">Малиновый (Засекреченное)</option>
+                                        <option value="#eb4b4b">Красный (Тайное)</option>
+                                        <option value="#ffd700">★ Золотой (Нож/Перчатки)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-zinc-400 mb-1">Ссылка на картинку (URL)</label>
+                                <input type="text" name="image" id="inp-img" placeholder="https://..." oninput="updatePreview()" class="w-full bg-zinc-950 border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500">
+                            </div>
+
+                            <div id="desc-container">
+                                <label class="block text-xs font-medium text-zinc-400 mb-1">Описание (опционально)</label>
+                                <textarea name="desc" id="inp-desc" rows="2" placeholder="Пара слов для поста..." oninput="updatePreview()" class="w-full bg-zinc-950 border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500 resize-none"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Превью поста -->
+                        <div id="preview-box" class="bg-[#182533] rounded-xl p-4 border-l-4 border-blue-500 relative transition-colors">
+                            <div id="preview-label" class="absolute top-2 right-3 text-[10px] text-zinc-400 uppercase tracking-widest">Telegram Preview</div>
+                            <img src="" id="prev-img" class="w-full h-32 object-contain rounded bg-black/20 mb-3 hidden">
+                            <div id="prev-txt" class="text-sm whitespace-pre-wrap leading-relaxed">Тут будет превью...</div>
+                            <div id="preview-btn" class="mt-3 bg-blue-500/20 text-blue-400 text-center py-2 rounded-lg text-sm font-semibold border border-blue-500/20 transition-colors">
+                                Участвовать 🎲
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Футер модалки (Кнопки запуска) -->
+            <div class="p-5 border-t border-zinc-800 bg-zinc-900/80 flex gap-4 justify-end">
+                <button type="button" id="btn-silent" onclick="submitRaffle(true)" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg font-medium transition border border-zinc-700">
+                    <i class="fa-solid fa-ghost"></i> Тихий запуск (App)
+                </button>
+                <button type="button" id="btn-submit" onclick="submitRaffle(false)" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition shadow-lg shadow-blue-500/20 flex items-center gap-2">
+                    <i class="fa-solid fa-rocket"></i> Запустить в канал
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно СКЛАДА (Поверх создания) -->
     <div id="modal-library" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/90 backdrop-blur-md" onclick="closeLibrarySearch()"></div>
         
         <div class="relative bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col overflow-hidden">
             <div class="flex justify-between items-center p-5 border-b border-zinc-800 bg-zinc-900">
-                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="fa-solid fa-box-open text-[#9146FF]"></i> Склад ботов (Маркет)</h3>
+                <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="fa-solid fa-box-open text-blue-500"></i> Склад ботов (Маркет)</h3>
                 <button onclick="closeLibrarySearch()" class="text-zinc-500 hover:text-white transition-colors bg-zinc-800 hover:bg-zinc-700 w-8 h-8 rounded-full flex items-center justify-center">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
             
-            <div class="p-5 border-b border-zinc-800 bg-zinc-900/50 space-y-4 flex-shrink-0">
-                <input type="text" id="lib-search-inp" class="w-full bg-[#09090b] border border-zinc-800 text-zinc-100 rounded-lg px-4 py-3 focus:outline-none focus:border-[#9146FF]" placeholder="Поиск скина (Например: AK-47)..." oninput="debounceSearch()">
+            <div class="p-5 border-b border-zinc-800 bg-zinc-900/50 space-y-4">
+                <input type="text" id="lib-search-inp" class="w-full bg-zinc-950 border border-zinc-800 text-zinc-100 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="Поиск скина (Например: AK-47)..." oninput="debounceSearch()">
+                
                 <div class="grid grid-cols-2 gap-4">
-                    <input type="number" id="lib-price-min" placeholder="Мин. цена ₽" class="bg-[#09090b] border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#9146FF]" oninput="debounceSearch()">
-                    <input type="number" id="lib-price-max" placeholder="Макс. цена ₽" class="bg-[#09090b] border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#9146FF]" oninput="debounceSearch()">
+                    <input type="number" id="lib-price-min" placeholder="Мин. цена ₽" class="bg-zinc-950 border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2 focus:outline-none" oninput="debounceSearch()">
+                    <input type="number" id="lib-price-max" placeholder="Макс. цена ₽" class="bg-zinc-950 border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2 focus:outline-none" oninput="debounceSearch()">
                 </div>
             </div>
 
@@ -264,89 +353,65 @@
         </div>
     </div>
 
-    <!-- Модальное окно ОЧИСТКИ -->
-    <div id="cleanup-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden backdrop-blur-sm">
-        <div class="bg-[#18181b] border border-zinc-700 rounded-lg p-6 w-96 shadow-xl relative z-10">
-            <h2 class="text-lg font-bold text-zinc-100 mb-4"><i class="fa-solid fa-triangle-exclamation text-red-500 mr-2"></i>Очистка логов</h2>
-            <p class="text-xs text-zinc-400 mb-4">Выбери период, за который хочешь удалить записи из базы данных. Действие необратимо!</p>
-            
-            <div class="space-y-3 mb-5">
-                <div>
-                    <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">От даты</label>
-                    <input type="date" id="cleanup-start" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-sm rounded px-3 py-2 focus:outline-none focus:border-red-500">
-                </div>
-                <div>
-                    <label class="text-[11px] text-zinc-400 block mb-1 uppercase font-medium">До даты</label>
-                    <input type="date" id="cleanup-end" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-sm rounded px-3 py-2 focus:outline-none focus:border-red-500">
-                </div>
-            </div>
-            
-            <div class="flex justify-end gap-2">
-                <button onclick="closeCleanupModal()" class="px-4 py-2 rounded text-xs font-semibold text-zinc-300 hover:bg-zinc-800 transition-colors">Отмена</button>
-                <button onclick="submitCleanup()" class="px-4 py-2 rounded text-xs font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors shadow-lg shadow-red-600/20">Удалить навсегда</button>
-            </div>
-        </div>
-    </div>
-
     <script>
-        // === ПЕРЕМЕННЫЕ ДЛЯ СКЛАДА ===
+        // Глобальные переменные состояния
+        let currentFilter = 'active'; 
         let searchTimeout = null;
         let currentOffset = 0;
         let isFetching = false;
         let hasMoreItems = true;
 
-        // === UI ЛОГИКА И ПРЕВЬЮ ===
-        function toggleRewardTypeFields() {
-            const type = document.getElementById('reward-type').value;
-            if (type === 'skin_giveaway') {
-                document.getElementById('field-box').classList.remove('hidden');
-                document.getElementById('field-amount').classList.add('hidden');
-            } else {
-                document.getElementById('field-box').classList.add('hidden');
-                document.getElementById('field-amount').classList.remove('hidden');
-            }
-        }
-
-        function updatePreview() {
-            const titleVal = document.getElementById('reward-title').value || 'Название награды';
-            const quality = document.getElementById('inp-quality').value;
-            const rarity = document.getElementById('inp-rarity-color').value;
-            const cost = document.getElementById('reward-cost').value || 0;
-            const targetAudience = document.getElementById('reward-target-audience').value;
-            const gateValue = document.getElementById('reward-gate-value').value;
-            const type = document.getElementById('reward-type').value;
-            const amount = document.getElementById('reward-amount').value;
-            const imgUrl = document.getElementById('inp-img').value;
-
-            const prizeFull = quality ? `${titleVal} (${quality})` : titleVal;
-            let html = `🟪 <b>TWITCH НАГРАДА</b>\n\n`;
+        // UI логика платформы
+        function togglePlatform() {
+            const isTwitch = document.querySelector('input[name="platform"]:checked').value === 'twitch';
+            const slider = document.getElementById('platform-slider');
             
-            if (type === 'skin_giveaway') {
-                html += `🏆 <b>Приз:</b> <span style="color:${rarity}">${prizeFull}</span>\n`;
-            } else if (type === 'promocode') {
-                html += `⭐ <b>Начисление:</b> ${amount} звезд\n`;
-            } else if (type === 'tickets') {
-                html += `🎟️ <b>Начисление:</b> ${amount} билетов\n`;
+            if (isTwitch) {
+                slider.style.transform = 'translateX(100%)';
+                slider.className = 'absolute top-1.5 bottom-1.5 left-1.5 w-[calc(50%-6px)] bg-purple-600 rounded-lg transition-all duration-300 ease-in-out';
+                
+                document.getElementById('tg-conditions').classList.add('hidden');
+                document.getElementById('twitch-conditions').classList.remove('hidden');
+                document.getElementById('desc-container').classList.add('hidden');
+                
+                document.getElementById('btn-silent').style.display = 'none';
+                
+                const subBtn = document.getElementById('btn-submit');
+                subBtn.innerHTML = '<i class="fa-brands fa-twitch"></i> Запустить на Twitch';
+                subBtn.className = 'px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-medium transition shadow-lg shadow-purple-500/20 flex items-center gap-2';
+                
+                document.getElementById('basic-title').innerHTML = '<i class="fa-solid fa-gear"></i> Базовые настройки';
+                document.getElementById('basic-title').classList.replace('text-blue-400', 'text-purple-400');
+                document.getElementById('prize-title').classList.replace('text-blue-400', 'text-purple-400');
+            } else {
+                slider.style.transform = 'translateX(0)';
+                slider.className = 'absolute top-1.5 bottom-1.5 left-1.5 w-[calc(50%-6px)] bg-blue-600 rounded-lg transition-all duration-300 ease-in-out';
+                
+                document.getElementById('tg-conditions').classList.remove('hidden');
+                document.getElementById('twitch-conditions').classList.add('hidden');
+                document.getElementById('desc-container').classList.remove('hidden');
+                
+                document.getElementById('btn-silent').style.display = 'inline-block';
+                
+                const subBtn = document.getElementById('btn-submit');
+                subBtn.innerHTML = '<i class="fa-solid fa-rocket"></i> Запустить в канал';
+                subBtn.className = 'px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition shadow-lg shadow-blue-500/20 flex items-center gap-2';
+                
+                document.getElementById('basic-title').classList.replace('text-purple-400', 'text-blue-400');
+                document.getElementById('prize-title').classList.replace('text-purple-400', 'text-blue-400');
             }
-
-            html += `\n📌 <b>Условия на стриме:</b>\n`;
-            html += `└ Стоимость: ${cost} баллов канала\n`;
-            if (targetAudience === 'newbies') html += `└ Только для новичков ✅\n`;
-            if (gateValue > 0) html += `└ Мин. сообщений в чате: ${gateValue} 💬\n`;
-
-            const imgEl = document.getElementById('prev-img');
-            if (imgUrl && type === 'skin_giveaway') { 
-                imgEl.src = imgUrl; 
-                imgEl.classList.remove('hidden'); 
-            } else { 
-                imgEl.classList.add('hidden'); 
-            }
-
-            document.getElementById('preview-box').style.borderColor = rarity;
-            document.getElementById('prev-txt').innerHTML = html.replace(/\n/g, '<br>');
+            updatePreview();
         }
 
-        // === СКЛАД (МАРКЕТ) ===
+        function toggleModal(modalID) {
+            const el = document.getElementById(modalID);
+            el.classList.toggle('hidden');
+            if(!el.classList.contains('hidden') && modalID === 'createRaffleModal') {
+                initDateProtection();
+                updatePreview();
+            }
+        }
+
         function openLibrarySearch() {
             document.getElementById('modal-library').classList.remove('hidden');
             document.getElementById('lib-search-inp').value = '';
@@ -359,6 +424,123 @@
             document.getElementById('modal-library').classList.add('hidden');
         }
 
+        function filterList(status) {
+            currentFilter = status;
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = "tab-btn px-4 py-2 rounded-md text-sm font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 transition-colors";
+            });
+            event.target.className = "tab-btn px-4 py-2 rounded-md text-sm font-medium bg-zinc-800 text-zinc-100 shadow";
+            loadRaffles(); 
+        }
+
+        function toggleRefundBox() {
+            const cost = document.querySelector('input[name="ticket_cost"]').value;
+            const box = document.getElementById('refund-section');
+            if (cost > 0) {
+                box.classList.remove('hidden');
+                box.classList.add('block');
+                toggleSliderVisibility(); 
+            } else {
+                box.classList.add('hidden');
+                box.classList.remove('block');
+            }
+        }
+
+        function toggleSliderVisibility() {
+            const isChecked = document.getElementById('refund-check').checked;
+            const controls = document.getElementById('refund-controls');
+            controls.style.opacity = isChecked ? "1" : "0.3";
+            controls.style.pointerEvents = isChecked ? "auto" : "none";
+        }
+
+        // Превью
+        function updatePreview() {
+            const isTwitch = document.querySelector('input[name="platform"]:checked').value === 'twitch';
+            
+            const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value : '';
+            const getInpVal = (name) => document.querySelector(`input[name="${name}"]`) ? document.querySelector(`input[name="${name}"]`).value : '';
+            const getCheck = (name) => document.querySelector(`input[name="${name}"]`) ? document.querySelector(`input[name="${name}"]`).checked : false;
+
+            const prize = getVal('inp-prize') || 'Приз';
+            const quality = getVal('inp-quality');
+            const desc = getVal('inp-desc');
+            const imgUrl = getVal('inp-img');
+            const rarity = getVal('inp-rarity-color');
+            const dateVal = getInpVal('end_time');
+            
+            const prizeFull = quality ? `${prize} (${quality})` : prize;
+            let html = '';
+
+            const previewBox = document.getElementById('preview-box');
+            const previewLabel = document.getElementById('preview-label');
+            const previewBtn = document.getElementById('preview-btn');
+
+            if (isTwitch) {
+                previewBox.className = "bg-[#251833] rounded-xl p-4 border-l-4 border-purple-500 relative transition-colors";
+                previewLabel.innerText = "Twitch FossaBot Preview";
+                previewBtn.className = "mt-3 bg-purple-500/20 text-purple-400 text-center py-2 rounded-lg text-sm font-semibold border border-purple-500/20 transition-colors";
+                previewBtn.innerText = "Забрать награду 🎁";
+
+                const tCost = getInpVal('twitch_cost');
+                const tNewbies = getCheck('is_for_newbies');
+                const tMsgs = getInpVal('min_lifetime_msgs');
+
+                html = `🟪 <b>TWITCH РОЗЫГРЫШ</b>\n\n`;
+                html += `🏆 <b>Приз:</b> <span style="color:${rarity}">${prizeFull}</span>\n`;
+                html += `\n📌 <b>Условия на стриме:</b>\n`;
+                html += `└ Стоимость: ${tCost} баллов канала\n`;
+                if(tNewbies) html += `└ Только для новичков ✅\n`;
+                if(tMsgs > 0) html += `└ Мин. сообщений в чате: ${tMsgs} 💬\n`;
+                
+                if (dateVal) {
+                    const d = new Date(dateVal);
+                    html += `\n⏳ <b>Итоги (QSTASH):</b> ${d.toLocaleDateString('ru-RU')} ${d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'})}\n`;
+                }
+            } else {
+                previewBox.className = "bg-[#182533] rounded-xl p-4 border-l-4 border-blue-500 relative transition-colors";
+                previewLabel.innerText = "Telegram Preview";
+                previewBtn.className = "mt-3 bg-blue-500/20 text-blue-400 text-center py-2 rounded-lg text-sm font-semibold border border-blue-500/20 transition-colors";
+                previewBtn.innerText = "Участвовать 🎲";
+
+                const tickets = getInpVal('ticket_cost');
+                const bpLevel = getInpVal('min_bp_level');
+                const minParts = getInpVal('min_participants');
+                const tag = getInpVal('name_tag');
+                const msgs = getInpVal('min_msgs');
+                const sub = getCheck('sub_req');
+
+                html = `🚀 <b>РОЗЫГРЫШ</b>\n\n`;
+                if (desc) html += `<i>${desc}</i>\n\n`;
+                html += `🏆 <b>Приз:</b> <span style="color:${rarity}">${prizeFull}</span>\n`;
+                html += `\n📌 <b>Условия:</b>\n`;
+                
+                if(sub) html += `└ Подписка на канал\n`;
+                if(tickets > 0) html += `└ Вход: ${tickets} билетов 🎫\n`;
+                if(minParts > 0) html += `└ Минимум участников: ${minParts} 👥\n`;
+                if(bpLevel > 0) html += `└ Уровень BP: ${bpLevel} ⭐️\n`;
+                if(tag) html += `└ Никнейм содержит: «${tag}» 🏷\n`;
+                if(msgs > 0) html += `└ Сообщений на стриме: ${msgs} 💬\n`;
+
+                if (dateVal) {
+                    const d = new Date(dateVal);
+                    html += `\n⏳ <b>Итоги:</b> ${d.toLocaleDateString('ru-RU')} ${d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'})} (МСК)\n`;
+                }
+            }
+
+            const imgEl = document.getElementById('prev-img');
+            if (imgUrl) { 
+                imgEl.src = imgUrl; 
+                imgEl.classList.remove('hidden'); 
+            } else { 
+                imgEl.classList.add('hidden'); 
+            }
+
+            // Цвет рамки под редкость скина
+            document.querySelector('#prev-txt').parentElement.style.borderColor = rarity;
+            document.getElementById('prev-txt').innerHTML = html.replace(/\n/g, '<br>');
+        }
+
+        // Поиск по складу (Без изменений)
         function debounceSearch() {
             clearTimeout(searchTimeout);
             currentOffset = 0;
@@ -389,11 +571,11 @@
             
             isFetching = true;
             if (isNewSearch) {
-                cont.innerHTML = '<div class="text-center text-[#9146FF] mt-10"><i class="fa-solid fa-spinner fa-spin text-2xl"></i></div>';
+                cont.innerHTML = '<div class="text-center text-blue-500 mt-10"><i class="fa-solid fa-spinner fa-spin text-2xl"></i></div>';
             } else {
                 const loader = document.createElement('div');
                 loader.id = 'scroll-loader';
-                loader.className = 'text-center text-[#9146FF] p-2';
+                loader.className = 'text-center text-blue-500 p-2';
                 loader.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
                 cont.appendChild(loader);
             }
@@ -426,13 +608,13 @@
                     const rColor = rarityColors[item.rarity?.toLowerCase()] || '#4b69ff';
 
                     cont.innerHTML += `
-                    <div class="flex items-center gap-4 p-3 bg-[#09090b] border border-zinc-800 rounded-lg hover:bg-zinc-800/50 transition" style="border-left: 4px solid ${rColor}">
+                    <div class="flex items-center gap-4 p-3 bg-zinc-900 border border-zinc-800 rounded-lg hover:bg-zinc-800 transition" style="border-left: 4px solid ${rColor}">
                         <img src="${item.image_url}" class="w-16 h-12 object-contain" onerror="this.src='https://placehold.co/60x40/18181b/3f3f46'">
                         <div class="flex-1 min-w-0">
-                            <div class="font-bold text-sm text-zinc-100 truncate">${item.market_hash_name}</div>
-                            <div class="text-xs text-[#9146FF] mt-1">💰 ${item.price_rub} руб.</div>
+                            <div class="font-bold text-sm text-white truncate">${item.market_hash_name}</div>
+                            <div class="text-xs text-blue-400 mt-1">💰 ${item.price_rub} руб.</div>
                         </div>
-                        <button class="bg-[#9146FF] hover:bg-[#7b3ad6] text-white px-4 py-2 rounded text-xs font-bold transition" onclick="selectFromCache('${safeJson}')">ВЫБРАТЬ</button>
+                        <button class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-xs font-bold transition" onclick="selectFromCache('${safeJson}')">ВЫБРАТЬ</button>
                     </div>`;
                 });
             } catch(e) { 
@@ -465,7 +647,7 @@
                 if (wearMap[rawWear]) qualityCode = wearMap[rawWear]; 
             }
             
-            document.getElementById('reward-title').value = cleanName;
+            document.getElementById('inp-prize').value = cleanName;
             document.getElementById('inp-img').value = item.image_url || '';
             document.getElementById('inp-quality').value = qualityCode || "";
             
@@ -475,185 +657,210 @@
             };
             document.getElementById('inp-rarity-color').value = rarityHexMap[(item.rarity || 'blue').toLowerCase()] || '#4b69ff';
             
-            // Если выбран скин со склада, сбрасываем привязку коробки
-            document.getElementById('reward-box-id').value = "";
-            document.getElementById('reward-type').value = "skin_giveaway";
-            toggleRewardTypeFields();
-
             updatePreview();
         }
 
+        // Сабмит и загрузка списка (Разделение логики)
+        async function submitRaffle(isSilent) {
+            const form = document.getElementById('create-form');
+            if(!form.reportValidity()) return;
 
-        // === ОСНОВНАЯ ЛОГИКА СТРАНИЦЫ ===
-        async function loadTwitchRewards() {
-            const tbody = document.getElementById('rewards-table-body');
-            const boxSelect = document.getElementById('reward-box-id');
+            const fd = new FormData(form);
+            const isTwitch = fd.get('platform') === 'twitch';
             
-            try {
-                // Загружаем коробки для селектора
-                const b_res = await fetch('/api/v1/admin/boxes');
-                const boxes = await b_res.json();
-                boxSelect.innerHTML = '<option value="">Без коробки (Конкретный скин со склада)</option>';
-                boxes.forEach(b => {
-                    boxSelect.innerHTML += `<option value="${b.id}">📦 ${b.name} (${b.box_type})</option>`;
-                });
+            let endpoint = '';
+            let payload = {};
 
-                const response = await fetch('/api/v1/admin/rewards');
-                const data = await response.json();
-                
-                const channelSelect = document.getElementById('reward-channel');
-                channelSelect.innerHTML = '';
-                
-                const channelMap = {};
-                data.channels.forEach(ch => {
-                    channelSelect.innerHTML += `<option value="${ch.id}">🟣 ${ch.display_name} (${ch.login})</option>`;
-                    channelMap[ch.id] = ch.display_name;
-                });
-
-                tbody.innerHTML = '';
-                data.rewards.forEach(r => {
-                    const statusClass = r.is_active ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/30';
-                    const statusText = r.is_active ? 'ACTIVE' : 'DISABLED';
-                    const boxName = r.linked_box_id ? `Коробка #${r.linked_box_id}` : 'Скин (Прямой)';
-                    const channelName = r.broadcaster_id && channelMap[r.broadcaster_id] ? channelMap[r.broadcaster_id] : 'Общий';
-                    
-                    tbody.innerHTML += `
-                        <tr class="hover:bg-zinc-800/30 transition-colors">
-                            <td class="py-2 px-3 text-[#9146FF] font-semibold">${channelName}</td>
-                            <td class="py-2 px-3 text-zinc-200 font-medium">${r.title}</td>
-                            <td class="py-2 px-3 text-zinc-400 font-semibold">${boxName}</td>
-                            <td class="py-2 px-3 text-center">
-                                <button onclick="toggleTwitchReward(${r.id}, ${!r.is_active})" class="px-2 py-1 rounded border text-[10px] font-bold transition-colors hover:opacity-80 ${statusClass}">
-                                    ${statusText}
-                                </button>
-                            </td>
-                            <td class="py-2 px-3 text-center">
-                                <button onclick="deleteTwitchReward(${r.id})" class="px-2 py-1 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 rounded text-xs transition-colors"><i class="fa-solid fa-trash-can"></i></button>
-                            </td>
-                        </tr>`;
-                });
-
-                loadPurchases(); // Вызов загрузки логов
-                updatePreview(); // Инициализация превью при первой загрузке
-            } catch (e) { console.error('Ошибка загрузки данных', e); }
-        }
-
-        async function createTwitchReward() {
-            const payload = {
-                title: document.getElementById('reward-title').value,
-                broadcaster_id: document.getElementById('reward-channel').value, 
-                reward_type: document.getElementById('reward-type').value,
-                cost: parseInt(document.getElementById('reward-cost').value) || 100,
-                auto_steam: document.getElementById('reward-auto-steam').checked,
-                target_value: parseInt(document.getElementById('reward-gate-value').value) || 0,
-                gate_period: document.getElementById('reward-gate-period').value,
-                show_user_input: document.getElementById('reward-refund').checked,
-                linked_box_id: document.getElementById('reward-box-id').value ? parseInt(document.getElementById('reward-box-id').value) : null,
-                
-                // Расширенные поля для конкретного скина (если без коробки)
-                steam_item_name: document.getElementById('reward-title').value, 
-                image_url: document.getElementById('inp-img').value,
-                skin_quality: document.getElementById('inp-quality').value,
-                rarity_color: document.getElementById('inp-rarity-color').value,
-
-                reward_amount: parseInt(document.getElementById('reward-amount').value) || 0, 
-                notify_admin: true,
-                target_audience: document.getElementById('reward-target-audience').value
-            };
-            
-            if (!payload.title) return alert('Введите название награды или выберите скин!');
-            if (!payload.broadcaster_id) return alert('Выберите канал для создания награды!');
-
-            try {
-                const res = await fetch('/api/v1/admin/rewards/create', { 
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify(payload) 
-                });
-                
-                if (res.ok) { 
-                    alert('Успешно создано на Twitch и добавлено в БД!'); 
-                    loadTwitchRewards(); 
-                } else {
-                    const err = await res.json();
-                    alert('Ошибка: ' + (err.detail || 'Сбой при создании'));
-                }
-            } catch (e) {
-                alert('Сетевая ошибка: ' + e);
+            if (isTwitch) {
+                endpoint = '/api/v1/admin/raffles/create_twitch';
+                payload = {
+                    title: fd.get('prize'),
+                    end_time: fd.get('end_time'), // Отправляем end_time как ты и просил!
+                    cost: parseInt(fd.get('twitch_cost') || 500),
+                    broadcaster_id: fd.get('twitch_broadcaster'),
+                    is_for_newbies: fd.get('is_for_newbies') === 'on',
+                    min_lifetime_msgs: parseInt(fd.get('min_lifetime_msgs') || 0),
+                    image_url: fd.get('image'),
+                    skin_quality: fd.get('quality'),
+                    rarity_color: fd.get('rarity_color'),
+                    winners_count: 1 // По дефолту 1
+                };
+            } else {
+                endpoint = '/api/v1/admin/raffles/create';
+                payload = {
+                    title: fd.get('prize'),
+                    type: fd.get('type'),
+                    end_time: fd.get('end_time'),
+                    settings: {
+                        prize_name: fd.get('prize'),
+                        skin_quality: fd.get('quality'), 
+                        prize_image: fd.get('image'),
+                        rarity_color: fd.get('rarity_color'),   
+                        description: fd.get('desc'),
+                        
+                        is_silent: isSilent,
+                        start_time: fd.get('start_time'),
+                        
+                        requires_telegram_sub: fd.get('sub_req') === 'on',
+                        ticket_cost: parseInt(fd.get('ticket_cost') || 0),
+                        min_bp_level: parseInt(fd.get('min_bp_level') || 0),
+                        min_participants: parseInt(fd.get('min_participants') || 0),
+                        required_name_tag: fd.get('name_tag'),
+                        
+                        min_messages: parseInt(fd.get('min_msgs') || 0),
+                        message_period: fd.get('msg_period') || 'daily',
+                        
+                        is_refund_enabled: fd.get('is_refund_enabled') === 'on',
+                        refund_percent: parseInt(fd.get('refund_percent') || 100)
+                    }
+                };
             }
-        }
-
-        async function toggleTwitchReward(id, status) {
-            try {
-                const res = await fetch(`/api/v1/admin/rewards/toggle?id=${id}&status=${status}`, { method: 'POST' });
-                if (res.ok) loadTwitchRewards();
-                else alert('Ошибка переключения');
-            } catch (e) { alert('Сетевая ошибка: ' + e); }
-        }
-
-        async function deleteTwitchReward(id) {
-            if (!confirm('Точно удалить эту награду с Twitch и из базы?')) return;
-            try {
-                const res = await fetch(`/api/v1/admin/rewards/${id}/delete`, { method: 'DELETE' });
-                if (res.ok) loadTwitchRewards();
-                else alert('Не удалось удалить');
-            } catch (e) { alert('Сетевая ошибка: ' + e); }
-        }
-
-        async function loadPurchases() {
-            const tbody = document.getElementById('purchases-table-body');
-            try {
-                const res = await fetch('/api/v1/admin/purchases');
-                const data = await res.json();
-                tbody.innerHTML = '';
-                
-                if (data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-zinc-500">Логи пусты</td></tr>';
-                    return;
-                }
-
-                data.forEach(p => {
-                    const date = new Date(p.created_at).toLocaleString('ru-RU', {day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit'});
-                    const statusColor = p.status.includes('Выдан') ? 'text-green-400' : (p.status.includes('Ошибка') ? 'text-red-400' : 'text-yellow-400');
-                    
-                    tbody.innerHTML += `
-                        <tr class="hover:bg-zinc-800/30 transition-colors">
-                            <td class="py-2 px-3 text-zinc-500 text-[11px]">${date}</td>
-                            <td class="py-2 px-3 text-zinc-200 font-medium">@${p.twitch_login || p.username}</td>
-                            <td class="py-2 px-3 text-center font-bold text-[11px] ${statusColor}">${p.status}</td>
-                            <td class="py-2 px-3 text-right text-zinc-400 font-medium">${p.viewed_by_admin_name || 'Предмет'}</td>
-                        </tr>`;
-                });
-            } catch (e) { console.error('Ошибка загрузки логов', e); }
-        }
-
-        function openCleanupModal() { document.getElementById('cleanup-modal').classList.remove('hidden'); }
-        function closeCleanupModal() { document.getElementById('cleanup-modal').classList.add('hidden'); }
-
-        async function submitCleanup() {
-            const start = document.getElementById('cleanup-start').value;
-            const end = document.getElementById('cleanup-end').value;
-            if (!start || !end) return alert('Выбери обе даты!');
-            if (new Date(start) > new Date(end)) return alert('Начальная дата не может быть больше конечной!');
 
             try {
-                const res = await fetch('/api/v1/admin/purchases/cleanup', {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ start_date: start, end_date: end })
+                const res = await fetch(endpoint, {
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
                 });
 
                 if (res.ok) {
-                    alert('Логи успешно очищены!');
-                    closeCleanupModal();
-                    loadPurchases();
-                } else alert('Ошибка при очистке');
-            } catch(e) { alert('Сетевая ошибка'); }
+                    alert(isTwitch ? 'Успех! Twitch-розыгрыш создан и запущен!' : 'Успех! Telegram-розыгрыш создан.');
+                    form.reset(); 
+                    toggleModal('createRaffleModal');
+                    loadRaffles(); 
+                } else {
+                    const err = await res.json();
+                    alert('Ошибка: ' + (err.detail || 'Не удалось создать розыгрыш'));
+                }
+            } catch (error) {
+                alert('Сбой сети. Проверьте консоль.');
+                console.error(error);
+            }
         }
 
-        // Запуск
+        async function loadRaffles() {
+            const container = document.getElementById('raffles-container');
+            container.innerHTML = `<div class="col-span-full p-12 text-center text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-xl"><i class="fa-solid fa-circle-notch fa-spin text-2xl mb-3"></i><br>Загрузка...</div>`;
+
+            try {
+                const response = await fetch('/api/v1/admin/raffles/list');
+                if (!response.ok) throw new Error('Сбой сети при запросе списка');
+                
+                const allRaffles = await response.json();
+                
+                const filteredRaffles = allRaffles.filter(r => {
+                    const s = r.settings || {};
+                    const isDone = r.status === 'completed';
+                    const isSched = r.status === 'scheduled' || s.start_time; 
+                    
+                    if(currentFilter === 'completed') return isDone;
+                    if(currentFilter === 'scheduled') return !isDone && isSched;
+                    return !isDone && !isSched; 
+                });
+
+                if (!filteredRaffles.length) {
+                    container.innerHTML = `<div class="col-span-full p-12 text-center text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-xl">В данной категории пусто.</div>`;
+                    if (currentFilter === 'active') {
+                        document.getElementById('stat-active').textContent = '0';
+                        document.getElementById('stat-total').textContent = '0';
+                    }
+                    return;
+                }
+
+                container.innerHTML = '';
+                let totalParticipants = 0;
+
+                filteredRaffles.forEach(raffle => {
+                    const s = raffle.settings || {};
+                    const participants = raffle.participants_count || 0;
+                    totalParticipants += participants;
+
+                    const imageUrl = s.prize_image || raffle.image_url || 'https://placehold.co/400x300/18181b/3f3f46?text=No+Image';
+                    const rColor = s.rarity_color || '#3b82f6';
+                    const endDate = raffle.end_time ? new Date(raffle.end_time).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+
+                    let badge = '';
+                    if (raffle.status === 'completed') badge = `<span class="bg-zinc-800 text-zinc-400 text-xs font-bold px-3 py-1.5 rounded-md border border-zinc-700">ЗАВЕРШЕН</span>`;
+                    else if (raffle.status === 'scheduled') badge = `<span class="bg-blue-900/50 text-blue-400 text-xs font-bold px-3 py-1.5 rounded-md border border-blue-500/30"><i class="fa-regular fa-clock"></i> ОТЛОЖЕН</span>`;
+                    else if (raffle.type === 'twitch_fossabot') badge = `<span class="bg-purple-900/50 text-purple-400 text-xs font-bold px-3 py-1.5 rounded-md border border-purple-500/30"><i class="fa-brands fa-twitch"></i> TWITCH</span>`;
+                    else if (s.is_silent) badge = `<span class="bg-purple-900/50 text-purple-400 text-xs font-bold px-3 py-1.5 rounded-md border border-purple-500/30"><i class="fa-solid fa-ghost"></i> ТИХИЙ</span>`;
+                    else badge = `<span class="bg-green-900/50 text-green-400 text-xs font-bold px-3 py-1.5 rounded-md border border-green-500/30"><span class="w-1.5 h-1.5 inline-block rounded-full bg-green-500 animate-pulse mr-1"></span>АКТИВЕН</span>`;
+
+                    container.innerHTML += `
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden flex flex-col hover:border-zinc-700 hover:shadow-2xl transition-all group relative">
+                        <div class="h-56 relative flex items-center justify-center p-6 border-b border-zinc-800 overflow-hidden" style="background: radial-gradient(circle at center, ${rColor}20 0%, #18181b 100%)">
+                            <img src="${imageUrl}" class="relative z-10 max-h-full max-w-full object-contain filter drop-shadow-2xl group-hover:scale-110 transition-transform duration-500">
+                            <div class="absolute top-3 right-3 z-20">${badge}</div>
+                        </div>
+                        <div class="p-5 flex-1 flex flex-col">
+                            <h3 class="text-lg font-bold text-zinc-100 mb-4 line-clamp-2" title="${raffle.title}">${raffle.title}</h3>
+                            <div class="space-y-2 mb-6 flex-1">
+                                <div class="flex justify-between items-center bg-zinc-950/50 px-3 py-2 rounded-lg border border-zinc-800/50">
+                                    <span class="text-sm text-zinc-500">Участников</span>
+                                    <strong class="text-zinc-100">${participants}</strong>
+                                </div>
+                                <div class="flex justify-between items-center bg-zinc-950/50 px-3 py-2 rounded-lg border border-zinc-800/50">
+                                    <span class="text-sm text-zinc-500">Завершение</span>
+                                    <strong class="text-zinc-300 text-sm">${endDate}</strong>
+                                </div>
+                            </div>
+                            <div class="flex gap-2 mt-auto">
+                                <button class="flex-1 px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm font-medium rounded-lg transition-colors border border-zinc-700/50"><i class="fa-solid fa-users"></i> Участники</button>
+                                ${raffle.status !== 'completed' ? `<button class="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-colors flex items-center justify-center" title="Завершить досрочно"><i class="fa-solid fa-flag-checkered"></i></button>` : ''}
+                            </div>
+                        </div>
+                    </div>`;
+                });
+
+                if (currentFilter === 'active') {
+                    document.getElementById('stat-active').textContent = filteredRaffles.length;
+                    document.getElementById('stat-total').textContent = totalParticipants;
+                }
+
+            } catch (e) {
+                console.error(e);
+                container.innerHTML = `<div class="col-span-full p-12 text-center text-red-400 bg-zinc-900 border border-zinc-800 rounded-xl">Ошибка загрузки данных из БД. Проверьте консоль.</div>`;
+            }
+        }
+
+        // Помощники с датой
+        function autoSetEndTime() {
+            const period = document.querySelector('select[name="msg_period"]').value;
+            const endTimeInput = document.querySelector('input[name="end_time"]');
+            if (!endTimeInput) return;
+
+            const targetDate = new Date();
+            if (period === 'weekly') targetDate.setDate(targetDate.getDate() + 7);
+            else if (period === 'monthly') targetDate.setMonth(targetDate.getMonth() + 1);
+            else if (period === 'daily') targetDate.setHours(targetDate.getHours() + 4);
+
+            const tzOffset = targetDate.getTimezoneOffset() * 60000;
+            endTimeInput.value = new Date(targetDate.getTime() - tzOffset).toISOString().slice(0, 16);
+        }
+
+        function initDateProtection() {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            const minDateTime = now.toISOString().slice(0, 16); 
+            const baseDate = minDateTime.slice(0, 11) + "00:00"; 
+            
+            const endTimeInput = document.querySelector('input[name="end_time"]');
+            const startTimeInput = document.getElementById('inp-start-time');
+            
+            if (endTimeInput) {
+                endTimeInput.min = minDateTime;
+                endTimeInput.addEventListener('focus', function() { if (!this.value) this.value = baseDate; });
+            }
+            if (startTimeInput) {
+                startTimeInput.min = minDateTime;
+                startTimeInput.addEventListener('focus', function() { if (!this.value) this.value = baseDate; });
+            }
+        }
+
+        // Инициализация
         document.addEventListener("DOMContentLoaded", () => {
-            loadTwitchRewards();
+            loadRaffles();
+            togglePlatform(); // <--- ДОБАВИТЬ ЭТУ СТРОКУ
         });
     </script>
 </body>
