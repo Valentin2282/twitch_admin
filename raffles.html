@@ -717,6 +717,13 @@
                     body: JSON.stringify(payload)
                 });
 
+                // 🔥 НОВОЕ: ЛОВИМ 401 И ДЕЛАЕМ АВТО-РЕДИРЕКТ НА АВТОРИЗАЦИЮ
+                if (res.status === 401) {
+                    alert('Токен канала истек или не совпадает. Сейчас вы будете перенаправлены на Twitch для привязки!');
+                    window.location.href = '/api/v1/auth/broadcaster_login';
+                    return;
+                }
+
                 if (res.ok) {
                     alert(isTwitch ? 'Успех! Twitch-розыгрыш запущен!' : 'Успех! Telegram-розыгрыш создан.');
                     form.reset(); 
@@ -729,7 +736,6 @@
             } catch (error) {
                 alert('Сбой сети. Проверьте консоль.');
             }
-        }
 
         async function loadRaffles() {
             const container = document.getElementById('raffles-container');
