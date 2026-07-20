@@ -112,7 +112,6 @@
     </div>
 </label>
 <label class="flex-1 text-center relative z-10 cursor-pointer">
-    <!-- ДОБАВИЛИ checked СЮДА 👇 -->
     <input type="radio" name="platform" value="twitch" checked class="peer sr-only" onchange="togglePlatform()">
     <div class="py-2.5 text-sm font-bold text-zinc-400 peer-checked:text-purple-100 transition-colors">
         <i class="fa-brands fa-twitch"></i> Twitch (FossaBot)
@@ -219,7 +218,7 @@
                                 <div>
                                     <label class="block text-xs font-medium text-zinc-400 mb-1">Канал стримера</label>
                                     <select name="twitch_broadcaster" onchange="updatePreview()" class="w-full bg-zinc-950 border border-zinc-800 text-sm text-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-purple-500">
-                                        <option value="883996654">HATElove_ttv</option>
+                                        <!-- Подгружается динамически -->
                                     </select>
                                 </div>
                             </div>
@@ -534,7 +533,7 @@
             document.getElementById('prev-txt').innerHTML = html.replace(/\n/g, '<br>');
         }
 
-        // Поиск по складу (Без изменений)
+        // Поиск по складу с правильным URL
         function debounceSearch() {
             clearTimeout(searchTimeout);
             currentOffset = 0;
@@ -575,13 +574,15 @@
             }
 
             try {
-                const res = await fetch('/api/v1/admin/cases/search_cache', {
-                    method: 'POST', 
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ query: q, min_price: minP, max_price: maxP, offset: currentOffset })
-                });
+                // ИСПРАВЛЕНИЕ: Формируем правильный GET запрос к рабочему эндпоинту
+                const url = new URL(window.location.origin + '/api/v1/admin/market_cache');
+                if (q) url.searchParams.append('search', q);
+                if (minP) url.searchParams.append('min_p', minP);
+                if (maxP) url.searchParams.append('max_p', maxP);
 
-                let items = await res.json();
+                const res = await fetch(url.toString());
+                let items = await res.json(); 
+
                 if (isNewSearch) cont.innerHTML = '';
                 else document.getElementById('scroll-loader')?.remove();
 
@@ -591,10 +592,12 @@
                     return;
                 }
 
-                if (items.length < 30) hasMoreItems = false;
+                // Бэкенд отдает лимит 50
+                if (items.length < 50) hasMoreItems = false; 
+
                 const rarityColors = {
                     'common': '#b0c3d9', 'industrial': '#5e98d9', 'blue': '#4b69ff', 
-                    'purple': '#8847ff', 'pink': '#d32ce6', 'red': '#eb4b4b', 'gold': '#ffd700'
+                    'restricted': '#8847ff', 'classified': '#d32ce6', 'covert': '#eb4b4b', 'gold': '#ffd700'
                 };
 
                 items.forEach(item => {
@@ -654,7 +657,7 @@
             updatePreview();
         }
 
-        // Сабмит и загрузка списка (Разделение логики)
+        // Сабмит и загрузка списка
         async function submitRaffle(isSilent) {
             const form = document.getElementById('create-form');
             if(!form.reportValidity()) return;
@@ -669,7 +672,7 @@
                 endpoint = '/api/v1/admin/raffles/create_twitch';
                 payload = {
                     title: fd.get('prize'),
-                    end_time: fd.get('end_time'), // Отправляем end_time как ты и просил!
+                    end_time: fd.get('end_time'), 
                     cost: parseInt(fd.get('twitch_cost') || 500),
                     broadcaster_id: fd.get('twitch_broadcaster'),
                     is_for_newbies: fd.get('is_for_newbies') === 'on',
@@ -851,10 +854,29 @@
             }
         }
 
+        // ДОБАВЛЕНА ФУНКЦИЯ ЗАГРУЗКИ КАНАЛОВ
+        async function loadChannels() {
+            try {
+                const res = await fetch('/api/v1/admin/rewards');
+                if (res.ok) {
+                    const data = await res.json();
+                    const select = document.querySelector('select[name="twitch_broadcaster"]');
+                    if (data.channels && data.channels.length > 0) {
+                        select.innerHTML = data.channels.map(c => 
+                            `<option value="${c.id}">${c.display_name} (${c.login}) ${c.is_online ? '🟢' : '🔴'}</option>`
+                        ).join('');
+                    }
+                }
+            } catch (e) {
+                console.error("Ошибка загрузки каналов:", e);
+            }
+        }
+
         // Инициализация
         document.addEventListener("DOMContentLoaded", () => {
             loadRaffles();
-            togglePlatform(); // <--- ДОБАВИТЬ ЭТУ СТРОКУ
+            togglePlatform(); 
+            loadChannels(); // Вызов загрузки списка стримеров
         });
     </script>
 </body>
