@@ -801,21 +801,26 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
 from fastapi.responses import PlainTextResponse
 
 @app.get("/api/v1/twitch/fossabot/raffle", response_class=PlainTextResponse)
-async def handle_fossabot_raffle(
-    username: str = Query(...), 
-    msgs: str = Query("0"), # Принимаем сообщения напрямую от Фоссабота
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    try:
-        username_clean = username.lower().strip().replace("@", "")
-        
-        # Безопасно парсим кол-во сообщений
-        try:
-            msgs_count = int(msgs)
-        except ValueError:
-            msgs_count = 0
+async def handle_fossabot_raffle(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # Забираем токен Фоссабота точно так же, как в fossabot_gift
+    token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
+    if not token: 
+        return "ㅤ" # Невидимый символ от пустого спама
 
-        # 1. Достаем активный Twitch-розыгрыш
+    try:
+        # 1. Запрашиваем контекст из Fossabot (кто написал команду)
+        fb_res = await http_client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=3.0)
+        if fb_res.status_code != 200: 
+            return "❌ Ошибка связи с сервером Fossabot."
+            
+        msg_data = fb_res.json().get("message")
+        if not msg_data: 
+            return "ㅤ"
+
+        twitch_login = msg_data["user"]["login"].lower()
+        twitch_display = msg_data["user"]["display_name"]
+
+        # 2. Достаем активный Twitch-розыгрыш
         res = await supabase.get("/rest/v1/raffles", params={
             "status": "eq.active",
             "type": "eq.twitch_fossabot",
@@ -824,7 +829,7 @@ async def handle_fossabot_raffle(
         })
         
         if res.status_code != 200 or not res.json():
-            return f"@{username_clean}, сейчас нет активных розыгрышей за баллы! 🐸"
+            return f"@{twitch_display}, сейчас нет активных розыгрышей за баллы! 🐸"
             
         raffle = res.json()[0]
         settings = raffle["settings"]
@@ -832,33 +837,37 @@ async def handle_fossabot_raffle(
         is_for_newbies = settings.get("is_for_newbies", False)
         min_msgs = settings.get("min_lifetime_msgs", 0)
 
-        # 2. ИЩЕМ ЮЗЕРА В БД
+        # 3. ИЩЕМ ЮЗЕРА В БД
         user_res = await supabase.get("/rest/v1/users", params={
-            "twitch_login": f"eq.{username_clean}",
-            "select": "telegram_id"
+            "twitch_login": f"eq.{twitch_login}",
+            "select": "telegram_id, total_message_count"
         })
         
-        user_exists = len(user_res.json()) > 0 if user_res.status_code == 200 else False
+        user_data = user_res.json() if user_res.status_code == 200 else []
         
-        # 🛑 ЛОГИКА ФИЛЬТРАЦИИ (НАОБОРОТ):
-        if is_for_newbies and user_exists:
-            # Юзер УЖЕ есть в базе (пользуется ТГ). Гоним его в основные розыгрыши!
-            return f"@{username_clean}, у тебя уже привязан ТГ-бот! Участвуй в основных розыгрышах там, оставь этот новичкам! ❌"
-            
-        # Проверяем сообщения (данные от Фоссабота)
-        if msgs_count < min_msgs:
-            return f"@{username_clean}, у тебя недостаточно сообщений в чате (нужно {min_msgs}, а у тебя {msgs_count}). Общайся больше! ❌"
+        # Юзер считается "привязанным", если он есть в БД и у него есть telegram_id
+        is_linked = len(user_data) > 0 and user_data[0].get("telegram_id") is not None
+        db_msgs = user_data[0].get("total_message_count", 0) if user_data else 0
 
-        # 3. Юзер прошел проверки!
+        # 🛑 ЛОГИКА ФИЛЬТРАЦИИ (НАОБОРОТ):
+        if is_for_newbies and is_linked:
+            # Юзер УЖЕ есть в базе (пользуется ТГ). Гоним его в основные розыгрыши!
+            return f"@{twitch_display}, у тебя уже привязан ТГ-бот! Участвуй в основных розыгрышах там, оставь этот новичкам! ❌"
+            
+        # Проверяем сообщения (берем из твоей БД)
+        if min_msgs > 0 and db_msgs < min_msgs:
+            return f"@{twitch_display}, у тебя недостаточно сообщений в чате (нужно {min_msgs}, а у тебя {db_msgs}). Общайся больше! ❌"
+
+        # 4. Юзер прошел проверки!
         return (
-            f"@{username_clean}, ты прошел проверку! "
+            f"@{twitch_display}, ты прошел проверку! "
             f"❗️ДЛЯ УЧАСТИЯ: Забери награду «{reward_title}» за баллы канала и ОБЯЗАТЕЛЬНО вставь туда свою трейд-ссылку!"
         )
 
     except Exception as e:
         logging.error(f"FossaBot Raffle Error: {e}")
-        return f"@{username_clean}, упс, база данных словила маслину. Попробуй позже."
-
+        return f"@{twitch_display}, упс, база данных словила маслину. Попробуй позже."
+        
 class RewardCreateRequest(BaseModel):
     title: str
     reward_type: str
