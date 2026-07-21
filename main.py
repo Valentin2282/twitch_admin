@@ -1564,6 +1564,44 @@ async def get_raffle_participants(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.delete("/api/v1/admin/raffles/{raffle_id}")
+async def delete_admin_raffle(raffle_id: int, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    if not request.cookies.get("admin_session"): 
+        raise HTTPException(status_code=401)
+    
+    # 1. Получаем инфу о розыгрыше
+    raf_res = await supabase.get("/rest/v1/raffles", params={"id": f"eq.{raffle_id}", "select": "type, settings"})
+    if raf_res.status_code == 200 and raf_res.json():
+        raffle = raf_res.json()[0]
+        settings = raffle.get("settings", {})
+        internal_reward_id = settings.get("required_twitch_reward_id")
+        
+        # 2. Если это Twitch-розыгрыш, удаляем награду с самого Twitch и из таблицы twitch_rewards
+        if internal_reward_id:
+            rew_res = await supabase.get("/rest/v1/twitch_rewards", params={"id": f"eq.{internal_reward_id}", "select": "broadcaster_id, twitch_reward_id"})
+            if rew_res.status_code == 200 and rew_res.json():
+                b_id = rew_res.json()[0].get("broadcaster_id")
+                t_id = rew_res.json()[0].get("twitch_reward_id")
+                
+                # Идем на Twitch удалять награду
+                if b_id and t_id:
+                    tok_res = await supabase.get("/rest/v1/users", params={"twitch_id": f"eq.{b_id}", "select": "twitch_access_token"})
+                    if tok_res.status_code == 200 and tok_res.json():
+                        b_token = tok_res.json()[0].get("twitch_access_token")
+                        if b_token:
+                            twitch_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={b_id}&id={t_id}"
+                            await http_client.delete(twitch_url, headers={"Authorization": f"Bearer {b_token}", "Client-Id": TWITCH_CLIENT_ID})
+                            
+            # Удаляем саму награду из БД
+            await supabase.delete("/rest/v1/twitch_rewards", params={"id": f"eq.{internal_reward_id}"})
+            
+    # 3. Удаляем сам розыгрыш (Участники удалятся автоматически благодаря CASCADE в БД)
+    res = await supabase.delete("/rest/v1/raffles", params={"id": f"eq.{raffle_id}"})
+    if res.status_code in [200, 204]:
+        return {"status": "success"}
+        
+    raise HTTPException(status_code=400, detail="Ошибка удаления из базы данных")
+
 @app.get("/api/v1/admin/raffles/list")
 async def get_admin_raffles(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     if not request.cookies.get("admin_session"): 
