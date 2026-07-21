@@ -979,13 +979,22 @@ async def complete_raffle(
         user_data_db = winner.get("users") or {}
         trade_link = user_data_db.get("trade_link")
 
-        # Ищем ID предмета в каталоге cs_items
+        # Ищем ID предмета и ЕГО ЦЕНУ в каталоге cs_items
         item_res = await supabase.get("/rest/v1/cs_items", params={
             "market_hash_name": f"eq.{prize_name}", 
-            "select": "id", 
+            "select": "id, price_rub", 
             "limit": 1
         })
-        item_id = item_res.json()[0]["id"] if (item_res.status_code == 200 and item_res.json()) else None
+        
+        item_id = None
+        if item_res.status_code == 200 and item_res.json():
+            item_data = item_res.json()[0]
+            item_id = item_data["id"]
+            
+            # 🔥 Если цена с фронта 0, спасаем ситуацию ценой со склада
+            if float(prize_price) <= 0:
+                prize_price = float(item_data.get("price_rub", 0.0))
+                logging.info(f"Подтянули цену со склада для {prize_name}: {prize_price} руб.")
 
         # Если есть ссылка — сразу на маркет, иначе — просто в инвентарь бота
         initial_status = "processing" if trade_link else "available"
