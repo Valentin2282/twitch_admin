@@ -366,13 +366,13 @@
             <div class="flex-1 overflow-y-auto p-4">
                 <table class="w-full text-left border-collapse">
                     <thead class="bg-[#18181b] sticky top-0 z-10 border-b border-zinc-800 text-[10px] uppercase text-zinc-500">
-                        <tr>
-                            <th class="py-2 px-3 font-semibold">TG ID</th>
-                            <th class="py-2 px-3 font-semibold">Игрок (Twitch/TG)</th>
-                            <th class="py-2 px-3 font-semibold text-right">Очки / Билеты</th>
-                            <th class="py-2 px-3 font-semibold text-center">Победа</th>
-                        </tr>
-                    </thead>
+    <tr>
+        <th class="py-2 px-3 font-semibold">MAX ID</th>
+        <th class="py-2 px-3 font-semibold">Игрок (Twitch/MAX)</th>
+        <th class="py-2 px-3 font-semibold text-right">Очки / Билеты</th>
+        <th class="py-2 px-3 font-semibold text-center">Победа</th>
+    </tr>
+</thead>
                     <tbody id="participants-table-body" class="text-xs divide-y divide-zinc-800/40">
                         <!-- Подгрузка -->
                     </tbody>
@@ -462,41 +462,41 @@
 
         // МОДАЛЬНОЕ ОКНО УЧАСТНИКОВ
         async function viewParticipants(raffleId) {
-            document.getElementById('part-raffle-id').innerText = '#' + raffleId;
-            toggleModal('participantsModal');
-            
-            const tbody = document.getElementById('participants-table-body');
-            tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-zinc-500"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Загрузка данных...</td></tr>';
-            
-            try {
-                // Подключаемся к Supabase через общий /rest/v1 прокси
-                const res = await fetch(`/rest/v1/raffle_participants?raffle_id=eq.${raffleId}&select=*,users(full_name,twitch_login)&order=score.desc`);
-                if (!res.ok) throw new Error('Ошибка БД');
-                const data = await res.json();
-                
-                if (data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-zinc-500">Участников пока нет</td></tr>';
-                    return;
-                }
-                
-                tbody.innerHTML = data.map(p => `
-                    <tr class="hover:bg-zinc-800/30 transition-colors">
-                        <td class="py-2 px-3 text-zinc-500 font-mono">${p.user_id || '—'}</td>
-                        <td class="py-2 px-3">
-                            ${p.users?.full_name ? `<div class="text-zinc-200 font-medium">${p.users.full_name}</div>` : ''}
-                            ${p.users?.twitch_login ? `<div class="text-[#9146FF] text-[10px] uppercase font-bold tracking-wide">@${p.users.twitch_login}</div>` : ''}
-                            ${!p.users?.full_name && !p.users?.twitch_login ? '<span class="text-zinc-500 text-[10px]">Анонимный юзер</span>' : ''}
-                        </td>
-                        <td class="py-2 px-3 text-right text-[#2AABEE] font-bold">${p.score}</td>
-                        <td class="py-2 px-3 text-center">
-                            ${p.is_winner ? '<span class="text-yellow-400 drop-shadow-md text-base"><i class="fa-solid fa-crown"></i></span>' : '<span class="text-zinc-600">-</span>'}
-                        </td>
-                    </tr>
-                `).join('');
-            } catch (e) {
-                tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-red-400">Ошибка при загрузке участников</td></tr>';
-            }
+    document.getElementById('part-raffle-id').innerText = '#' + raffleId;
+    toggleModal('participantsModal');
+    
+    const tbody = document.getElementById('participants-table-body');
+    tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-zinc-500"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Загрузка данных...</td></tr>';
+    
+    try {
+        // Теперь запрос идет через наш Python API
+        const res = await fetch(`/api/v1/admin/raffles/${raffleId}/participants`);
+        if (!res.ok) throw new Error('Ошибка БД');
+        const data = await res.json();
+        
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-zinc-500">Участников пока нет</td></tr>';
+            return;
         }
+        
+        tbody.innerHTML = data.map(p => `
+            <tr class="hover:bg-zinc-800/30 transition-colors">
+                <td class="py-2 px-3 text-zinc-500 font-mono">${p.user_id || '—'}</td>
+                <td class="py-2 px-3">
+                    ${p.users?.full_name ? `<div class="text-zinc-200 font-medium">${p.users.full_name}</div>` : ''}
+                    ${p.users?.twitch_login ? `<div class="text-[#9146FF] text-[10px] uppercase font-bold tracking-wide">@${p.users.twitch_login}</div>` : ''}
+                    ${!p.users?.full_name && !p.users?.twitch_login ? '<span class="text-zinc-500 text-[10px]">Анонимный юзер</span>' : ''}
+                </td>
+                <td class="py-2 px-3 text-right text-[#2AABEE] font-bold">${p.score}</td>
+                <td class="py-2 px-3 text-center">
+                    ${p.is_winner ? '<span class="text-yellow-400 drop-shadow-md text-base"><i class="fa-solid fa-crown"></i></span>' : '<span class="text-zinc-600">-</span>'}
+                </td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-red-400">Ошибка при загрузке участников</td></tr>';
+    }
+}
 
         async function loadRaffles() {
             const container = document.getElementById('raffles-container');
