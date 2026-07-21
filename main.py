@@ -1001,29 +1001,63 @@ async def complete_raffle(
             "is_swapped": False
         }, headers={"Prefer": "return=representation"})
         
-        # 7. Если трейд-ссылка ЕСТЬ и инвентарь успешно обновлен — дергаем воркер в фоне
+        # 7. Если трейд-ссылка ЕСТЬ и инвентарь успешно обновлен — дергаем Маркет напрямую в фоне
         if trade_link and history_res.status_code in [200, 201] and history_res.json():
             history_id = history_res.json()[0]["id"]
             
-            # Добавляем фоновую задачу для выкупа скина
+            # Запускаем локальную функцию маркета без HTTP-запросов
             background_tasks.add_task(
-                http_client.post,
-                f"{WEB_APP_URL.rstrip('/')}/api/v1/internal/worker_buy_skin",
-                json={
-                    "user_id": tg_id,
-                    "target_name": prize_name,
-                    "target_price_rub": float(prize_price),
-                    "trade_url": trade_link,
-                    "history_id": history_id,
-                    "source": "raffle",           # 🔥 Указываем, что это с розыгрыша
-                    "secret_token": INTERNAL_API_SECRET  # 🔥 Передаем секрет
-                }
+                direct_market_buy_for_raffle, # Вызываем новую функцию (см. ниже)
+                client=supabase,
+                trade_link=trade_link,
+                prize_name=prize_name,
+                prize_price=float(prize_price),
+                history_id=history_id
             )
 
     return {
         "status": "success", 
         "winner": winner.get("users", {}).get("full_name", str(tg_id))
     }
+
+# 🔥 ДОБАВЛЯЕМ ЭТУ ФУНКЦИЮ СРАЗУ ПОСЛЕ complete_raffle
+async def direct_market_buy_for_raffle(client, trade_link: str, prize_name: str, prize_price: float, history_id: int):
+    """
+    Прямая закупка скина на CSGO Market для победителя розыгрыша.
+    """
+    logging.info(f"[RAFFLE] Покупаем {prize_name} для history_id #{history_id}")
+    
+    TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY") 
+    if not TM_API_KEY:
+        logging.error("Нет ключа CSGO_MARKET_API_KEY!")
+        await client.patch("/rest/v1/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "Ошибка: Нет API ключа"})
+        return
+
+    market = MarketCSGO(api_key=TM_API_KEY)
+    unique_market_id = f"raf_{history_id}_{int(time.time())}"
+    
+    # Пытаемся купить
+    market_res = await market.buy_for_user(
+        hash_name=prize_name,
+        max_price_rub=prize_price,
+        trade_link=trade_link,
+        custom_id=unique_market_id
+    )
+    
+    if market_res.get("success"):
+        logging.info(f"[RAFFLE] ✅ Успешно куплено на Маркете!")
+        await client.patch("/rest/v1/cs_history", params={"id": f"eq.{history_id}"}, json={
+            "status": "market_pending", 
+            "tradeofferid": unique_market_id
+        })
+    else:
+        err_msg = market_res.get("error", "Ошибка Маркета")
+        logging.error(f"[RAFFLE] ❌ Ошибка Маркета: {err_msg}")
+        # При ошибке откатываем статус на "available", чтобы юзер забрал позже
+        await client.patch("/rest/v1/cs_history", params={"id": f"eq.{history_id}"}, json={
+            "status": "available",
+            "details": f"Сбой автовывода: {err_msg}"
+        })
         
 class RewardCreateRequest(BaseModel):
     title: str
