@@ -1518,6 +1518,20 @@ async def create_admin_raffle(req: RaffleCreateRequest, request: Request, supaba
         
     return {"status": "success", "raffle_id": raffle_id}
 
+@router.get("/{raffle_id}/participants")
+async def get_raffle_participants(raffle_id: int):
+    try:
+        # Делаем запрос к Supabase: берем участников и джоиним таблицу users для получения ников
+        response = supabase.table("raffle_participants") \
+            .select("*, users(full_name, twitch_login)") \
+            .eq("raffle_id", raffle_id) \
+            .order("score", desc=True) \
+            .execute()
+        
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/v1/admin/raffles/list")
 async def get_admin_raffles(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     if not request.cookies.get("admin_session"): 
