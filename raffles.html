@@ -516,6 +516,40 @@
             }
         }
 
+        // 🔥 ДОСРОЧНОЕ ЗАВЕРШЕНИЕ И ВЫДАЧА ПРИЗА
+        async function completeRaffle(id) {
+            if (!confirm('Уверены, что хотите завершить розыгрыш прямо сейчас? Система случайным образом выберет победителя из числа участников и начислит приз.')) return;
+            
+            // Находим кнопку, чтобы показать загрузку (опционально, но хороший UX)
+            try {
+                // Отправляем POST запрос на бэкенд для ручного завершения
+                const res = await fetch(`/api/v1/admin/raffles/${id}/complete`, { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await res.json();
+
+                if (res.ok) {
+                    // Если бэкенд вернул данные победителя, показываем их
+                    let successMsg = 'Розыгрыш успешно завершен!';
+                    if (data.winner_name) {
+                        successMsg += `\n\n🏆 Победитель: ${data.winner_name}`;
+                    } else if (data.message === "no_participants") {
+                        successMsg = 'Розыгрыш отменен: не было участников.';
+                    }
+                    
+                    alert(successMsg);
+                    loadRaffles(); // Обновляем список, чтобы карточка перешла в статус "ЗАВЕРШЕН"
+                } else {
+                    alert('Ошибка завершения: ' + (data.detail || 'Сбой на сервере'));
+                }
+            } catch (e) {
+                console.error("Ошибка при завершении розыгрыша:", e);
+                alert('Сбой сети при попытке завершить розыгрыш.');
+            }
+        }
+
         async function loadRaffles() {
             const container = document.getElementById('raffles-container');
             container.innerHTML = `<div class="col-span-full p-12 text-center text-zinc-500 glass-panel rounded-lg"><i class="fa-solid fa-circle-notch fa-spin text-2xl mb-3 text-[#9146FF]"></i><br>Загрузка...</div>`;
@@ -600,7 +634,7 @@
                                 <button onclick="viewParticipants(${raffle.id})" class="flex-1 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded transition-colors border border-zinc-700">
                                     <i class="fa-solid fa-users text-[10px] mr-1"></i> Игроки
                                 </button>
-                                ${raffle.status !== 'completed' ? `<button class="px-3 py-1.5 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/20 rounded transition-colors flex items-center justify-center" title="Завершить досрочно"><i class="fa-solid fa-flag-checkered text-[10px]"></i></button>` : ''}
+                                ${raffle.status !== 'completed' ? `<button onclick="completeRaffle(${raffle.id})" class="px-3 py-1.5 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/20 rounded transition-colors flex items-center justify-center" title="Завершить досрочно"><i class="fa-solid fa-flag-checkered text-[10px]"></i></button>` : ''}
                                 <button onclick="deleteRaffle(${raffle.id})" class="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded transition-colors flex items-center justify-center" title="Удалить розыгрыш">
                                     <i class="fa-solid fa-trash-can text-[10px]"></i>
                                 </button>
