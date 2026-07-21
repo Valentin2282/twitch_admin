@@ -921,14 +921,20 @@ async def handle_fossabot_raffle(request: Request, supabase: httpx.AsyncClient =
         return "❌ Ошибка сервера Vercel. Посмотри логи."
 
 import random
+from fastapi import BackgroundTasks, Request, Depends, HTTPException
 
 @app.post("/api/v1/admin/raffles/{id}/complete")
-async def complete_raffle(id: int, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    # Проверка админа
+async def complete_raffle(
+    id: int, 
+    request: Request, 
+    background_tasks: BackgroundTasks, # 🔥 Добавили фоновые задачи
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 1. Проверка админ-сессии
     if not request.cookies.get("admin_session"): 
         raise HTTPException(status_code=401)
 
-    # 1. Найти розыгрыш в базе
+    # 2. Получаем данные розыгрыша
     raf_res = await supabase.get("/rest/v1/raffles", params={"id": f"eq.{id}", "select": "*"})
     if raf_res.status_code != 200 or not raf_res.json():
         raise HTTPException(status_code=404, detail="Розыгрыш не найден")
@@ -938,44 +944,41 @@ async def complete_raffle(id: int, request: Request, supabase: httpx.AsyncClient
     if raffle.get("status") == "completed":
         return {"status": "error", "message": "Розыгрыш уже завершен"}
 
-    # 2. Проверить участников
+    # 3. Получаем всех участников розыгрыша (с trade_link)
     part_res = await supabase.get("/rest/v1/raffle_participants", params={
         "raffle_id": f"eq.{id}",
-        "select": "*,users(full_name,twitch_login)"
+        "select": "*,users(full_name,twitch_login,trade_link)"
     })
     
     participants = part_res.json() if part_res.status_code == 200 else []
-
-    # Если их нет — просто закрыть розыгрыш (статус completed)
     if not participants:
-        await supabase.patch("/rest/v1/raffles", params={"id": f"eq.{id}"}, json={"status": "completed"})
-        return {"status": "success", "message": "no_participants", "winner_name": None}
+        return {"status": "error", "message": "Нет участников для проведения розыгрыша"}
 
-    # 3. Выбрать победителя
-    raffle_type = raffle.get("type", "inline_random")
-    
-    if raffle_type == "most_active":
-        # Если тип "Топ активности", побеждает тот, у кого больше очков
-        winner = max(participants, key=lambda x: x.get("score", 0))
-    else:
-        # Для всех остальных типов ("inline_random", "twitch_fossabot", "twitch_direct")
-        # Шанс победы зависит от количества очков (score)
-        winner = random.choices(
-            population=participants,
-            weights=[p.get("score", 1) for p in participants],
-            k=1
-        )[0]
-
-    winner_id = winner["id"]
+    # 4. Выбор победителя (учитываем score, если есть система билетов/шансов)
+    tickets = []
+    for p in participants:
+        score = p.get("score", 1)
+        tickets.extend([p] * score)
+        
+    winner = random.choice(tickets)
     tg_id = winner.get("user_id")
 
-    # 4. Обновить статус участника-победителя
-    await supabase.patch("/rest/v1/raffle_participants", params={"id": f"eq.{winner_id}"}, json={"is_winner": True})
+    # 5. Обновляем статус розыгрыша на completed и записываем победителя
+    await supabase.patch(
+        "/rest/v1/raffles", 
+        params={"id": f"eq.{id}"}, 
+        json={"status": "completed", "winner_id": tg_id}
+    )
 
-    # 5. Начислить приз победителю (вызвать логику выдачи предмета в инвентарь TG)
-    prize_name = raffle.get("settings", {}).get("prize_name", "Секретный приз")
+    # 6. Начисление приза
+    prize_name = raffle.get("settings", {}).get("prize_name", raffle.get("title", "Секретный приз"))
+    prize_price = raffle.get("settings", {}).get("prize_price", 0.0)
     
     if tg_id:
+        # Забираем трейд-ссылку из данных победителя
+        user_data_db = winner.get("users") or {}
+        trade_link = user_data_db.get("trade_link")
+
         # Ищем ID предмета в каталоге cs_items
         item_res = await supabase.get("/rest/v1/cs_items", params={
             "market_hash_name": f"eq.{prize_name}", 
@@ -984,27 +987,42 @@ async def complete_raffle(id: int, request: Request, supabase: httpx.AsyncClient
         })
         item_id = item_res.json()[0]["id"] if (item_res.status_code == 200 and item_res.json()) else None
 
-        # Выдаем предмет в инвентарь (cs_history)
-        await supabase.post("/rest/v1/cs_history", json={
+        # Если есть ссылка — сразу на маркет, иначе — просто в инвентарь бота
+        initial_status = "processing" if trade_link else "available"
+
+        # Создаем запись в инвентаре (Prefer: return=representation вернет созданную запись с ID)
+        history_res = await supabase.post("/rest/v1/cs_history", json={
             "user_id": tg_id,
             "item_id": item_id,
-            "status": "available",
+            "status": initial_status,
             "case_name": "Победа в розыгрыше",
             "details": f"Выигрыш: {prize_name}",
             "source": "raffle",
             "is_swapped": False
-        })
-
-    # 6. Обновить статус розыгрыша на completed
-    await supabase.patch("/rest/v1/raffles", params={"id": f"eq.{id}"}, json={"status": "completed"})
-
-    # 7. Вернуть на фронтенд ответ с именем победителя
-    user_data = winner.get("users") or {}
-    winner_name = user_data.get("twitch_login") or user_data.get("full_name") or f"TG_ID:{tg_id}"
+        }, headers={"Prefer": "return=representation"})
+        
+        # 7. Если трейд-ссылка ЕСТЬ и инвентарь успешно обновлен — дергаем воркер в фоне
+        if trade_link and history_res.status_code in [200, 201] and history_res.json():
+            history_id = history_res.json()[0]["id"]
+            
+            # Добавляем фоновую задачу для выкупа скина
+            background_tasks.add_task(
+                http_client.post,
+                f"{WEB_APP_URL.rstrip('/')}/api/v1/internal/worker_buy_skin",
+                json={
+                    "user_id": tg_id,
+                    "target_name": prize_name,
+                    "target_price_rub": float(prize_price),
+                    "trade_url": trade_link,
+                    "history_id": history_id,
+                    "source": "raffle",           # 🔥 Указываем, что это с розыгрыша
+                    "secret_token": INTERNAL_API_SECRET  # 🔥 Передаем секрет
+                }
+            )
 
     return {
         "status": "success", 
-        "winner_name": winner_name
+        "winner": winner.get("users", {}).get("full_name", str(tg_id))
     }
         
 class RewardCreateRequest(BaseModel):
@@ -1762,19 +1780,34 @@ async def get_admin_raffles(request: Request, supabase: httpx.AsyncClient = Depe
 # =========================================================================
 # ⚙️ 2. СКРЫТЫЙ ЭНДПОИНТ-ВОРКЕР (Спокойно закупает скин за 10 секунд)
 # =========================================================================
+from pydantic import BaseModel
+from typing import Optional
+
 class WorkerPayload(BaseModel):
     user_id: int
     target_name: str
     target_price_rub: float
     trade_url: str
     history_id: int
+    source: Optional[str] = "shop" # По умолчанию магазин
+    secret_token: str              # 🔥 Секретный ключ для защиты
+
+import os
+import logging
+
+INTERNAL_API_SECRET = os.getenv("INTERNAL_API_SECRET", "super-secret-key-123") # Задай в Vercel
 
 @app.post("/api/v1/internal/worker_buy_skin")
 async def worker_buy_skin(payload: WorkerPayload):
+    # 1. Защита эндпоинта
+    if payload.secret_token != INTERNAL_API_SECRET:
+        logging.warning(f"⚠️ Попытка несанкционированного доступа к воркеру! Юзер: {payload.user_id}")
+        return {"status": "error", "message": "Unauthorized"}
+
+    db = await get_background_client() 
+
     try:
-        logging.info(f"⚙️ Воркер начал работу: Закупка {payload.target_name} для юзера {payload.user_id}...")
-        
-        db = await get_background_client() 
+        logging.info(f"⚙️ Воркер начал работу: Закупка {payload.target_name} для юзера {payload.user_id} (Источник: {payload.source})...")
         
         await fulfill_item_delivery(
             user_id=payload.user_id,
@@ -1783,12 +1816,27 @@ async def worker_buy_skin(payload: WorkerPayload):
             trade_url=payload.trade_url,
             supabase=db,
             history_id=payload.history_id,
-            source="shop" 
+            source=payload.source  # 🔥 Берем из payload, а не хардкодим
         )
         logging.info(f"✅ Воркер успешно отработал ордер #{payload.history_id}")
         return {"status": "ok"}
+        
     except Exception as e:
         logging.error(f"❌ Воркер сломался на ордере #{payload.history_id}: {e}")
+        
+        # 🔥 Откатываем статус предмета, чтобы он не завис навсегда, 
+        # и пользователь мог вывести его позже вручную
+        if db:
+            try:
+                await db.patch(
+                    "/rest/v1/cs_history",
+                    params={"id": f"eq.{payload.history_id}"},
+                    json={"status": "available"}
+                )
+                logging.info(f"🔄 Статус ордера #{payload.history_id} откачен на 'available'")
+            except Exception as db_err:
+                logging.error(f"🚨 Не удалось откатить статус ордера #{payload.history_id}: {db_err}")
+
         return {"status": "error"}
 
 @app.post("/api/v1/admin/boxes/toggle")
