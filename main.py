@@ -1931,36 +1931,6 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
     if cron_secret != expected_secret:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # ==========================================
-    # ПРОВЕРКА ОНЛАЙНА СТРИМА
-    # ==========================================
-    if not TWITCH_CLIENT_ID or not TWITCH_CLIENT_SECRET:
-        return {"status": "error", "message": "Нет ключей Twitch"}
-
-    try:
-        token_resp = await http_client.post(
-            "https://id.twitch.tv/oauth2/token",
-            data={"client_id": TWITCH_CLIENT_ID, "client_secret": TWITCH_CLIENT_SECRET, "grant_type": "client_credentials"}
-        )
-        if token_resp.status_code != 200: return {"status": "error"}
-            
-        app_token = token_resp.json()["access_token"]
-        streams_resp = await http_client.get(
-            "https://api.twitch.tv/helix/streams",
-            headers={"Client-ID": TWITCH_CLIENT_ID, "Authorization": f"Bearer {app_token}"},
-            params=[("user_id", b_id) for b_id in ALLOWED_IDS]
-        )
-        
-        # ЗАКОММЕНТИРУЙ ЭТИ ДВЕ СТРОЧКИ ДЛЯ ТЕСТА:
-        # if streams_resp.status_code == 200 and not streams_resp.json().get("data", []):
-        #     return {"status": "skipped", "message": "Стрим оффлайн. Выдача приостановлена."}
-            
-    except Exception as e:
-        pass
-
-    # ==========================================
-    # ОБРАБОТКА ПОКУПОК
-    # ==========================================
     # 🔥 ИЩЕМ И СТАТУС "Привязан" ТОЖЕ!
     res = await supabase.get("/rest/v1/twitch_reward_purchases", params={
         "status": "in.(Не привязан,Ожидает выдачи,Привязан)", 
@@ -1976,7 +1946,6 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
     for p in purchases:
         p_id = p["id"]
         reward_id = p["reward_id"]
-        trade_link = p.get("trade_link")
         purchaser_login = p.get("twitch_login", "").lower()
         
         # Лочим заявку
@@ -2033,48 +2002,10 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
                 "viewed_by_admin": True,
                 "viewed_by_admin_name": "Авто-регистрация"
             })
-            continue
+        else:
+            # ЕСЛИ ЭТО НЕ РОЗЫГРЫШ - просто игнорируем или ставим статус
+            await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Игнорировано (не raffle)"})
 
-        # ==========================================
-        # 🔥 СЦЕНАРИЙ Б: ЭТО ПРЯМАЯ ПОКУПКА (СТАРЫЙ КОД С МАРКЕТОМ)
-        # ==========================================
-        if not trade_link or len(trade_link) < 20:
-            if purchaser_login:
-                db_user = await supabase.get("/rest/v1/users", params={"twitch_login": f"eq.{purchaser_login}", "select": "trade_link"})
-                if db_user.status_code == 200 and db_user.json() and db_user.json()[0].get("trade_link"):
-                    trade_link = db_user.json()[0]["trade_link"]
-
-        if not trade_link or len(trade_link) < 20:
-            await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Ошибка: Нет ссылки", "viewed_by_admin": False})
-            continue
-            
-        target_name = reward_data.get("steam_item_name") or reward_data.get("title")
-        mc_res = await supabase.get("/rest/v1/market_cache", params={"market_hash_name": f"eq.{target_name}", "select": "price_rub"})
-        target_price_rub = mc_res.json()[0].get("price_rub", 50.0) if mc_res.json() else 50.0
-        
-        try:
-            TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY") 
-            if not TM_API_KEY:
-                await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Ошибка: Нет API ключа"})
-                continue
-                
-            market = MarketCSGO(api_key=TM_API_KEY)
-            unique_market_id = f"tw_nb_{p_id}_{int(time.time())}"
-            
-            market_res = await market.buy_for_user(hash_name=target_name, max_price_rub=target_price_rub, trade_link=trade_link, custom_id=unique_market_id)
-            
-            if market_res.get("success"):
-                await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={
-                    "status": "Выдан", "rewarded_at": datetime.now(timezone.utc).isoformat(),
-                    "viewed_by_admin": True, "viewed_by_admin_name": "Маркет"
-                })
-            else:
-                await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": f"Ошибка: {market_res.get('error')}"})
-                
-        except Exception as e:
-            logging.error(f"Сбой Маркета: {e}")
-            await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Ошибка скрипта Маркета"})
-            
     return {"status": "ok"}
 
 class CleanupRequest(BaseModel):
