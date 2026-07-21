@@ -31,7 +31,7 @@
 </head>
 <body class="flex h-screen overflow-hidden text-sm">
 
-    <!-- НОВЫЙ БОКОВОЙ САЙДБАР (КАК НА ГЛАВНОЙ) -->
+    <!-- БОКОВОЙ САЙДБАР -->
     <aside class="sidebar w-56 flex-shrink-0 hidden md:flex flex-col z-20">
         <div class="h-14 flex items-center px-5 border-b border-zinc-800">
             <span class="text-lg font-bold text-zinc-100 tracking-wider">HATE<span class="text-[#9146FF]">LAVKA</span></span>
@@ -78,7 +78,7 @@
                 <!-- Статистика -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="glass-panel rounded-lg p-5">
-                        <div class="text-xs uppercase tracking-wider text-zinc-500 font-semibold mb-3">Розыгрышей в процессе</div>
+                        <div class="text-xs uppercase tracking-wider text-zinc-500 font-semibold mb-3">Отображается</div>
                         <div class="text-3xl font-bold text-[#9146FF]" id="stat-active">0</div>
                     </div>
                     <div class="glass-panel rounded-lg p-5">
@@ -87,11 +87,20 @@
                     </div>
                 </div>
 
-                <!-- Навигация по статусам (Табы) -->
-                <div class="flex space-x-2 glass-panel p-1 rounded-lg w-fit">
-                    <button onclick="filterList('active')" class="tab-btn px-4 py-1.5 rounded text-xs font-semibold bg-[#18181b] text-zinc-100 shadow border border-[#27272a]">Активные</button>
-                    <button onclick="filterList('scheduled')" class="tab-btn px-4 py-1.5 rounded text-xs font-semibold text-zinc-500 hover:text-zinc-300">Отложенные</button>
-                    <button onclick="filterList('completed')" class="tab-btn px-4 py-1.5 rounded text-xs font-semibold text-zinc-500 hover:text-zinc-300">Завершенные</button>
+                <!-- ФИЛЬТРЫ И НАВИГАЦИЯ -->
+                <div class="flex flex-col sm:flex-row items-center gap-4">
+                    <!-- Тумблер Платформ -->
+                    <div class="flex space-x-1 glass-panel p-1 rounded-lg w-fit">
+                        <button onclick="setPlatformFilter('twitch')" id="plat-filter-twitch" class="px-5 py-1.5 rounded text-xs font-semibold bg-[#9146FF] text-white shadow transition-colors"><i class="fa-brands fa-twitch mr-1"></i> Twitch</button>
+                        <button onclick="setPlatformFilter('tg')" id="plat-filter-tg" class="px-5 py-1.5 rounded text-xs font-semibold text-zinc-500 hover:text-zinc-300 transition-colors border border-transparent"><i class="fa-brands fa-telegram mr-1"></i> Telegram</button>
+                    </div>
+
+                    <!-- Табы Статусов -->
+                    <div class="flex space-x-1 glass-panel p-1 rounded-lg w-fit">
+                        <button onclick="filterList('active')" class="tab-btn px-4 py-1.5 rounded text-xs font-semibold bg-[#18181b] text-zinc-100 shadow border border-[#27272a]">Активные</button>
+                        <button onclick="filterList('scheduled')" class="tab-btn px-4 py-1.5 rounded text-xs font-semibold text-zinc-500 hover:text-zinc-300 border border-transparent">Отложенные</button>
+                        <button onclick="filterList('completed')" class="tab-btn px-4 py-1.5 rounded text-xs font-semibold text-zinc-500 hover:text-zinc-300 border border-transparent">Завершенные</button>
+                    </div>
                 </div>
 
                 <!-- Сетка скинов -->
@@ -119,10 +128,8 @@
 
             <div class="flex-1 overflow-y-auto p-6">
                 <form id="create-form" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    
                     <!-- ЛЕВАЯ КОЛОНКА -->
                     <div class="space-y-4">
-                        
                         <!-- Выбор Платформы -->
                         <div class="glass-panel p-1.5 rounded-lg flex relative">
                             <label class="flex-1 text-center relative z-10 cursor-pointer">
@@ -143,7 +150,6 @@
                         <!-- Механика -->
                         <div class="glass-panel p-5 rounded-lg space-y-4">
                             <h3 class="text-[11px] uppercase tracking-wider text-[#9146FF] font-bold flex items-center gap-2" id="basic-title"><i class="fa-solid fa-gear"></i> Базовые настройки</h3>
-                            
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">Тип победителя</label>
@@ -166,7 +172,6 @@
                         <!-- УСЛОВИЯ ТЕЛЕГРАМ БОТА -->
                         <div id="tg-conditions" class="glass-panel p-5 rounded-lg space-y-4 hidden">
                             <h3 class="text-[11px] uppercase tracking-wider text-[#2AABEE] font-bold flex items-center gap-2"><i class="fa-solid fa-list-check"></i> Условия входа (Telegram)</h3>
-                            
                             <div class="flex items-center justify-between bg-[#09090b] p-3 rounded border border-zinc-800">
                                 <span class="text-xs font-medium text-zinc-300">📢 Обязательная подписка (TG)</span>
                                 <label class="relative inline-flex items-center cursor-pointer">
@@ -174,7 +179,6 @@
                                     <div class="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-300 after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#2AABEE]"></div>
                                 </label>
                             </div>
-
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">🎫 Билеты (Стоимость)</label>
@@ -193,7 +197,6 @@
                                     <input type="text" name="name_tag" placeholder="Например: HATE" oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#2AABEE]">
                                 </div>
                             </div>
-
                             <div>
                                 <label class="block text-[11px] font-medium text-zinc-400 mb-1">💬 Сообщения на Twitch</label>
                                 <div class="flex gap-2">
@@ -205,7 +208,6 @@
                                     <input type="number" name="min_msgs" placeholder="0" oninput="updatePreview()" class="w-20 bg-[#09090b] border border-zinc-700 text-xs text-center text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#2AABEE]">
                                 </div>
                             </div>
-
                             <div id="refund-section" class="hidden bg-red-950/20 border border-red-900/50 p-4 rounded mt-2">
                                 <div class="flex justify-between items-center mb-2">
                                     <span class="text-[11px] font-bold text-red-400 uppercase">Система возврата</span>
@@ -227,7 +229,6 @@
                         <!-- УСЛОВИЯ TWITCH (FOSSABOT) -->
                         <div id="twitch-conditions" class="glass-panel p-5 rounded-lg space-y-4">
                             <h3 class="text-[11px] uppercase tracking-wider text-[#9146FF] font-bold flex items-center gap-2"><i class="fa-brands fa-twitch"></i> Настройки FossaBot</h3>
-                            
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">Цена (баллы канала)</label>
@@ -235,12 +236,9 @@
                                 </div>
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">Канал стримера</label>
-                                    <select name="twitch_broadcaster" onchange="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
-                                        <!-- Загружается из БД -->
-                                    </select>
+                                    <select name="twitch_broadcaster" onchange="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]"></select>
                                 </div>
                             </div>
-
                             <div class="grid grid-cols-2 gap-4 mt-2">
                                 <div class="flex items-center justify-between bg-[#09090b] p-2.5 rounded border border-zinc-800 h-full">
                                     <span class="text-[11px] font-medium text-zinc-300">Только для новичков?</span>
@@ -255,7 +253,6 @@
                                 </div>
                             </div>
                         </div>
-
                     </div>
 
                     <!-- ПРАВАЯ КОЛОНКА: ПРИЗ И ПРЕВЬЮ -->
@@ -267,12 +264,10 @@
                                     <i class="fa-solid fa-magnifying-glass"></i> Искать на складе
                                 </button>
                             </div>
-
                             <div>
                                 <label class="block text-[11px] font-medium text-zinc-400 mb-1">Название приза</label>
                                 <input type="text" name="prize" id="inp-prize" placeholder="AWP | Asiimov" required oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
                             </div>
-
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">Качество (Wear)</label>
@@ -298,12 +293,10 @@
                                     </select>
                                 </div>
                             </div>
-
                             <div>
                                 <label class="block text-[11px] font-medium text-zinc-400 mb-1">Ссылка на картинку (URL)</label>
                                 <input type="text" name="image" id="inp-img" placeholder="https://..." oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
                             </div>
-
                             <div id="desc-container">
                                 <label class="block text-[11px] font-medium text-zinc-400 mb-1">Описание (опционально)</label>
                                 <textarea name="desc" id="inp-desc" rows="2" placeholder="Пара слов для поста..." oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF] resize-none"></textarea>
@@ -338,7 +331,6 @@
     <!-- Модальное окно СКЛАДА -->
     <div id="modal-library" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeLibrarySearch()"></div>
-        
         <div class="relative bg-[#09090b] border border-zinc-800 rounded-xl shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col overflow-hidden">
             <div class="flex justify-between items-center p-4 border-b border-zinc-800 bg-[#18181b]">
                 <h3 class="text-base font-bold text-white flex items-center gap-2"><i class="fa-solid fa-box-open text-[#9146FF]"></i> Склад скинов (Маркет)</h3>
@@ -346,29 +338,72 @@
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
-            
             <div class="p-4 border-b border-zinc-800 bg-[#18181b]/50 space-y-3">
                 <input type="text" id="lib-search-inp" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]" placeholder="Поиск скина (Например: AK-47)..." oninput="debounceSearch()">
-                
                 <div class="grid grid-cols-2 gap-3">
                     <input type="number" id="lib-price-min" placeholder="Мин. цена ₽" class="bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-1.5 focus:outline-none focus:border-[#9146FF]" oninput="debounceSearch()">
                     <input type="number" id="lib-price-max" placeholder="Макс. цена ₽" class="bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-1.5 focus:outline-none focus:border-[#9146FF]" oninput="debounceSearch()">
                 </div>
             </div>
-
             <div id="lib-results" class="flex-1 overflow-y-auto p-4 space-y-2 bg-[#09090b]" onscroll="handleScroll(this)">
                 <div class="text-center text-xs text-zinc-500 mt-10">Начните вводить название скина...</div>
             </div>
         </div>
     </div>
 
+    <!-- Модальное окно ИГРОКОВ -->
+    <div id="participantsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="toggleModal('participantsModal')"></div>
+        <div class="relative bg-[#09090b] border border-zinc-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+            <div class="flex justify-between items-center p-4 border-b border-zinc-800 bg-[#18181b]">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-users text-[#2AABEE]"></i> Участники розыгрыша <span id="part-raffle-id" class="text-zinc-500 text-xs ml-1 font-mono"></span>
+                </h3>
+                <button onclick="toggleModal('participantsModal')" class="text-zinc-500 hover:text-white transition-colors bg-zinc-800/50 hover:bg-zinc-700 w-7 h-7 rounded flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-[#18181b] sticky top-0 z-10 border-b border-zinc-800 text-[10px] uppercase text-zinc-500">
+                        <tr>
+                            <th class="py-2 px-3 font-semibold">TG ID</th>
+                            <th class="py-2 px-3 font-semibold">Игрок (Twitch/TG)</th>
+                            <th class="py-2 px-3 font-semibold text-right">Очки / Билеты</th>
+                            <th class="py-2 px-3 font-semibold text-center">Победа</th>
+                        </tr>
+                    </thead>
+                    <tbody id="participants-table-body" class="text-xs divide-y divide-zinc-800/40">
+                        <!-- Подгрузка -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentFilter = 'active'; 
+        let currentPlatformFilter = 'twitch'; 
         let searchTimeout = null;
         let currentOffset = 0;
         let isFetching = false;
         let hasMoreItems = true;
 
+        // ПЕРЕКЛЮЧЕНИЕ ПЛАТФОРМ ДЛЯ ФИЛЬТРА
+        function setPlatformFilter(plat) {
+            currentPlatformFilter = plat;
+            document.getElementById('plat-filter-twitch').className = plat === 'twitch' 
+                ? "px-5 py-1.5 rounded text-xs font-semibold bg-[#9146FF] text-white shadow transition-colors" 
+                : "px-5 py-1.5 rounded text-xs font-semibold text-zinc-500 hover:text-zinc-300 transition-colors border border-transparent";
+            
+            document.getElementById('plat-filter-tg').className = plat === 'tg' 
+                ? "px-5 py-1.5 rounded text-xs font-semibold bg-[#2AABEE] text-white shadow transition-colors" 
+                : "px-5 py-1.5 rounded text-xs font-semibold text-zinc-500 hover:text-zinc-300 transition-colors border border-transparent";
+            
+            loadRaffles();
+        }
+
+        // КОНСТРУКТОР: ПЕРЕКЛЮЧЕНИЕ ПЛАТФОРМ
         function togglePlatform() {
             const isTwitch = document.querySelector('input[name="platform"]:checked').value === 'twitch';
             const slider = document.getElementById('platform-slider');
@@ -416,18 +451,6 @@
             }
         }
 
-        function openLibrarySearch() {
-            document.getElementById('modal-library').classList.remove('hidden');
-            document.getElementById('lib-search-inp').value = '';
-            document.getElementById('lib-results').innerHTML = '<div class="text-center text-xs text-zinc-500 mt-10">Начните вводить название...</div>';
-            currentOffset = 0;
-            hasMoreItems = true;
-        }
-
-        function closeLibrarySearch() {
-            document.getElementById('modal-library').classList.add('hidden');
-        }
-
         function filterList(status) {
             currentFilter = status;
             document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -437,17 +460,160 @@
             loadRaffles(); 
         }
 
-        function toggleRefundBox() {
-            const cost = document.querySelector('input[name="ticket_cost"]').value;
-            const box = document.getElementById('refund-section');
-            if (cost > 0) {
-                box.classList.remove('hidden');
-                toggleSliderVisibility(); 
-            } else {
-                box.classList.add('hidden');
+        // МОДАЛЬНОЕ ОКНО УЧАСТНИКОВ
+        async function viewParticipants(raffleId) {
+            document.getElementById('part-raffle-id').innerText = '#' + raffleId;
+            toggleModal('participantsModal');
+            
+            const tbody = document.getElementById('participants-table-body');
+            tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-zinc-500"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Загрузка данных...</td></tr>';
+            
+            try {
+                // Подключаемся к Supabase через общий /rest/v1 прокси
+                const res = await fetch(`/rest/v1/raffle_participants?raffle_id=eq.${raffleId}&select=*,users(full_name,twitch_login)&order=score.desc`);
+                if (!res.ok) throw new Error('Ошибка БД');
+                const data = await res.json();
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-zinc-500">Участников пока нет</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = data.map(p => `
+                    <tr class="hover:bg-zinc-800/30 transition-colors">
+                        <td class="py-2 px-3 text-zinc-500 font-mono">${p.user_id || '—'}</td>
+                        <td class="py-2 px-3">
+                            ${p.users?.full_name ? `<div class="text-zinc-200 font-medium">${p.users.full_name}</div>` : ''}
+                            ${p.users?.twitch_login ? `<div class="text-[#9146FF] text-[10px] uppercase font-bold tracking-wide">@${p.users.twitch_login}</div>` : ''}
+                            ${!p.users?.full_name && !p.users?.twitch_login ? '<span class="text-zinc-500 text-[10px]">Анонимный юзер</span>' : ''}
+                        </td>
+                        <td class="py-2 px-3 text-right text-[#2AABEE] font-bold">${p.score}</td>
+                        <td class="py-2 px-3 text-center">
+                            ${p.is_winner ? '<span class="text-yellow-400 drop-shadow-md text-base"><i class="fa-solid fa-crown"></i></span>' : '<span class="text-zinc-600">-</span>'}
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-red-400">Ошибка при загрузке участников</td></tr>';
             }
         }
 
+        async function loadRaffles() {
+            const container = document.getElementById('raffles-container');
+            container.innerHTML = `<div class="col-span-full p-12 text-center text-zinc-500 glass-panel rounded-lg"><i class="fa-solid fa-circle-notch fa-spin text-2xl mb-3 text-[#9146FF]"></i><br>Загрузка...</div>`;
+
+            try {
+                const response = await fetch('/api/v1/admin/raffles/list');
+                if (!response.ok) throw new Error('Сбой API');
+                
+                const allRaffles = await response.json();
+                
+                const filteredRaffles = allRaffles.filter(r => {
+                    const s = r.settings || {};
+                    const isDone = r.status === 'completed';
+                    const isSched = r.status === 'scheduled' || s.start_time; 
+                    
+                    // Фильтр по статусу
+                    let statusMatch = false;
+                    if(currentFilter === 'completed') statusMatch = isDone;
+                    else if(currentFilter === 'scheduled') statusMatch = !isDone && isSched;
+                    else statusMatch = !isDone && !isSched; 
+
+                    if (!statusMatch) return false;
+
+                    // Фильтр по платформе
+                    const isTwitchRaffle = r.type.includes('twitch');
+                    if (currentPlatformFilter === 'twitch' && !isTwitchRaffle) return false;
+                    if (currentPlatformFilter === 'tg' && isTwitchRaffle) return false;
+
+                    return true;
+                });
+
+                if (!filteredRaffles.length) {
+                    container.innerHTML = `<div class="col-span-full p-12 text-center text-xs text-zinc-500 glass-panel rounded-lg border-dashed">В данной категории пусто.</div>`;
+                    if (currentFilter === 'active') {
+                        document.getElementById('stat-active').textContent = '0';
+                        document.getElementById('stat-total').textContent = '0';
+                    }
+                    return;
+                }
+
+                container.innerHTML = '';
+                let totalParticipants = 0;
+
+                filteredRaffles.forEach(raffle => {
+                    const s = raffle.settings || {};
+                    const participants = raffle.participants_count || 0;
+                    totalParticipants += participants;
+
+                    const imageUrl = s.prize_image || raffle.image_url || 'https://placehold.co/400x300/18181b/3f3f46?text=No+Image';
+                    const rColor = s.rarity_color || '#3b82f6';
+                    const endDate = raffle.end_time ? new Date(raffle.end_time).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+
+                    let badge = '';
+                    if (raffle.status === 'completed') badge = `<span class="bg-zinc-800 text-zinc-400 text-[10px] font-bold px-2 py-1 rounded border border-zinc-700">ЗАВЕРШЕН</span>`;
+                    else if (raffle.status === 'scheduled') badge = `<span class="bg-zinc-800/50 text-zinc-400 text-[10px] font-bold px-2 py-1 rounded border border-zinc-700"><i class="fa-regular fa-clock"></i> ОТЛОЖЕН</span>`;
+                    else if (raffle.type.includes('twitch')) badge = `<span class="bg-[#9146FF]/10 text-[#9146FF] text-[10px] font-bold px-2 py-1 rounded border border-[#9146FF]/30"><i class="fa-brands fa-twitch"></i> TWITCH</span>`;
+                    else if (s.is_silent) badge = `<span class="bg-[#2AABEE]/10 text-[#2AABEE] text-[10px] font-bold px-2 py-1 rounded border border-[#2AABEE]/30"><i class="fa-solid fa-ghost"></i> ТИХИЙ</span>`;
+                    else badge = `<span class="bg-[#2AABEE]/10 text-[#2AABEE] text-[10px] font-bold px-2 py-1 rounded border border-[#2AABEE]/30"><span class="w-1.5 h-1.5 inline-block rounded-full bg-[#2AABEE] animate-pulse mr-1"></span>TELEGRAM</span>`;
+
+                    container.innerHTML += `
+                    <div class="glass-panel rounded-xl overflow-hidden flex flex-col hover:border-zinc-600 transition-all group relative">
+                        <div class="h-48 relative flex items-center justify-center p-4 border-b border-zinc-800 overflow-hidden" style="background: radial-gradient(circle at center, ${rColor}15 0%, transparent 100%)">
+                            <img src="${imageUrl}" class="relative z-10 max-h-full max-w-full object-contain filter drop-shadow-lg group-hover:scale-110 transition-transform duration-500">
+                            <div class="absolute top-3 right-3 z-20">${badge}</div>
+                        </div>
+                        <div class="p-4 flex-1 flex flex-col">
+                            <h3 class="text-sm font-semibold text-zinc-200 mb-4 line-clamp-2 leading-snug" title="${raffle.title}">
+                                <span class="text-zinc-500 text-xs font-mono mr-1">#${raffle.id}</span>
+                                ${raffle.title}
+                            </h3>
+                            <div class="space-y-2 mb-4 flex-1">
+                                <div class="flex justify-between items-center bg-[#09090b] px-3 py-1.5 rounded border border-zinc-800/50">
+                                    <span class="text-[10px] text-zinc-500 uppercase font-medium">Участников</span>
+                                    <strong class="text-xs text-zinc-300">${participants}</strong>
+                                </div>
+                                <div class="flex justify-between items-center bg-[#09090b] px-3 py-1.5 rounded border border-zinc-800/50">
+                                    <span class="text-[10px] text-zinc-500 uppercase font-medium">Завершение</span>
+                                    <strong class="text-xs text-zinc-400">${endDate}</strong>
+                                </div>
+                            </div>
+                            <div class="flex gap-2 mt-auto">
+                                <button onclick="viewParticipants(${raffle.id})" class="flex-1 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded transition-colors border border-zinc-700">
+                                    <i class="fa-solid fa-users text-[10px] mr-1"></i> Игроки
+                                </button>
+                                ${raffle.status !== 'completed' ? `<button class="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded transition-colors flex items-center justify-center" title="Завершить досрочно"><i class="fa-solid fa-flag-checkered text-[10px]"></i></button>` : ''}
+                            </div>
+                        </div>
+                    </div>`;
+                });
+
+                if (currentFilter === 'active') {
+                    document.getElementById('stat-active').textContent = filteredRaffles.length;
+                    document.getElementById('stat-total').textContent = totalParticipants;
+                }
+
+            } catch (e) {
+                container.innerHTML = `<div class="col-span-full p-8 text-center text-xs text-red-400 glass-panel rounded border-dashed">Ошибка загрузки. Проверьте консоль.</div>`;
+            }
+        }
+
+        // --- Вспомогательные функции (Склад, Логика превью и Сабмита остались без изменений) ---
+        function openLibrarySearch() {
+            document.getElementById('modal-library').classList.remove('hidden');
+            document.getElementById('lib-search-inp').value = '';
+            document.getElementById('lib-results').innerHTML = '<div class="text-center text-xs text-zinc-500 mt-10">Начните вводить название...</div>';
+            currentOffset = 0;
+            hasMoreItems = true;
+        }
+
+        function closeLibrarySearch() { document.getElementById('modal-library').classList.add('hidden'); }
+        function toggleRefundBox() {
+            const cost = document.querySelector('input[name="ticket_cost"]').value;
+            const box = document.getElementById('refund-section');
+            if (cost > 0) { box.classList.remove('hidden'); toggleSliderVisibility(); } 
+            else { box.classList.add('hidden'); }
+        }
         function toggleSliderVisibility() {
             const isChecked = document.getElementById('refund-check').checked;
             const controls = document.getElementById('refund-controls');
@@ -457,7 +623,6 @@
 
         function updatePreview() {
             const isTwitch = document.querySelector('input[name="platform"]:checked').value === 'twitch';
-            
             const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value : '';
             const getInpVal = (name) => document.querySelector(`input[name="${name}"]`) ? document.querySelector(`input[name="${name}"]`).value : '';
             const getCheck = (name) => document.querySelector(`input[name="${name}"]`) ? document.querySelector(`input[name="${name}"]`).checked : false;
@@ -468,7 +633,6 @@
             const imgUrl = getVal('inp-img');
             const rarity = getVal('inp-rarity-color') || '#9146FF';
             const dateVal = getInpVal('end_time');
-            
             const prizeFull = quality ? `${prize} (${quality})` : prize;
             let html = '';
 
@@ -486,10 +650,7 @@
                 const tNewbies = getCheck('is_for_newbies');
                 const tMsgs = getInpVal('min_lifetime_msgs');
 
-                html = `🟪 <b>TWITCH РОЗЫГРЫШ</b>\n\n`;
-                html += `🏆 <b>Приз:</b> <span style="color:${rarity}">${prizeFull}</span>\n`;
-                html += `\n📌 <b>Условия на стриме:</b>\n`;
-                html += `└ Стоимость: ${tCost} баллов канала\n`;
+                html = `🟪 <b>TWITCH РОЗЫГРЫШ</b>\n\n🏆 <b>Приз:</b> <span style="color:${rarity}">${prizeFull}</span>\n\n📌 <b>Условия на стриме:</b>\n└ Стоимость: ${tCost} баллов канала\n`;
                 if(tNewbies) html += `└ Только для новичков ✅\n`;
                 if(tMsgs > 0) html += `└ Мин. сообщений в чате: ${tMsgs} 💬\n`;
             } else {
@@ -507,9 +668,7 @@
 
                 html = `🚀 <b>РОЗЫГРЫШ</b>\n\n`;
                 if (desc) html += `<i>${desc}</i>\n\n`;
-                html += `🏆 <b>Приз:</b> <span style="color:${rarity}">${prizeFull}</span>\n`;
-                html += `\n📌 <b>Условия:</b>\n`;
-                
+                html += `🏆 <b>Приз:</b> <span style="color:${rarity}">${prizeFull}</span>\n\n📌 <b>Условия:</b>\n`;
                 if(sub) html += `└ Подписка на канал\n`;
                 if(tickets > 0) html += `└ Вход: ${tickets} билетов 🎫\n`;
                 if(minParts > 0) html += `└ Минимум участников: ${minParts} 👥\n`;
@@ -524,13 +683,7 @@
             }
 
             const imgEl = document.getElementById('prev-img');
-            if (imgUrl) { 
-                imgEl.src = imgUrl; 
-                imgEl.classList.remove('hidden'); 
-            } else { 
-                imgEl.classList.add('hidden'); 
-            }
-
+            if (imgUrl) { imgEl.src = imgUrl; imgEl.classList.remove('hidden'); } else { imgEl.classList.add('hidden'); }
             document.querySelector('#prev-txt').parentElement.style.borderColor = rarity;
             document.getElementById('prev-txt').innerHTML = html.replace(/\n/g, '<br>');
         }
@@ -544,10 +697,7 @@
 
         function handleScroll(el) {
             if (el.scrollHeight - el.scrollTop <= el.clientHeight + 50) {
-                if (!isFetching && hasMoreItems) {
-                    currentOffset += 30;
-                    doSearch(false);
-                }
+                if (!isFetching && hasMoreItems) { currentOffset += 30; doSearch(false); }
             }
         }
 
@@ -626,7 +776,6 @@
             
             let cleanName = item.market_hash_name;
             let qualityCode = "";
-
             const wearMap = {
                 'factory new': 'FN', 'прямо с завода': 'FN',
                 'minimal wear': 'MW', 'немного поношенное': 'MW',
@@ -634,7 +783,6 @@
                 'well-worn': 'WW', 'поношенное': 'WW',
                 'battle-scarred': 'BS', 'закаленное в боях': 'BS'
             };
-
             const conditionMatch = cleanName.match(/(.*?)\s+\(([^)]+)\)$/);
             if (conditionMatch) {
                 cleanName = conditionMatch[1].trim(); 
@@ -651,7 +799,6 @@
                 'restricted': '#8847ff', 'classified': '#d32ce6', 'covert': '#eb4b4b', 'gold': '#ffd700'
             };
             document.getElementById('inp-rarity-color').value = rarityHexMap[(item.rarity || 'blue').toLowerCase()] || '#4b69ff';
-            
             updatePreview();
         }
 
@@ -691,19 +838,15 @@
                         prize_image: fd.get('image'),
                         rarity_color: fd.get('rarity_color'),   
                         description: fd.get('desc'),
-                        
                         is_silent: isSilent,
                         start_time: fd.get('start_time'),
-                        
                         requires_telegram_sub: fd.get('sub_req') === 'on',
                         ticket_cost: parseInt(fd.get('ticket_cost') || 0),
                         min_bp_level: parseInt(fd.get('min_bp_level') || 0),
                         min_participants: parseInt(fd.get('min_participants') || 0),
                         required_name_tag: fd.get('name_tag'),
-                        
                         min_messages: parseInt(fd.get('min_msgs') || 0),
                         message_period: fd.get('msg_period') || 'daily',
-                        
                         is_refund_enabled: fd.get('is_refund_enabled') === 'on',
                         refund_percent: parseInt(fd.get('refund_percent') || 100)
                     }
@@ -717,7 +860,6 @@
                     body: JSON.stringify(payload)
                 });
 
-                // 🔥 НОВОЕ: ЛОВИМ 401 И ДЕЛАЕМ АВТО-РЕДИРЕКТ НА АВТОРИЗАЦИЮ
                 if (res.status === 401) {
                     alert('Токен канала истек или не совпадает. Сейчас вы будете перенаправлены на Twitch для привязки!');
                     window.location.href = '/api/v1/auth/broadcaster_login';
@@ -735,90 +877,6 @@
                 }
             } catch (error) {
                 alert('Сбой сети. Проверьте консоль.');
-            }
-        } // 🔥 ВОТ ЭТОТ СИМВОЛ БЫЛ ПРОПУЩЕН 🔥
-
-        async function loadRaffles() {
-            const container = document.getElementById('raffles-container');
-            container.innerHTML = `<div class="col-span-full p-12 text-center text-zinc-500 glass-panel rounded-lg"><i class="fa-solid fa-circle-notch fa-spin text-2xl mb-3 text-[#9146FF]"></i><br>Загрузка...</div>`;
-
-            try {
-                const response = await fetch('/api/v1/admin/raffles/list');
-                if (!response.ok) throw new Error('Сбой API');
-                
-                const allRaffles = await response.json();
-                
-                const filteredRaffles = allRaffles.filter(r => {
-                    const s = r.settings || {};
-                    const isDone = r.status === 'completed';
-                    const isSched = r.status === 'scheduled' || s.start_time; 
-                    
-                    if(currentFilter === 'completed') return isDone;
-                    if(currentFilter === 'scheduled') return !isDone && isSched;
-                    return !isDone && !isSched; 
-                });
-
-                if (!filteredRaffles.length) {
-                    container.innerHTML = `<div class="col-span-full p-12 text-center text-xs text-zinc-500 glass-panel rounded-lg border-dashed">В данной категории пусто.</div>`;
-                    if (currentFilter === 'active') {
-                        document.getElementById('stat-active').textContent = '0';
-                        document.getElementById('stat-total').textContent = '0';
-                    }
-                    return;
-                }
-
-                container.innerHTML = '';
-                let totalParticipants = 0;
-
-                filteredRaffles.forEach(raffle => {
-                    const s = raffle.settings || {};
-                    const participants = raffle.participants_count || 0;
-                    totalParticipants += participants;
-
-                    const imageUrl = s.prize_image || raffle.image_url || 'https://placehold.co/400x300/18181b/3f3f46?text=No+Image';
-                    const rColor = s.rarity_color || '#3b82f6';
-                    const endDate = raffle.end_time ? new Date(raffle.end_time).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
-
-                    let badge = '';
-                    if (raffle.status === 'completed') badge = `<span class="bg-zinc-800 text-zinc-400 text-[10px] font-bold px-2 py-1 rounded border border-zinc-700">ЗАВЕРШЕН</span>`;
-                    else if (raffle.status === 'scheduled') badge = `<span class="bg-zinc-800/50 text-zinc-400 text-[10px] font-bold px-2 py-1 rounded border border-zinc-700"><i class="fa-regular fa-clock"></i> ОТЛОЖЕН</span>`;
-                    else if (raffle.type === 'twitch_fossabot') badge = `<span class="bg-[#9146FF]/10 text-[#9146FF] text-[10px] font-bold px-2 py-1 rounded border border-[#9146FF]/30"><i class="fa-brands fa-twitch"></i> TWITCH</span>`;
-                    else if (s.is_silent) badge = `<span class="bg-[#9146FF]/10 text-[#9146FF] text-[10px] font-bold px-2 py-1 rounded border border-[#9146FF]/30"><i class="fa-solid fa-ghost"></i> ТИХИЙ</span>`;
-                    else badge = `<span class="bg-green-500/10 text-green-400 text-[10px] font-bold px-2 py-1 rounded border border-green-500/30"><span class="w-1.5 h-1.5 inline-block rounded-full bg-green-500 animate-pulse mr-1"></span>АКТИВЕН</span>`;
-
-                    container.innerHTML += `
-                    <div class="glass-panel rounded-xl overflow-hidden flex flex-col hover:border-zinc-600 transition-all group relative">
-                        <div class="h-48 relative flex items-center justify-center p-4 border-b border-zinc-800 overflow-hidden" style="background: radial-gradient(circle at center, ${rColor}15 0%, transparent 100%)">
-                            <img src="${imageUrl}" class="relative z-10 max-h-full max-w-full object-contain filter drop-shadow-lg group-hover:scale-110 transition-transform duration-500">
-                            <div class="absolute top-3 right-3 z-20">${badge}</div>
-                        </div>
-                        <div class="p-4 flex-1 flex flex-col">
-                            <h3 class="text-sm font-semibold text-zinc-200 mb-4 line-clamp-2 leading-snug" title="${raffle.title}">${raffle.title}</h3>
-                            <div class="space-y-2 mb-4 flex-1">
-                                <div class="flex justify-between items-center bg-[#09090b] px-3 py-1.5 rounded border border-zinc-800/50">
-                                    <span class="text-[10px] text-zinc-500 uppercase font-medium">Участников</span>
-                                    <strong class="text-xs text-zinc-300">${participants}</strong>
-                                </div>
-                                <div class="flex justify-between items-center bg-[#09090b] px-3 py-1.5 rounded border border-zinc-800/50">
-                                    <span class="text-[10px] text-zinc-500 uppercase font-medium">Завершение</span>
-                                    <strong class="text-xs text-zinc-400">${endDate}</strong>
-                                </div>
-                            </div>
-                            <div class="flex gap-2 mt-auto">
-                                <button class="flex-1 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded transition-colors border border-zinc-700"><i class="fa-solid fa-users text-[10px] mr-1"></i> Игроки</button>
-                                ${raffle.status !== 'completed' ? `<button class="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded transition-colors flex items-center justify-center" title="Завершить досрочно"><i class="fa-solid fa-flag-checkered text-[10px]"></i></button>` : ''}
-                            </div>
-                        </div>
-                    </div>`;
-                });
-
-                if (currentFilter === 'active') {
-                    document.getElementById('stat-active').textContent = filteredRaffles.length;
-                    document.getElementById('stat-total').textContent = totalParticipants;
-                }
-
-            } catch (e) {
-                container.innerHTML = `<div class="col-span-full p-8 text-center text-xs text-red-400 glass-panel rounded border-dashed">Ошибка загрузки. Проверьте консоль.</div>`;
             }
         }
 
