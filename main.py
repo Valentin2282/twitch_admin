@@ -1950,8 +1950,11 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
             headers={"Client-ID": TWITCH_CLIENT_ID, "Authorization": f"Bearer {app_token}"},
             params=[("user_id", b_id) for b_id in ALLOWED_IDS]
         )
-        if streams_resp.status_code == 200 and not streams_resp.json().get("data", []):
-            return {"status": "skipped", "message": "Стрим оффлайн. Выдача приостановлена."}
+        
+        # ЗАКОММЕНТИРУЙ ЭТИ ДВЕ СТРОЧКИ ДЛЯ ТЕСТА:
+        # if streams_resp.status_code == 200 and not streams_resp.json().get("data", []):
+        #     return {"status": "skipped", "message": "Стрим оффлайн. Выдача приостановлена."}
+            
     except Exception as e:
         pass
 
