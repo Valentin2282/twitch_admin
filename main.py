@@ -1518,10 +1518,12 @@ async def create_admin_raffle(req: RaffleCreateRequest, request: Request, supaba
         
     return {"status": "success", "raffle_id": raffle_id}
 
-@router.get("/{raffle_id}/participants")
+from fastapi import HTTPException
+
+# Используем @app.get вместо @router.get и прописываем полный путь
+@app.get("/api/v1/admin/raffles/{raffle_id}/participants")
 async def get_raffle_participants(raffle_id: int):
     try:
-        # Делаем запрос к Supabase: берем участников и джоиним таблицу users для получения ников
         response = supabase.table("raffle_participants") \
             .select("*, users(full_name, twitch_login)") \
             .eq("raffle_id", raffle_id) \
