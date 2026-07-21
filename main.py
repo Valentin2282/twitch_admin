@@ -756,14 +756,11 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
     
     token_res = await supabase.get("/rest/v1/users", params={"twitch_id": f"eq.{req.broadcaster_id}", "select": "twitch_access_token"})
     if token_res.status_code != 200 or not token_res.json():
-        # Если токена вообще нет - отдаем 401
         raise HTTPException(status_code=401, detail="Токен стримера не найден")
         
     broadcaster_token = token_res.json()[0]["twitch_access_token"]
 
     reward_title = f"Розыгрыш: {req.title}"
-    
-    # Twitch принимает максимум 45 символов. Если больше - обрезаем и ставим троеточие
     if len(reward_title) > 45:
         reward_title = reward_title[:44] + "…"
 
@@ -777,7 +774,6 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
         "background_color": "#9146FF"
     })
     
-    # 🔥 НОВОЕ: Если Твич отвечает "401 Unauthorized" (протух или не совпадает), прокидываем этот 401 на фронтенд
     if tw_res.status_code == 401:
         raise HTTPException(status_code=401, detail="Токен истек или недействителен")
         
@@ -786,18 +782,37 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
         
     twitch_reward_id = tw_res.json()["data"][0]["id"]
 
-    # Сохраняем в таблицу raffles БЕЗ end_time, чтобы QSTASH его не съел
+    # 🔥 1. СОХРАНЯЕМ В ТАБЛИЦУ НАГРАД (чтобы вебхук понимал, что это)
+    rw_payload = {
+        "title": reward_title,
+        "reward_type": "raffle", # Указываем тип: Розыгрыш
+        "broadcaster_id": req.broadcaster_id,
+        "twitch_reward_id": twitch_reward_id,
+        "cost": req.cost,
+        "is_active": True,
+        "steam_item_name": req.title,
+        "show_user_input": True,
+        "platform": "twitch",
+        "condition_type": "none"
+    }
+    db_rw = await supabase.post("/rest/v1/twitch_rewards", json=rw_payload, headers={"Prefer": "return=representation"})
+    if db_rw.status_code not in [200, 201]:
+        raise HTTPException(status_code=400, detail=f"Ошибка БД (twitch_rewards): {db_rw.text}")
+        
+    internal_reward_id = db_rw.json()[0]["id"]
+
+    # 🔥 2. СОХРАНЯЕМ САМ РОЗЫГРЫШ (С привязкой ID)
     raf_payload = {
         "title": req.title,
         "type": "twitch_fossabot", 
         "status": "active",
         "start_time": datetime.now(timezone.utc).isoformat(),
         "settings": {
-            "required_twitch_reward_id": twitch_reward_id,
+            "required_twitch_reward_id": internal_reward_id, # Привязываем наш внутренний ID
+            "real_twitch_reward_id": twitch_reward_id, # На всякий случай ID Твича
             "twitch_reward_title": reward_title,
             "winners_count": req.winners_count,
             "prize_image": req.image_url,
-            # Наши новые параметры для Twitch-механики:
             "is_for_newbies": req.is_for_newbies,
             "min_lifetime_msgs": req.min_lifetime_msgs
         }
@@ -808,8 +823,6 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
         raise HTTPException(status_code=400, detail="Ошибка БД при сохранении розыгрыша")
         
     return {"status": "success", "message": "Twitch розыгрыш запущен!"}
-
-from fastapi.responses import PlainTextResponse
 
 @app.get("/api/v1/twitch/fossabot_raffle", response_class=PlainTextResponse)
 async def handle_fossabot_raffle(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -1876,64 +1889,46 @@ async def supabase_stream_status_webhook(
 @app.get("/api/v1/cron/process_newbies")
 @app.post("/api/v1/cron/process_newbies")
 async def process_newbies_cron(request: Request, cron_secret: Optional[str] = None, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    # 1. Защита эндпоинта
     expected_secret = os.getenv("CRON_SECRET", "HateLavkaSecretKey")
     if cron_secret != expected_secret:
-        raise HTTPException(status_code=401, detail="Unauthorized: Invalid cron_secret")
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
     # ==========================================
-    # 🛑 УМНЫЙ ГЕЙТВЕЙ: ПРОВЕРКА ОНЛАЙНА СТРИМА
+    # ПРОВЕРКА ОНЛАЙНА СТРИМА
     # ==========================================
     if not TWITCH_CLIENT_ID or not TWITCH_CLIENT_SECRET:
-        return {"status": "error", "message": "Нет ключей Twitch для проверки онлайна"}
+        return {"status": "error", "message": "Нет ключей Twitch"}
 
     try:
-        # Получаем технический токен приложения Twitch
         token_resp = await http_client.post(
             "https://id.twitch.tv/oauth2/token",
-            data={
-                "client_id": TWITCH_CLIENT_ID, 
-                "client_secret": TWITCH_CLIENT_SECRET, 
-                "grant_type": "client_credentials"
-            }
+            data={"client_id": TWITCH_CLIENT_ID, "client_secret": TWITCH_CLIENT_SECRET, "grant_type": "client_credentials"}
         )
-        if token_resp.status_code != 200:
-            logging.error(f"Twitch Auth Error: {token_resp.text}")
-            return {"status": "error", "message": "Не удалось получить токен Twitch"}
+        if token_resp.status_code != 200: return {"status": "error"}
             
         app_token = token_resp.json()["access_token"]
-        
-        # Спрашиваем у Твича, идут ли сейчас стримы у наших ALLOWED_IDS
         streams_resp = await http_client.get(
             "https://api.twitch.tv/helix/streams",
             headers={"Client-ID": TWITCH_CLIENT_ID, "Authorization": f"Bearer {app_token}"},
             params=[("user_id", b_id) for b_id in ALLOWED_IDS]
         )
-        
-        if streams_resp.status_code != 200:
-            logging.error(f"Twitch Stream API Error: {streams_resp.text}")
-            return {"status": "error", "message": "Ошибка проверки статуса стрима"}
-            
-        streams_data = streams_resp.json().get("data", [])
-        
-        # Если массив data пустой, значит стрим оффлайн
-        if not streams_data:
-            return {"status": "skipped", "message": "Стрим оффлайн. Выдача наград приостановлена."}
-            
+        if streams_resp.status_code == 200 and not streams_resp.json().get("data", []):
+            return {"status": "skipped", "message": "Стрим оффлайн. Выдача приостановлена."}
     except Exception as e:
-        logging.error(f"Сбой при проверке онлайна Твича: {e}")
-        return {"status": "error", "message": "Сбой сети при проверке онлайна"}
-    # ==========================================
+        pass
 
-    # 2. Если мы дошли сюда, значит стрим ИДЕТ! Начинаем выдачу.
+    # ==========================================
+    # ОБРАБОТКА ПОКУПОК
+    # ==========================================
+    # 🔥 ИЩЕМ И СТАТУС "Привязан" ТОЖЕ!
     res = await supabase.get("/rest/v1/twitch_reward_purchases", params={
-        "status": "in.(Не привязан,Ожидает выдачи)", 
-        "limit": 3,
+        "status": "in.(Не привязан,Ожидает выдачи,Привязан)", 
+        "limit": 10,
         "order": "id.asc"
     })
     
     if res.status_code != 200 or not res.json():
-        return {"status": "ok", "message": "Нет пользователей в очереди"}
+        return {"status": "ok", "message": "Нет заявок"}
         
     purchases = res.json()
     
@@ -1941,67 +1936,99 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
         p_id = p["id"]
         reward_id = p["reward_id"]
         trade_link = p.get("trade_link")
+        purchaser_login = p.get("twitch_login", "").lower()
         
-        # Сразу лочим заявку в БД
+        # Лочим заявку
         await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "В обработке"})
         
-        # 🔥 УМНЫЙ ПОДХВАТ ССЫЛКИ ИЗ ПРОФИЛЯ
+        # Получаем инфу о награде
+        rew_res = await supabase.get("/rest/v1/twitch_rewards", params={"id": f"eq.{reward_id}", "select": "title, steam_item_name, reward_type"})
+        if not rew_res.json(): 
+            await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Ошибка: Награда удалена"})
+            continue
+            
+        reward_data = rew_res.json()[0]
+        reward_type = reward_data.get("reward_type")
+        
+        # 🔥 СЦЕНАРИЙ А: ЭТО РОЗЫГРЫШ (Добавляем в raffle_participants)
+        if reward_type == "raffle":
+            # Ищем активный розыгрыш
+            raf_res = await supabase.get("/rest/v1/raffles", params={
+                "status": "eq.active",
+                "settings->>required_twitch_reward_id": f"eq.{reward_id}",
+                "select": "id, participants_count",
+                "limit": 1
+            })
+            
+            if not raf_res.json():
+                await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Ошибка: Розыгрыш не найден/завершен"})
+                continue
+                
+            raffle_id = raf_res.json()[0]["id"]
+            current_count = raf_res.json()[0].get("participants_count", 0)
+            
+            # Ищем TG_ID юзера
+            tg_id = None
+            if purchaser_login:
+                u_res = await supabase.get("/rest/v1/users", params={"twitch_login": f"eq.{purchaser_login}", "select": "telegram_id"})
+                if u_res.status_code == 200 and u_res.json():
+                    tg_id = u_res.json()[0].get("telegram_id")
+            
+            # Добавляем в таблицу участников
+            await supabase.post("/rest/v1/raffle_participants", json={
+                "raffle_id": raffle_id,
+                "user_id": tg_id,
+                "source": "twitch",
+                "score": 1
+            }, headers={"Prefer": "resolution=ignore-duplicates"})
+            
+            # Обновляем счетчик
+            await supabase.patch("/rest/v1/raffles", params={"id": f"eq.{raffle_id}"}, json={"participants_count": current_count + 1})
+            
+            # Статус покупки -> Участвует
+            await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={
+                "status": "Участвует", 
+                "rewarded_at": datetime.now(timezone.utc).isoformat(),
+                "viewed_by_admin": True,
+                "viewed_by_admin_name": "Авто-регистрация"
+            })
+            continue
+
+        # ==========================================
+        # 🔥 СЦЕНАРИЙ Б: ЭТО ПРЯМАЯ ПОКУПКА (СТАРЫЙ КОД С МАРКЕТОМ)
+        # ==========================================
         if not trade_link or len(trade_link) < 20:
-            purchaser_login = p.get("user_name", "").lower()
             if purchaser_login:
                 db_user = await supabase.get("/rest/v1/users", params={"twitch_login": f"eq.{purchaser_login}", "select": "trade_link"})
                 if db_user.status_code == 200 and db_user.json() and db_user.json()[0].get("trade_link"):
-                    trade_link = db_user.json()[0]["trade_link"] # Берем ссылку из базы!
-        
-        # Если ссылки так и не нашли
+                    trade_link = db_user.json()[0]["trade_link"]
+
         if not trade_link or len(trade_link) < 20:
-            await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={
-                "status": "Ошибка: Нет ссылки", 
-                "viewed_by_admin": False
-            })
+            await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Ошибка: Нет ссылки", "viewed_by_admin": False})
             continue
             
-        # Узнаем, что за скин
-        rew_res = await supabase.get("/rest/v1/twitch_rewards", params={"id": f"eq.{reward_id}", "select": "title, steam_item_name"})
-        if not rew_res.json(): continue
-        
-        target_name = rew_res.json()[0].get("steam_item_name") or rew_res.json()[0].get("title")
-        
-        # Узнаем базовую цену из кэша
+        target_name = reward_data.get("steam_item_name") or reward_data.get("title")
         mc_res = await supabase.get("/rest/v1/market_cache", params={"market_hash_name": f"eq.{target_name}", "select": "price_rub"})
         target_price_rub = mc_res.json()[0].get("price_rub", 50.0) if mc_res.json() else 50.0
         
-        # === ПРЯМАЯ ПОКУПКА ЧЕРЕЗ МАРКЕТ ===
         try:
             TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY") 
             if not TM_API_KEY:
-                logging.error("CSGO_MARKET_API_KEY не установлен в Vercel!")
                 await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Ошибка: Нет API ключа"})
                 continue
                 
             market = MarketCSGO(api_key=TM_API_KEY)
             unique_market_id = f"tw_nb_{p_id}_{int(time.time())}"
             
-            market_res = await market.buy_for_user(
-                hash_name=target_name,
-                max_price_rub=target_price_rub,
-                trade_link=trade_link,
-                custom_id=unique_market_id
-            )
+            market_res = await market.buy_for_user(hash_name=target_name, max_price_rub=target_price_rub, trade_link=trade_link, custom_id=unique_market_id)
             
             if market_res.get("success"):
                 await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={
-                    "status": "Выдан", 
-                    "rewarded_at": datetime.now(timezone.utc).isoformat(),
-                    "viewed_by_admin": True,
-                    "viewed_by_admin_name": "Маркет (Прямая выдача)"
+                    "status": "Выдан", "rewarded_at": datetime.now(timezone.utc).isoformat(),
+                    "viewed_by_admin": True, "viewed_by_admin_name": "Маркет"
                 })
             else:
-                err_msg = market_res.get("error", "Ошибка Маркета")
-                await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={
-                    "status": f"Ошибка: {err_msg}",
-                    "viewed_by_admin": False
-                })
+                await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": f"Ошибка: {market_res.get('error')}"})
                 
         except Exception as e:
             logging.error(f"Сбой Маркета: {e}")
