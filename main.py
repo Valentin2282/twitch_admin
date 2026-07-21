@@ -919,6 +919,93 @@ async def handle_fossabot_raffle(request: Request, supabase: httpx.AsyncClient =
         import traceback
         traceback.print_exc()
         return "❌ Ошибка сервера Vercel. Посмотри логи."
+
+import random
+
+@app.post("/api/v1/admin/raffles/{id}/complete")
+async def complete_raffle(id: int, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # Проверка админа
+    if not request.cookies.get("admin_session"): 
+        raise HTTPException(status_code=401)
+
+    # 1. Найти розыгрыш в базе
+    raf_res = await supabase.get("/rest/v1/raffles", params={"id": f"eq.{id}", "select": "*"})
+    if raf_res.status_code != 200 or not raf_res.json():
+        raise HTTPException(status_code=404, detail="Розыгрыш не найден")
+        
+    raffle = raf_res.json()[0]
+    
+    if raffle.get("status") == "completed":
+        return {"status": "error", "message": "Розыгрыш уже завершен"}
+
+    # 2. Проверить участников
+    part_res = await supabase.get("/rest/v1/raffle_participants", params={
+        "raffle_id": f"eq.{id}",
+        "select": "*,users(full_name,twitch_login)"
+    })
+    
+    participants = part_res.json() if part_res.status_code == 200 else []
+
+    # Если их нет — просто закрыть розыгрыш (статус completed)
+    if not participants:
+        await supabase.patch("/rest/v1/raffles", params={"id": f"eq.{id}"}, json={"status": "completed"})
+        return {"status": "success", "message": "no_participants", "winner_name": None}
+
+    # 3. Выбрать победителя
+    raffle_type = raffle.get("type", "inline_random")
+    
+    if raffle_type == "most_active":
+        # Если тип "Топ активности", побеждает тот, у кого больше очков
+        winner = max(participants, key=lambda x: x.get("score", 0))
+    else:
+        # Для всех остальных типов ("inline_random", "twitch_fossabot", "twitch_direct")
+        # Шанс победы зависит от количества очков (score)
+        winner = random.choices(
+            population=participants,
+            weights=[p.get("score", 1) for p in participants],
+            k=1
+        )[0]
+
+    winner_id = winner["id"]
+    tg_id = winner.get("user_id")
+
+    # 4. Обновить статус участника-победителя
+    await supabase.patch("/rest/v1/raffle_participants", params={"id": f"eq.{winner_id}"}, json={"is_winner": True})
+
+    # 5. Начислить приз победителю (вызвать логику выдачи предмета в инвентарь TG)
+    prize_name = raffle.get("settings", {}).get("prize_name", "Секретный приз")
+    
+    if tg_id:
+        # Ищем ID предмета в каталоге cs_items
+        item_res = await supabase.get("/rest/v1/cs_items", params={
+            "market_hash_name": f"eq.{prize_name}", 
+            "select": "id", 
+            "limit": 1
+        })
+        item_id = item_res.json()[0]["id"] if (item_res.status_code == 200 and item_res.json()) else None
+
+        # Выдаем предмет в инвентарь (cs_history)
+        await supabase.post("/rest/v1/cs_history", json={
+            "user_id": tg_id,
+            "item_id": item_id,
+            "status": "available",
+            "case_name": "Победа в розыгрыше",
+            "details": f"Выигрыш: {prize_name}",
+            "source": "raffle",
+            "is_swapped": False
+        })
+
+    # 6. Обновить статус розыгрыша на completed
+    await supabase.patch("/rest/v1/raffles", params={"id": f"eq.{id}"}, json={"status": "completed"})
+
+    # 7. Вернуть на фронтенд ответ с именем победителя
+    user_data = winner.get("users") or {}
+    winner_name = user_data.get("twitch_login") or user_data.get("full_name") or f"TG_ID:{tg_id}"
+
+    return {
+        "status": "success", 
+        "winner_name": winner_name
+    }
         
 class RewardCreateRequest(BaseModel):
     title: str
