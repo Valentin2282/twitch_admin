@@ -1522,15 +1522,32 @@ from fastapi import HTTPException
 
 # Используем @app.get вместо @router.get и прописываем полный путь
 @app.get("/api/v1/admin/raffles/{raffle_id}/participants")
-async def get_raffle_participants(raffle_id: int):
+async def get_raffle_participants(
+    raffle_id: int, 
+    request: Request, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # Опционально: защита эндпоинта, как и везде в админке
+    if not request.cookies.get("admin_session"):
+        raise HTTPException(status_code=401)
+
     try:
-        response = supabase.table("raffle_participants") \
-            .select("*, users(full_name, twitch_login)") \
-            .eq("raffle_id", raffle_id) \
-            .order("score", desc=True) \
-            .execute()
+        # Используем PostgREST параметры для прямого HTTP запроса
+        params = {
+            "raffle_id": f"eq.{raffle_id}",
+            "select": "*,users(full_name,twitch_login)",
+            "order": "score.desc"
+        }
         
-        return response.data
+        response = await supabase.get("/rest/v1/raffle_participants", params=params)
+        
+        if response.status_code == 200:
+            return response.json()
+            
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
