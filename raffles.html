@@ -260,7 +260,7 @@
                         <div class="glass-panel p-5 rounded-lg space-y-4">
                             <div class="flex justify-between items-center mb-1">
                                 <h3 class="text-[11px] uppercase tracking-wider text-zinc-300 font-bold flex items-center gap-2" id="prize-title"><i class="fa-solid fa-gift"></i> Оформление приза</h3>
-                                <button type="button" onclick="openLibrarySearch()" class="text-[10px] bg-zinc-800 text-zinc-300 border border-zinc-700 px-2 py-1 rounded hover:bg-zinc-700 transition">
+                                <button type="button" onclick="openLibrarySearch(null)" class="text-[10px] bg-zinc-800 text-zinc-300 border border-zinc-700 px-2 py-1 rounded hover:bg-zinc-700 transition">
                                     <i class="fa-solid fa-magnifying-glass"></i> Искать на складе
                                 </button>
                             </div>
@@ -406,6 +406,7 @@
         let currentOffset = 0;
         let isFetching = false;
         let hasMoreItems = true;
+        let currentTargetStepId = null; // 🔥 НОВОЕ: Глобальная переменная для отслеживания текущего поля склада
 
         // ПЕРЕКЛЮЧЕНИЕ ПЛАТФОРМ ДЛЯ ФИЛЬТРА
         function setPlatformFilter(plat) {
@@ -690,6 +691,7 @@
 
         function addStepRow() {
             const container = document.getElementById('steps-container');
+            const stepId = Date.now() + Math.floor(Math.random() * 1000); // 🔥 НОВОЕ: Уникальный ID для каждой ступени
             
             const row = document.createElement('div');
             row.className = "flex gap-2 items-center bg-[#09090b] p-2 rounded border border-zinc-800 step-row";
@@ -697,11 +699,14 @@
                 <div class="w-16">
                     <input type="number" placeholder="Людей" class="step-req w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
                 </div>
-                <div class="flex-1">
-                    <input type="text" placeholder="Название скина (AWP | Asiimov)" class="step-prize w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
+                <div class="flex-1 flex gap-1">
+                    <input type="text" id="step-prize-${stepId}" placeholder="Название скина (AWP | Asiimov)" class="step-prize w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
+                    <button type="button" onclick="openLibrarySearch(${stepId})" class="bg-zinc-800 text-zinc-300 border border-zinc-700 px-2 rounded hover:bg-zinc-700 transition" title="Найти на складе">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
                 </div>
                 <div class="w-20">
-                    <input type="number" placeholder="Цена ₽" class="step-price w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
+                    <input type="number" id="step-price-${stepId}" placeholder="Цена ₽" class="step-price w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
                 </div>
                 <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-300 w-6 flex justify-center">
                     <i class="fa-solid fa-trash text-xs"></i>
@@ -711,7 +716,9 @@
         }
 
         // --- Вспомогательные функции ---
-        function openLibrarySearch() {
+        // 🔥 НОВОЕ: Передаем targetId, чтобы понимать куда вставлять результаты поиска
+        function openLibrarySearch(targetId = null) {
+            currentTargetStepId = targetId; 
             document.getElementById('modal-library').classList.remove('hidden');
             document.getElementById('lib-search-inp').value = '';
             document.getElementById('lib-results').innerHTML = '<div class="text-center text-xs text-zinc-500 mt-10">Начните вводить название...</div>';
@@ -882,10 +889,23 @@
             }
         }
 
+        // 🔥 НОВОЕ: Разделение логики заполнения в зависимости от того, куда нажали (главный приз или ступень)
         function selectFromCache(jsonStr) {
             const item = JSON.parse(decodeURIComponent(jsonStr).replace(/&apos;/g, "'"));
             closeLibrarySearch();
             
+            if (currentTargetStepId !== null) {
+                // Если искали для конкретной ступени
+                const prizeInput = document.getElementById('step-prize-' + currentTargetStepId);
+                const priceInput = document.getElementById('step-price-' + currentTargetStepId);
+                
+                if (prizeInput) prizeInput.value = item.market_hash_name; // Для ступеней берем полное название (с износом)
+                if (priceInput) priceInput.value = item.price_rub || 0;
+                
+                return; // На этом логика для ступени завершается
+            }
+            
+            // Если искали для ГЛАВНОГО приза
             let cleanName = item.market_hash_name;
             let qualityCode = "";
             const wearMap = {
