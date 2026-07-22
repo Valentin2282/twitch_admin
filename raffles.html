@@ -301,6 +301,24 @@
                                 <label class="block text-[11px] font-medium text-zinc-400 mb-1">Описание (опционально)</label>
                                 <textarea name="desc" id="inp-desc" rows="2" placeholder="Пара слов для поста..." oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF] resize-none"></textarea>
                             </div>
+
+                            <!-- 🔥 НОВЫЙ БЛОК: СТУПЕНЧАТЫЕ НАГРАДЫ -->
+                            <div class="mt-4 border-t border-zinc-800 pt-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <label class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" id="enable-steps" onchange="toggleStepsUI()" class="rounded border-zinc-700 bg-[#09090b] text-[#9146FF] focus:ring-[#9146FF]">
+                                        Включить ступенчатые награды
+                                    </label>
+                                    <button type="button" id="btn-add-step" onclick="addStepRow()" class="hidden text-[10px] bg-[#9146FF]/20 text-[#9146FF] border border-[#9146FF]/50 px-2 py-1 rounded hover:bg-[#9146FF]/30 transition">
+                                        <i class="fa-solid fa-plus"></i> Добавить ступень
+                                    </button>
+                                </div>
+                                
+                                <div id="steps-container" class="hidden space-y-2 mt-3">
+                                    <!-- Сюда будут падать строки -->
+                                </div>
+                            </div>
+
                         </div>
 
                         <!-- Превью поста -->
@@ -653,7 +671,46 @@
             }
         }
 
-        // --- Вспомогательные функции (Склад, Логика превью и Сабмита остались без изменений) ---
+        // --- ЛОГИКА СТУПЕНЧАТЫХ НАГРАД ---
+        function toggleStepsUI() {
+            const isEnabled = document.getElementById('enable-steps').checked;
+            const container = document.getElementById('steps-container');
+            const btnAdd = document.getElementById('btn-add-step');
+            
+            if (isEnabled) {
+                container.classList.remove('hidden');
+                btnAdd.classList.remove('hidden');
+                if (container.children.length === 0) addStepRow(); // Добавляем первую строку по дефолту
+            } else {
+                container.classList.add('hidden');
+                btnAdd.classList.add('hidden');
+                container.innerHTML = ''; // Очищаем
+            }
+        }
+
+        function addStepRow() {
+            const container = document.getElementById('steps-container');
+            
+            const row = document.createElement('div');
+            row.className = "flex gap-2 items-center bg-[#09090b] p-2 rounded border border-zinc-800 step-row";
+            row.innerHTML = `
+                <div class="w-16">
+                    <input type="number" placeholder="Людей" class="step-req w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
+                </div>
+                <div class="flex-1">
+                    <input type="text" placeholder="Название скина (AWP | Asiimov)" class="step-prize w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
+                </div>
+                <div class="w-20">
+                    <input type="number" placeholder="Цена ₽" class="step-price w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
+                </div>
+                <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-300 w-6 flex justify-center">
+                    <i class="fa-solid fa-trash text-xs"></i>
+                </button>
+            `;
+            container.appendChild(row);
+        }
+
+        // --- Вспомогательные функции ---
         function openLibrarySearch() {
             document.getElementById('modal-library').classList.remove('hidden');
             document.getElementById('lib-search-inp').value = '';
@@ -867,6 +924,23 @@
             let endpoint = '';
             let payload = {};
 
+            // 🔥 СБОР СТУПЕНЕЙ
+            let stepsArray = [];
+            if (document.getElementById('enable-steps').checked) {
+                document.querySelectorAll('.step-row').forEach(row => {
+                    const req = row.querySelector('.step-req').value;
+                    const prize = row.querySelector('.step-prize').value;
+                    const price = row.querySelector('.step-price').value;
+                    if (req && prize) {
+                        stepsArray.push({
+                            participants_required: parseInt(req),
+                            prize_name: prize,
+                            prize_price: parseFloat(price || 0)
+                        });
+                    }
+                });
+            }
+
             if (isTwitch) {
                 endpoint = '/api/v1/admin/raffles/create_twitch';
                 payload = {
@@ -879,7 +953,8 @@
                     image_url: fd.get('image'),
                     skin_quality: fd.get('quality'),
                     rarity_color: fd.get('rarity_color'),
-                    winners_count: 1 
+                    winners_count: 1,
+                    steps: stepsArray // 🔥 ОТПРАВЛЯЕМ СТУПЕНИ
                 };
             } else {
                 endpoint = '/api/v1/admin/raffles/create';
@@ -903,7 +978,8 @@
                         min_messages: parseInt(fd.get('min_msgs') || 0),
                         message_period: fd.get('msg_period') || 'daily',
                         is_refund_enabled: fd.get('is_refund_enabled') === 'on',
-                        refund_percent: parseInt(fd.get('refund_percent') || 100)
+                        refund_percent: parseInt(fd.get('refund_percent') || 100),
+                        steps: stepsArray // 🔥 ОТПРАВЛЯЕМ СТУПЕНИ
                     }
                 };
             }
