@@ -953,6 +953,8 @@ async def check_and_upgrade_raffle_prize(supabase: httpx.AsyncClient, raffle_id:
     # 🔥 ОБНОВЛЯЕМ ПРИЗ
     settings["prize_name"] = best_step["prize_name"]
     settings["prize_price"] = best_step.get("prize_price", settings.get("prize_price", 0))
+    settings["skin_quality"] = best_step.get("skin_quality", "") # <-- Эта
+    settings["rarity_color"] = best_step.get("rarity_color", "#9146FF") # <-- И эта
     settings["current_step_participants"] = best_step["participants_required"]
     
     # Тихо обновляем БД. Основной ТГ-бот автоматически увидит новое название!
@@ -1014,17 +1016,31 @@ async def complete_raffle(
     )
 
     # 6. Начисление приза (🔥 берем из обновленного raffle_settings)
-    prize_name = raffle_settings.get("prize_name", raffle.get("title", "Секретный приз"))
+    base_prize_name = raffle_settings.get("prize_name", raffle.get("title", "Секретный приз"))
     prize_price = raffle_settings.get("prize_price", 0.0)
+    skin_quality = raffle_settings.get("skin_quality", "")
+
+    # 🔥 СОБИРАЕМ ТОЧНОЕ ИМЯ ДЛЯ МАРКЕТА (С УЧЕТОМ КАЧЕСТВА)
+    full_prize_name = base_prize_name.strip()
+    quality_map = {
+        "FN": "Factory New", "MW": "Minimal Wear", "FT": "Field-Tested", 
+        "WW": "Well-Worn", "BS": "Battle-Scarred"
+    }
     
+    if skin_quality and skin_quality in quality_map:
+        eng_quality = quality_map[skin_quality]
+        # Защита от двойного износа: добавляем, только если в названии еще нет скобок
+        if not re.search(r'\(.*?\)', full_prize_name): 
+            full_prize_name = f"{full_prize_name} ({eng_quality})"
+            
     if tg_id:
         # Забираем трейд-ссылку из данных победителя
         user_data_db = winner.get("users") or {}
         trade_link = user_data_db.get("trade_link")
 
-        # Ищем ID предмета и ЕГО ЦЕНУ в каталоге cs_items
+        # Ищем ID предмета и ЕГО ЦЕНУ в каталоге cs_items (🔥 ИЩЕМ ПО ПОЛНОМУ ИМЕНИ)
         item_res = await supabase.get("/rest/v1/cs_items", params={
-            "market_hash_name": f"eq.{prize_name}", 
+            "market_hash_name": f"eq.{full_prize_name}",  
             "select": "id, price_rub", 
             "limit": 1
         })
@@ -1034,36 +1050,33 @@ async def complete_raffle(
             item_data = item_res.json()[0]
             item_id = item_data["id"]
             
-            # 🔥 Если цена с фронта 0, спасаем ситуацию ценой со склада
+            # Если цена с фронта 0, спасаем ситуацию ценой со склада
             if float(prize_price) <= 0:
                 prize_price = float(item_data.get("price_rub", 0.0))
-                import logging
-                logging.info(f"Подтянули цену со склада для {prize_name}: {prize_price} руб.")
+                logging.info(f"Подтянули цену со склада для {full_prize_name}: {prize_price} руб.")
 
-        # Если есть ссылка — сразу на маркет, иначе — просто в инвентарь бота
         initial_status = "processing" if trade_link else "available"
 
-        # Создаем запись в инвентаре (Prefer: return=representation вернет созданную запись с ID)
+        # Создаем запись в инвентаре
         history_res = await supabase.post("/rest/v1/cs_history", json={
             "user_id": tg_id,
             "item_id": item_id,
             "status": initial_status,
             "case_name": "Победа в розыгрыше",
-            "details": f"Выигрыш: {prize_name}",
+            "details": f"Выигрыш: {full_prize_name}", # 🔥 ТОЧНОЕ ИМЯ
             "source": "raffle",
             "is_swapped": False
         }, headers={"Prefer": "return=representation"})
         
-        # 7. Если трейд-ссылка ЕСТЬ и инвентарь успешно обновлен — дергаем Маркет напрямую в фоне
+        # 7. Запускаем покупку на маркете в фоне
         if trade_link and history_res.status_code in [200, 201] and history_res.json():
             history_id = history_res.json()[0]["id"]
             
-            # Запускаем локальную функцию маркета без HTTP-запросов
             background_tasks.add_task(
-                direct_market_buy_for_raffle, # Вызываем новую функцию
+                direct_market_buy_for_raffle,
                 client=supabase,
                 trade_link=trade_link,
-                prize_name=prize_name,
+                prize_name=full_prize_name, # 🔥 ТОЧНОЕ ИМЯ НА МАРКЕТ
                 prize_price=float(prize_price),
                 history_id=history_id
             )
