@@ -749,6 +749,7 @@ class TwitchRaffleCreateRequest(BaseModel):
     is_for_newbies: bool = False
     min_lifetime_msgs: int = 0
     image_url: Optional[str] = None
+    steps: Optional[list] = []  # 🔥 НОВОЕ ПОЛЕ
 
 @app.post("/api/v1/admin/raffles/create_twitch")
 async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -814,7 +815,8 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
             "winners_count": req.winners_count,
             "prize_image": req.image_url,
             "is_for_newbies": req.is_for_newbies,
-            "min_lifetime_msgs": req.min_lifetime_msgs
+            "min_lifetime_msgs": req.min_lifetime_msgs,
+            "steps": req.steps # 🔥 ДОБАВЛЕНО СОХРАНЕНИЕ СТУПЕНЕЙ
         }
     }
     
@@ -923,6 +925,42 @@ async def handle_fossabot_raffle(request: Request, supabase: httpx.AsyncClient =
 import random
 from fastapi import BackgroundTasks, Request, Depends, HTTPException
 
+# 🔥 НОВАЯ ИЗОЛИРОВАННАЯ ФУНКЦИЯ ДЛЯ СТУПЕНЕЙ
+async def check_and_upgrade_raffle_prize(supabase: httpx.AsyncClient, raffle_id: int, current_participants_count: int, settings: dict):
+    """
+    Проверяет, достигнута ли новая ступень участников.
+    Если да — перезаписывает prize_name и prize_price в settings.
+    Для старых розыгрышей (где нет steps) ничего не делает.
+    """
+    steps = settings.get("steps", [])
+    if not steps:
+        return settings # Ступеней нет, выходим
+
+    # Находим все ступени, до которых мы уже дошли
+    valid_steps = [s for s in steps if current_participants_count >= int(s.get("participants_required", 0))]
+    
+    if not valid_steps:
+        return settings # Еще не дошли даже до первой ступени
+        
+    # Берем самую высокую достигнутую ступень
+    best_step = max(valid_steps, key=lambda x: int(x.get("participants_required", 0)))
+    
+    # Если текущий приз уже от этой ступени, лишний раз БД не дергаем
+    current_step_p = settings.get("current_step_participants", -1)
+    if current_step_p == best_step["participants_required"]:
+        return settings 
+
+    # 🔥 ОБНОВЛЯЕМ ПРИЗ
+    settings["prize_name"] = best_step["prize_name"]
+    settings["prize_price"] = best_step.get("prize_price", settings.get("prize_price", 0))
+    settings["current_step_participants"] = best_step["participants_required"]
+    
+    # Тихо обновляем БД. Основной ТГ-бот автоматически увидит новое название!
+    await supabase.patch("/rest/v1/raffles", params={"id": f"eq.{raffle_id}"}, json={"settings": settings})
+    logging.info(f"[RAFFLE UPGRADE] Розыгрыш #{raffle_id} улучшен до {settings['prize_name']}!")
+    
+    return settings
+
 @app.post("/api/v1/admin/raffles/{id}/complete")
 async def complete_raffle(
     id: int, 
@@ -954,6 +992,11 @@ async def complete_raffle(
     if not participants:
         return {"status": "error", "message": "Нет участников для проведения розыгрыша"}
 
+    # 🔥 НОВОЕ: Финальный перерасчет ступени перед выдачей!
+    real_participants_count = len(participants)
+    raffle_settings = raffle.get("settings", {})
+    raffle_settings = await check_and_upgrade_raffle_prize(supabase, id, real_participants_count, raffle_settings)
+
     # 4. Выбор победителя (учитываем score, если есть система билетов/шансов)
     tickets = []
     for p in participants:
@@ -970,9 +1013,9 @@ async def complete_raffle(
         json={"status": "completed", "winner_id": tg_id}
     )
 
-    # 6. Начисление приза
-    prize_name = raffle.get("settings", {}).get("prize_name", raffle.get("title", "Секретный приз"))
-    prize_price = raffle.get("settings", {}).get("prize_price", 0.0)
+    # 6. Начисление приза (🔥 берем из обновленного raffle_settings)
+    prize_name = raffle_settings.get("prize_name", raffle.get("title", "Секретный приз"))
+    prize_price = raffle_settings.get("prize_price", 0.0)
     
     if tg_id:
         # Забираем трейд-ссылку из данных победителя
@@ -994,6 +1037,7 @@ async def complete_raffle(
             # 🔥 Если цена с фронта 0, спасаем ситуацию ценой со склада
             if float(prize_price) <= 0:
                 prize_price = float(item_data.get("price_rub", 0.0))
+                import logging
                 logging.info(f"Подтянули цену со склада для {prize_name}: {prize_price} руб.")
 
         # Если есть ссылка — сразу на маркет, иначе — просто в инвентарь бота
@@ -1016,7 +1060,7 @@ async def complete_raffle(
             
             # Запускаем локальную функцию маркета без HTTP-запросов
             background_tasks.add_task(
-                direct_market_buy_for_raffle, # Вызываем новую функцию (см. ниже)
+                direct_market_buy_for_raffle, # Вызываем новую функцию
                 client=supabase,
                 trade_link=trade_link,
                 prize_name=prize_name,
@@ -1028,7 +1072,7 @@ async def complete_raffle(
         "status": "success", 
         "winner": winner.get("users", {}).get("full_name", str(tg_id))
     }
-
+    
 # 🔥 ДОБАВЛЯЕМ ЭТУ ФУНКЦИЮ СРАЗУ ПОСЛЕ complete_raffle
 async def direct_market_buy_for_raffle(client, trade_link: str, prize_name: str, prize_price: float, history_id: int):
     """
@@ -1583,6 +1627,7 @@ class RaffleCreateRequest(BaseModel):
     prize_name: str
     prize_price: float
     duration_minutes: int
+    steps: Optional[list] = []  # 🔥 НОВОЕ ПОЛЕ
 
 @app.post("/api/v1/admin/raffles/create")
 async def create_admin_raffle(req: RaffleCreateRequest, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -2144,7 +2189,7 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
             raf_res = await supabase.get("/rest/v1/raffles", params={
                 "status": "eq.active",
                 "settings->>required_twitch_reward_id": f"eq.{reward_id}",
-                "select": "id, participants_count",
+                "select": "id, participants_count, settings",
                 "limit": 1
             })
             
@@ -2173,6 +2218,10 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
             # Обновляем счетчик
             await supabase.patch("/rest/v1/raffles", params={"id": f"eq.{raffle_id}"}, json={"participants_count": current_count + 1})
             
+            # 🔥 НОВОЕ: Проверяем, не пора ли апгрейднуть приз (Ступенчатая система)
+            raffle_settings = raf_res.json()[0].get("settings", {})
+            await check_and_upgrade_raffle_prize(supabase, raffle_id, current_count + 1, raffle_settings)
+            
             # Статус покупки -> Участвует
             await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={
                 "status": "Участвует", 
@@ -2185,7 +2234,7 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
             await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Игнорировано (не raffle)"})
 
     return {"status": "ok"}
-
+    
 class CleanupRequest(BaseModel):
     start_date: str
     end_date: str
