@@ -2,10 +2,10 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Розыгрыши</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body { background-color: #09090b; color: #a1a1aa; font-family: 'Inter', sans-serif; font-size: 0.875rem; }
@@ -694,21 +694,42 @@
             const stepId = Date.now() + Math.floor(Math.random() * 1000); // 🔥 НОВОЕ: Уникальный ID для каждой ступени
             
             const row = document.createElement('div');
-            row.className = "flex gap-2 items-center bg-[#09090b] p-2 rounded border border-zinc-800 step-row";
+            row.className = "flex gap-2 items-start bg-[#09090b] p-2 rounded border border-zinc-800 step-row";
             row.innerHTML = `
                 <div class="w-16">
                     <input type="number" placeholder="Людей" class="step-req w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
                 </div>
-                <div class="flex-1 flex gap-1">
-                    <input type="text" id="step-prize-${stepId}" placeholder="Название скина (AWP | Asiimov)" class="step-prize w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
-                    <button type="button" onclick="openLibrarySearch(${stepId})" class="bg-zinc-800 text-zinc-300 border border-zinc-700 px-2 rounded hover:bg-zinc-700 transition" title="Найти на складе">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                    </button>
+                <div class="flex-1 flex flex-col gap-1.5">
+                    <div class="flex gap-1">
+                        <input type="text" id="step-prize-${stepId}" placeholder="Скин (Напр: AK-47 | Slate)" class="step-prize w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
+                        <button type="button" onclick="openLibrarySearch(${stepId})" class="bg-zinc-800 text-zinc-300 border border-zinc-700 px-2 rounded hover:bg-zinc-700 transition" title="Найти на складе">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </button>
+                    </div>
+                    <div class="flex gap-1">
+                        <select id="step-quality-${stepId}" class="step-quality w-1/2 bg-[#18181b] border border-zinc-700 text-[10px] text-zinc-400 rounded px-1 py-1 focus:outline-none focus:border-[#9146FF]">
+                            <option value="">Без кач.</option>
+                            <option value="FN">FN (Прямо с завода)</option>
+                            <option value="MW">MW (Немного понош.)</option>
+                            <option value="FT">FT (После полевых)</option>
+                            <option value="WW">WW (Поношенное)</option>
+                            <option value="BS">BS (Закаленное)</option>
+                        </select>
+                        <select id="step-rarity-${stepId}" class="step-rarity w-1/2 bg-[#18181b] border border-zinc-700 text-[10px] text-zinc-400 rounded px-1 py-1 focus:outline-none focus:border-[#9146FF]">
+                            <option value="#b0c3d9">Серый</option>
+                            <option value="#5e98d9">Синий</option>
+                            <option value="#4b69ff" selected>Фиол</option>
+                            <option value="#8847ff">Розовый</option>
+                            <option value="#d32ce6">Малиновый</option>
+                            <option value="#eb4b4b">Красный</option>
+                            <option value="#ffd700">Золотой</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="w-20">
                     <input type="number" id="step-price-${stepId}" placeholder="Цена ₽" class="step-price w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
                 </div>
-                <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-300 w-6 flex justify-center">
+                <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-300 w-6 flex justify-center mt-1.5">
                     <i class="fa-solid fa-trash text-xs"></i>
                 </button>
             `;
@@ -894,18 +915,6 @@
             const item = JSON.parse(decodeURIComponent(jsonStr).replace(/&apos;/g, "'"));
             closeLibrarySearch();
             
-            if (currentTargetStepId !== null) {
-                // Если искали для конкретной ступени
-                const prizeInput = document.getElementById('step-prize-' + currentTargetStepId);
-                const priceInput = document.getElementById('step-price-' + currentTargetStepId);
-                
-                if (prizeInput) prizeInput.value = item.market_hash_name; // Для ступеней берем полное название (с износом)
-                if (priceInput) priceInput.value = item.price_rub || 0;
-                
-                return; // На этом логика для ступени завершается
-            }
-            
-            // Если искали для ГЛАВНОГО приза
             let cleanName = item.market_hash_name;
             let qualityCode = "";
             const wearMap = {
@@ -921,16 +930,34 @@
                 const rawWear = conditionMatch[2].toLowerCase().trim(); 
                 if (wearMap[rawWear]) qualityCode = wearMap[rawWear]; 
             }
-            
-            document.getElementById('inp-prize').value = cleanName;
-            document.getElementById('inp-img').value = item.image_url || '';
-            document.getElementById('inp-quality').value = qualityCode || "";
-            
+
             const rarityHexMap = {
                 'common': '#b0c3d9', 'industrial': '#5e98d9', 'blue': '#4b69ff', 
                 'restricted': '#8847ff', 'classified': '#d32ce6', 'covert': '#eb4b4b', 'gold': '#ffd700'
             };
-            document.getElementById('inp-rarity-color').value = rarityHexMap[(item.rarity || 'blue').toLowerCase()] || '#4b69ff';
+            const rColor = rarityHexMap[(item.rarity || 'blue').toLowerCase()] || '#4b69ff';
+
+            if (currentTargetStepId !== null) {
+                // Если искали для конкретной ступени
+                const prizeInput = document.getElementById('step-prize-' + currentTargetStepId);
+                const priceInput = document.getElementById('step-price-' + currentTargetStepId);
+                const qualityInput = document.getElementById('step-quality-' + currentTargetStepId);
+                const rarityInput = document.getElementById('step-rarity-' + currentTargetStepId);
+                
+                if (prizeInput) prizeInput.value = cleanName; 
+                if (priceInput) priceInput.value = item.price_rub || 0;
+                if (qualityInput) qualityInput.value = qualityCode || "";
+                if (rarityInput) rarityInput.value = rColor;
+                
+                return; // На этом логика для ступени завершается
+            }
+            
+            // Если искали для ГЛАВНОГО приза
+            document.getElementById('inp-prize').value = cleanName;
+            document.getElementById('inp-img').value = item.image_url || '';
+            document.getElementById('inp-quality').value = qualityCode || "";
+            document.getElementById('inp-rarity-color').value = rColor;
+            
             updatePreview();
         }
 
@@ -951,11 +978,16 @@
                     const req = row.querySelector('.step-req').value;
                     const prize = row.querySelector('.step-prize').value;
                     const price = row.querySelector('.step-price').value;
+                    const quality = row.querySelector('.step-quality').value;
+                    const rarity = row.querySelector('.step-rarity').value;
+
                     if (req && prize) {
                         stepsArray.push({
                             participants_required: parseInt(req),
                             prize_name: prize,
-                            prize_price: parseFloat(price || 0)
+                            prize_price: parseFloat(price || 0),
+                            skin_quality: quality,
+                            rarity_color: rarity
                         });
                     }
                 });
