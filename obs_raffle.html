@@ -9,9 +9,9 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
         
         :root {
-            /* Эти переменные мы будем менять из конструктора админки */
+            /* Базовые переменные. Они будут перезаписываться из админки в реальном времени */
             --widget-scale: 1;
-            --bg-color: rgba(24, 24, 27, 0.85); /* zinc-900 с прозрачностью */
+            --bg-color: rgba(24, 24, 27, 0.85);
             --accent-color: #9146FF;
             --text-color: #ffffff;
             --border-radius: 16px;
@@ -20,9 +20,9 @@
 
         body {
             margin: 0;
-            overflow: hidden;
+            overflow: hidden; /* В OBS скроллов быть не должно */
             font-family: 'Inter', sans-serif;
-            background: transparent; /* ВАЖНО ДЛЯ OBS */
+            background: transparent; /* Обязательно прозрачный фон для OBS */
         }
 
         .obs-widget {
@@ -39,15 +39,15 @@
             transition: all 0.3s ease;
         }
 
-        /* Анимация пульсации для текущего приза */
+        /* Премиальная анимация левитации приза */
         @keyframes float {
             0% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
+            50% { transform: translateY(-8px); }
             100% { transform: translateY(0px); }
         }
         .prize-image { animation: float 6s ease-in-out infinite; }
 
-        /* Прогресс-бар со ступенями */
+        /* Трек прогресса */
         .progress-track {
             position: relative;
             height: 12px;
@@ -63,6 +63,8 @@
             transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 0 15px var(--accent-color);
         }
+        
+        /* Маркеры ступеней */
         .step-marker {
             position: absolute;
             top: -6px;
@@ -76,22 +78,24 @@
             align-items: center;
             justify-content: center;
             transition: all 0.5s ease;
+            z-index: 10;
         }
         .step-marker.reached {
             border-color: var(--accent-color);
             background: var(--accent-color);
-            box-shadow: 0 0 10px var(--accent-color);
+            box-shadow: 0 0 12px var(--accent-color);
         }
         .step-info {
             position: absolute;
-            top: 25px;
+            top: 28px;
             transform: translateX(-50%);
             text-align: center;
             font-size: 10px;
-            width: 80px;
+            width: 90px;
             color: rgba(255,255,255,0.6);
+            line-height: 1.2;
         }
-        .step-marker.reached .step-info { color: var(--text-color); font-weight: 600; }
+        .step-marker.reached .step-info { color: var(--text-color); font-weight: 600; drop-shadow: 0 2px 4px rgba(0,0,0,0.8); }
     </style>
 </head>
 <body>
@@ -100,33 +104,36 @@
         <!-- Шапка -->
         <div class="flex justify-between items-start mb-4">
             <div>
-                <div class="text-[10px] uppercase tracking-widest text-zinc-400 font-bold mb-1" id="raffle-type">!награда в чат</div>
-                <h1 class="text-xl font-extrabold tracking-tight" id="raffle-title">Загрузка...</h1>
+                <div class="text-[10px] uppercase tracking-widest text-zinc-400 font-bold mb-1 flex items-center gap-1" id="raffle-type">
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block"></span> 
+                    <span>СБОР УЧАСТНИКОВ</span>
+                </div>
+                <h1 class="text-xl font-extrabold tracking-tight drop-shadow-md" id="raffle-title">Загрузка...</h1>
             </div>
-            <div class="bg-black/40 px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2">
-                <i class="fa-solid fa-users text-[10px] text-[var(--accent-color)]"></i>
-                <span class="font-bold font-mono" id="participants-count">0</span>
+            <div class="bg-black/40 px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2 shadow-inner">
+                <i class="fa-solid fa-users text-[10px]" style="color: var(--accent-color)"></i>
+                <span class="font-bold font-mono text-lg" id="participants-count">0</span>
             </div>
         </div>
 
-        <!-- Приз -->
-        <div class="relative h-40 flex items-center justify-center rounded-xl bg-gradient-to-b from-white/5 to-transparent border border-white/5 overflow-hidden mb-2">
-            <!-- Свечение на фоне (подстраивается под редкость) -->
-            <div id="glow-bg" class="absolute inset-0 opacity-20 blur-2xl transition-colors duration-1000"></div>
+        <!-- Подиум приза -->
+        <div class="relative h-40 flex items-center justify-center rounded-xl bg-gradient-to-b from-white/5 to-transparent border border-white/5 overflow-hidden mb-3">
+            <!-- Динамическое свечение -->
+            <div id="glow-bg" class="absolute inset-0 opacity-20 blur-3xl transition-colors duration-1000"></div>
             <img id="prize-img" src="" class="prize-image max-h-32 object-contain relative z-10 drop-shadow-2xl transition-all duration-500">
         </div>
 
-        <!-- Инфо о призе -->
-        <div class="text-center">
-            <div id="prize-name" class="font-bold text-lg">Секретный приз</div>
+        <!-- Текст приза -->
+        <div class="text-center mb-2">
+            <div id="prize-name" class="font-bold text-lg drop-shadow-md">Секретный приз</div>
             <div class="flex items-center justify-center gap-2 mt-1">
-                <span id="prize-price" class="text-xs bg-black/50 px-2 py-0.5 rounded text-green-400 font-mono">0 ₽</span>
-                <span id="prize-quality" class="text-[9px] bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold"></span>
+                <span id="prize-price" class="text-[11px] bg-black/60 px-2 py-0.5 rounded text-green-400 font-mono border border-green-500/20">0 ₽</span>
+                <span id="prize-quality" class="text-[10px] bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold text-zinc-300"></span>
             </div>
         </div>
 
         <!-- Ступенчатая система -->
-        <div id="steps-container" class="pb-6 hidden">
+        <div id="steps-container" class="pb-8 hidden">
             <div class="progress-track">
                 <div id="progress-fill" class="progress-fill" style="width: 0%;"></div>
                 <div id="markers-layer"></div>
@@ -135,11 +142,12 @@
     </div>
 
     <script>
-        // Извлечение ID розыгрыша из URL: /obs/raffle/123
+        // Извлекаем ID розыгрыша из URL: /obs/raffle/123
         const pathParts = window.location.pathname.split('/');
         const raffleId = pathParts[pathParts.length - 1];
 
-        // Слушатель для конструктора админки (получение настроек дизайна в реальном времени)
+        // 1. СЛУШАТЕЛЬ ДЛЯ АДМИНКИ (Превью в реальном времени)
+        // Ловит postMessage из raffles.html и мгновенно меняет CSS переменные
         window.addEventListener('message', (event) => {
             const config = event.data;
             if (config.type === 'OBS_CONFIG_UPDATE') {
@@ -150,47 +158,63 @@
             }
         });
 
+        // 2. ПУЛЛИНГ ДАННЫХ ИЗ БД (Обновление прогресса)
         async function fetchRaffleData() {
-            if(!raffleId || isNaN(raffleId)) return;
+            if(!raffleId) return;
             try {
+                // Дергаем наш новый эндпоинт в backend.py
                 const res = await fetch(`/api/v1/obs/raffle/${raffleId}/data`);
                 if (!res.ok) return;
                 const data = await res.json();
-                updateWidget(data);
+                updateWidget(data); // <-- ВОТ ТВОЯ ФУНКЦИЯ!
             } catch (e) {
-                console.error("Ошибка загрузки данных розыгрыша", e);
+                console.error("Ошибка обновления OBS", e);
             }
         }
 
+        // 3. ОСНОВНАЯ ФУНКЦИЯ ОТРИСОВКИ
         function updateWidget(data) {
             const settings = data.settings || {};
             const participants = data.participants_count || 0;
             
-            // Если розыгрыш завершен, можно добавить класс для скрытия или плашку
-            if(data.status === 'completed') {
-                document.getElementById('raffle-type').innerText = "ЗАВЕРШЕНО";
-                document.getElementById('raffle-type').classList.add("text-red-500");
+            // Если в настройках есть сохраненный дизайн - применяем его
+            if (settings.obs_config) {
+                const root = document.documentElement;
+                if(settings.obs_config.scale) root.style.setProperty('--widget-scale', settings.obs_config.scale);
+                if(settings.obs_config.bgColor) root.style.setProperty('--bg-color', settings.obs_config.bgColor);
+                if(settings.obs_config.accentColor) root.style.setProperty('--accent-color', settings.obs_config.accentColor);
             }
 
+            // Статус
+            const typeLabel = document.getElementById('raffle-type');
+            if(data.status === 'completed') {
+                typeLabel.innerHTML = '<span class="text-red-500"><i class="fa-solid fa-flag-checkered mr-1"></i> ЗАВЕРШЕНО</span>';
+            } else {
+                typeLabel.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block"></span> <span>СБОР УЧАСТНИКОВ</span>';
+            }
+
+            // Тексты
             document.getElementById('raffle-title').innerText = data.title;
             document.getElementById('participants-count').innerText = participants;
             
-            // Текущий приз (мог обновиться из-за ступеней)
             document.getElementById('prize-name').innerText = settings.prize_name || "Секретный приз";
-            document.getElementById('prize-img').src = settings.prize_image || "";
+            document.getElementById('prize-img').src = settings.prize_image || "https://placehold.co/400x300/transparent/3f3f46?text=No+Image";
             document.getElementById('prize-price').innerText = `${settings.prize_price || 0} ₽`;
             
+            // Качество скина
+            const qualityEl = document.getElementById('prize-quality');
             if(settings.skin_quality) {
-                document.getElementById('prize-quality').innerText = settings.skin_quality;
-                document.getElementById('prize-quality').style.display = 'inline-block';
+                qualityEl.innerText = settings.skin_quality;
+                qualityEl.style.display = 'inline-block';
             } else {
-                document.getElementById('prize-quality').style.display = 'none';
+                qualityEl.style.display = 'none';
             }
 
+            // Цвет свечения под редкость
             const rarityColor = settings.rarity_color || '#9146FF';
             document.getElementById('glow-bg').style.backgroundColor = rarityColor;
             
-            // Логика отрисовки СТУПЕНЕЙ
+            // 4. ЛОГИКА СТУПЕНЕЙ
             const steps = settings.steps || [];
             const stepsContainer = document.getElementById('steps-container');
             const markersLayer = document.getElementById('markers-layer');
@@ -199,16 +223,16 @@
             if (steps.length > 0) {
                 stepsContainer.classList.remove('hidden');
                 
-                // Сортируем ступени по требованиям (от меньшего к большему)
+                // Сортируем от меньшей ступени к большей
                 const sortedSteps = [...steps].sort((a, b) => a.participants_required - b.participants_required);
                 const maxTarget = sortedSteps[sortedSteps.length - 1].participants_required;
                 
-                // Считаем ширину бара
+                // Прогресс бар
                 let percent = (participants / maxTarget) * 100;
                 if (percent > 100) percent = 100;
                 progressFill.style.width = `${percent}%`;
 
-                // Отрисовка маркеров (если они еще не отрисованы, или обновляем их)
+                // Отрисовка кружочков на полосе
                 markersLayer.innerHTML = '';
                 sortedSteps.forEach(step => {
                     const stepPercent = (step.participants_required / maxTarget) * 100;
@@ -221,20 +245,21 @@
                     marker.innerHTML = `
                         ${isReached ? '<i class="fa-solid fa-check text-[10px] text-white"></i>' : '<i class="fa-solid fa-lock text-[10px] text-zinc-500"></i>'}
                         <div class="step-info">
-                            <div><i class="fa-solid fa-users text-[8px]"></i> ${step.participants_required}</div>
-                            <div class="truncate w-full text-[8px]" style="color: ${step.rarity_color}">${step.prize_name}</div>
+                            <div class="font-mono bg-black/50 rounded-sm inline-block px-1 mb-0.5"><i class="fa-solid fa-users text-[8px] mr-0.5"></i>${step.participants_required}</div>
+                            <div class="truncate w-full font-bold" style="color: ${isReached ? step.rarity_color : 'inherit'}">${step.prize_name}</div>
                         </div>
                     `;
                     markersLayer.appendChild(marker);
                 });
             } else {
+                // Если ступеней нет - просто скрываем блок прогресса
                 stepsContainer.classList.add('hidden');
             }
         }
 
-        // Обновляем данные каждые 3 секунды
-        setInterval(fetchRaffleData, 3000);
-        fetchRaffleData(); // Первый вызов
+        // Запуск
+        fetchRaffleData();
+        setInterval(fetchRaffleData, 2000); // Опрашиваем бэкенд каждые 2 секунды (60 раз в минуту - сервер легко выдержит)
     </script>
 </body>
 </html>
