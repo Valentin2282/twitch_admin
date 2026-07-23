@@ -79,7 +79,7 @@
     <main class="flex-1 content-area flex flex-col overflow-hidden relative">
         <header class="h-14 flex items-center justify-between px-6 border-b border-zinc-800 bg-[#09090b]/80 backdrop-blur z-10 flex-shrink-0">
             <h2 class="text-base font-semibold text-zinc-100">Управление розыгрышами</h2>
-            <button onclick="toggleModal('createRaffleModal')" class="bg-[#9146FF] hover:bg-[#7b3ad6] text-white px-4 py-1.5 rounded text-xs font-semibold transition-colors flex items-center gap-2 shadow-sm">
+            <button onclick="openCreateModal()" class="bg-[#9146FF] hover:bg-[#7b3ad6] text-white px-4 py-1.5 rounded text-xs font-semibold transition-colors flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-plus"></i> Создать розыгрыш
             </button>
         </header>
@@ -126,13 +126,13 @@
         </div>
     </main>
 
-    <!-- Модальное окно СОЗДАНИЯ РОЗЫГРЫША -->
+    <!-- Модальное окно СОЗДАНИЯ/РЕДАКТИРОВАНИЯ РОЗЫГРЫША -->
     <div id="createRaffleModal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="toggleModal('createRaffleModal')"></div>
         
         <div class="relative bg-[#09090b] border border-zinc-800 rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
             <div class="flex justify-between items-center p-5 border-b border-zinc-800 bg-[#18181b]">
-                <h2 class="text-lg font-bold text-white flex items-center gap-3"><i class="fa-solid fa-wand-magic-sparkles text-[#9146FF]"></i> Конструктор розыгрыша</h2>
+                <h2 id="modal-main-title" class="text-lg font-bold text-white flex items-center gap-3"><i class="fa-solid fa-wand-magic-sparkles text-[#9146FF]"></i> Конструктор розыгрыша</h2>
                 <button onclick="toggleModal('createRaffleModal')" class="text-zinc-500 hover:text-white transition-colors bg-zinc-800/50 hover:bg-zinc-700 w-8 h-8 rounded flex items-center justify-center">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
@@ -177,7 +177,7 @@
                             </div>
                             <div>
                                 <label class="block text-[11px] font-medium text-zinc-400 mb-1">⏰ Авто-завершение (МСК)</label>
-                                <input type="datetime-local" name="end_time" required onchange="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
+                                <input type="datetime-local" name="end_time" id="inp-end-time" required onchange="updatePreview(); updateObsPreview();" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
                             </div>
                         </div>
 
@@ -194,7 +194,7 @@
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">🎫 Билеты (Стоимость)</label>
-                                    <input type="number" step="1" name="ticket_cost" placeholder="0" oninput="toggleRefundBox(); updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#2AABEE]">
+                                    <input type="number" step="1" name="ticket_cost" id="inp-tickets" placeholder="0" oninput="toggleRefundBox(); updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#2AABEE]">
                                 </div>
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">👥 Мин. участников</label>
@@ -244,7 +244,7 @@
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">Цена (баллы канала)</label>
-                                    <input type="number" step="1" name="twitch_cost" value="500" min="1" oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
+                                    <input type="number" step="1" name="twitch_cost" id="inp-twitch-cost" value="500" min="1" oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
                                 </div>
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">Канал стримера</label>
@@ -255,7 +255,7 @@
                                 <div class="flex items-center justify-between bg-[#09090b] p-2.5 rounded border border-zinc-800 h-full">
                                     <span class="text-[11px] font-medium text-zinc-300">Только для новичков?</span>
                                     <label class="relative inline-flex items-center cursor-pointer scale-75 m-0">
-                                        <input type="checkbox" name="is_for_newbies" onchange="updatePreview()" class="sr-only peer">
+                                        <input type="checkbox" name="is_for_newbies" id="inp-newbies" onchange="updatePreview(); updateObsPreview();" class="sr-only peer">
                                         <div class="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-300 after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#9146FF]"></div>
                                     </label>
                                 </div>
@@ -280,18 +280,18 @@
                             <div class="grid grid-cols-[2fr_1fr] gap-4">
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">Название приза</label>
-                                    <input type="text" name="prize" id="inp-prize" placeholder="AWP | Asiimov" required oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
+                                    <input type="text" name="prize" id="inp-prize" placeholder="AWP | Asiimov" required oninput="updatePreview(); updateObsPreview();" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
                                 </div>
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">Цена ₽</label>
-                                    <input type="number" step="0.01" name="prize_price" id="inp-prize-price" placeholder="0.00" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
+                                    <input type="number" step="0.01" name="prize_price" id="inp-prize-price" placeholder="0.00" oninput="updatePreview(); updateObsPreview();" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
                                 </div>
                             </div>
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">Качество (Wear)</label>
-                                    <select name="quality" id="inp-quality" onchange="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
+                                    <select name="quality" id="inp-quality" onchange="updatePreview(); updateObsPreview();" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
                                         <option value="">Без качества</option>
                                         <option value="FN">Factory New (Прямо с завода)</option>
                                         <option value="MW">Minimal Wear (Немного поношенное)</option>
@@ -302,7 +302,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">Редкость (Цвет)</label>
-                                    <select name="rarity_color" id="inp-rarity-color" onchange="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
+                                    <select name="rarity_color" id="inp-rarity-color" onchange="updatePreview(); updateObsPreview();" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
                                         <option value="#b0c3d9">Серый (Ширпотреб)</option>
                                         <option value="#5e98d9">Синий (Промышленное)</option>
                                         <option value="#4b69ff" selected>Фиолетовый (Армейское)</option>
@@ -315,7 +315,7 @@
                             </div>
                             <div>
                                 <label class="block text-[11px] font-medium text-zinc-400 mb-1">Ссылка на картинку (URL)</label>
-                                <input type="text" name="image" id="inp-img" placeholder="https://..." oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
+                                <input type="text" name="image" id="inp-img" placeholder="https://..." oninput="updatePreview(); updateObsPreview();" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
                             </div>
                             <div id="desc-container">
                                 <label class="block text-[11px] font-medium text-zinc-400 mb-1">Описание (опционально)</label>
@@ -326,7 +326,7 @@
                             <div class="mt-4 border-t border-zinc-800 pt-4">
                                 <div class="flex justify-between items-center mb-2">
                                     <label class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2 cursor-pointer">
-                                        <input type="checkbox" id="enable-steps" onchange="toggleStepsUI(); updateObsPreview()" class="rounded border-zinc-700 bg-[#09090b] text-[#9146FF] focus:ring-[#9146FF]">
+                                        <input type="checkbox" id="enable-steps" onchange="toggleStepsUI(); updateObsPreview();" class="rounded border-zinc-700 bg-[#09090b] text-[#9146FF] focus:ring-[#9146FF]">
                                         Включить ступенчатые награды
                                     </label>
                                     <button type="button" id="btn-add-step" onclick="addStepRow()" class="hidden text-[10px] bg-[#9146FF]/20 text-[#9146FF] border border-[#9146FF]/50 px-2 py-1 rounded hover:bg-[#9146FF]/30 transition">
@@ -400,7 +400,7 @@
                     <i class="fa-solid fa-ghost"></i> Тихий запуск
                 </button>
                 <button type="button" id="btn-submit" onclick="submitRaffle(false)" class="px-5 py-2 bg-[#9146FF] hover:bg-[#7b3ad6] text-white rounded text-xs font-semibold transition flex items-center gap-2">
-                    <i class="fa-brands fa-twitch"></i> Запустить на Twitch
+                    <span id="submit-btn-text"><i class="fa-brands fa-twitch"></i> Запустить на Twitch</span>
                 </button>
             </div>
         </div>
@@ -554,6 +554,9 @@
         let isFetching = false;
         let hasMoreItems = true;
         let currentTargetStepId = null; 
+        
+        let allLoadedRaffles = []; // Храним загруженные розыгрыши
+        let editingRaffleId = null; // ID розыгрыша для редактирования
 
         // --- ФУНКЦИИ КОНСТРУКТОРА OBS ---
         function hexToRgba(hex, alpha) {
@@ -577,6 +580,12 @@
             const skinQuality = document.getElementById('inp-quality').value || '';
             const rarityColor = document.getElementById('inp-rarity-color').value || '#9146FF';
             const prizeImage = document.getElementById('inp-img').value || '';
+            
+            // Собираем флаги для плашек
+            const platformInput = document.querySelector('input[name="platform"]:checked');
+            const isTwitch = platformInput ? platformInput.value === 'twitch' : true;
+            const isForNewbies = document.getElementById('inp-newbies') ? document.getElementById('inp-newbies').checked : false;
+            const endTime = document.getElementById('inp-end-time').value;
             
             let stepsArray = [];
             // Отправляем ступени в iframe ТОЛЬКО если чекбокс включен
@@ -602,16 +611,18 @@
                     config: { scale, accentColor, bgColor },
                     data: {
                         title: "🎁 Предпросмотр OBS",
-                        // Если есть ступени - ставим половину людей от первой ступени для красивого превью прогресса
                         participants_count: stepsArray.length > 0 ? Math.floor(stepsArray[0].participants_required / 2) : 15,
                         status: "active",
+                        end_time: endTime || new Date(Date.now() + 3600000).toISOString(),
+                        type: isTwitch ? "twitch" : "tg",
                         settings: {
                             prize_name: prizeName,
                             prize_price: prizePrice,
                             skin_quality: skinQuality,
                             rarity_color: rarityColor,
                             prize_image: prizeImage,
-                            steps: stepsArray // Если чекбокс выключен, тут будет пустой [], и iframe спрячет прогресс
+                            is_for_newbies: isForNewbies,
+                            steps: stepsArray 
                         }
                     }
                 }, '*');
@@ -661,13 +672,6 @@
                 document.getElementById('btn-silent').classList.add('hidden');
                 startTimeContainer.classList.add('hidden'); 
                 previewBox.classList.add('hidden'); 
-                
-                const subBtn = document.getElementById('btn-submit');
-                subBtn.innerHTML = '<i class="fa-brands fa-twitch"></i> Запустить на Twitch';
-                subBtn.className = 'px-5 py-2 bg-[#9146FF] hover:bg-[#7b3ad6] text-white rounded text-xs font-semibold transition flex items-center gap-2';
-                
-                document.getElementById('basic-title').classList.replace('text-[#2AABEE]', 'text-[#9146FF]');
-                document.getElementById('prize-title').classList.replace('text-[#2AABEE]', 'text-[#9146FF]');
             } else {
                 slider.style.transform = 'translateX(0)';
                 slider.className = 'absolute top-1.5 bottom-1.5 left-1.5 w-[calc(50%-6px)] bg-[#2AABEE] rounded transition-all duration-300 ease-in-out';
@@ -678,15 +682,79 @@
                 document.getElementById('btn-silent').classList.remove('hidden');
                 startTimeContainer.classList.remove('hidden'); 
                 previewBox.classList.remove('hidden'); 
-                
-                const subBtn = document.getElementById('btn-submit');
-                subBtn.innerHTML = '<i class="fa-solid fa-rocket"></i> Запустить в TG';
-                subBtn.className = 'px-5 py-2 bg-[#2AABEE] hover:bg-[#1c91d4] text-white rounded text-xs font-semibold transition flex items-center gap-2';
-                
-                document.getElementById('basic-title').classList.replace('text-[#9146FF]', 'text-[#2AABEE]');
-                document.getElementById('prize-title').classList.replace('text-[#9146FF]', 'text-[#2AABEE]');
             }
             updatePreview();
+            updateObsPreview(); // Важно обновить OBS
+        }
+
+        // ЛОГИКА СОЗДАНИЯ / РЕДАКТИРОВАНИЯ
+        function openCreateModal() {
+            editingRaffleId = null;
+            document.getElementById('create-form').reset();
+            document.getElementById('modal-main-title').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles text-[#9146FF]"></i> Конструктор розыгрыша';
+            document.getElementById('submit-btn-text').innerHTML = '<i class="fa-brands fa-twitch"></i> Запустить';
+            
+            document.getElementById('steps-container').innerHTML = '';
+            document.getElementById('enable-steps').checked = false;
+            toggleStepsUI();
+            
+            togglePlatform();
+            toggleModal('createRaffleModal');
+            setTimeout(updateObsPreview, 200);
+        }
+
+        function editRaffle(id) {
+            editingRaffleId = id;
+            const r = allLoadedRaffles.find(x => x.id === id);
+            if(!r) return alert("Ошибка: данные розыгрыша не найдены.");
+
+            const s = r.settings || {};
+            
+            // Заполняем платформу
+            const isTwitch = r.type && r.type.includes('twitch');
+            document.querySelector(`input[name="platform"][value="${isTwitch ? 'twitch' : 'tg'}"]`).checked = true;
+            togglePlatform();
+
+            // Заполняем базовые
+            document.getElementById('inp-prize').value = s.prize_name || r.title || '';
+            document.getElementById('inp-prize-price').value = s.prize_price || '';
+            document.getElementById('inp-quality').value = s.skin_quality || '';
+            document.getElementById('inp-rarity-color').value = s.rarity_color || '#9146FF';
+            document.getElementById('inp-img').value = s.prize_image || r.image_url || '';
+            
+            if(r.end_time) {
+                const d = new Date(r.end_time);
+                d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+                document.getElementById('inp-end-time').value = d.toISOString().slice(0, 16);
+            }
+
+            if(isTwitch) {
+                if(document.getElementById('inp-newbies')) document.getElementById('inp-newbies').checked = s.is_for_newbies || false;
+                if(document.getElementById('inp-twitch-cost')) document.getElementById('inp-twitch-cost').value = s.cost || 500;
+            } else {
+                if(document.getElementById('inp-tickets')) document.getElementById('inp-tickets').value = s.ticket_cost || 0;
+            }
+
+            if(s.obs_config) {
+                if(s.obs_config.scale) document.getElementById('obs-scale').value = s.obs_config.scale;
+            }
+
+            // Ступени
+            document.getElementById('steps-container').innerHTML = '';
+            if(s.steps && s.steps.length > 0) {
+                document.getElementById('enable-steps').checked = true;
+                toggleStepsUI();
+                s.steps.forEach(step => addStepRow(step));
+            } else {
+                document.getElementById('enable-steps').checked = false;
+                toggleStepsUI();
+            }
+
+            document.getElementById('modal-main-title').innerHTML = '<i class="fa-solid fa-pen text-[#2AABEE]"></i> Редактирование #' + id;
+            document.getElementById('submit-btn-text').innerHTML = '<i class="fa-solid fa-save"></i> Сохранить';
+
+            toggleModal('createRaffleModal');
+            setTimeout(updateObsPreview, 500);
         }
 
         function toggleModal(modalID) {
@@ -695,6 +763,7 @@
             if(!el.classList.contains('hidden') && modalID === 'createRaffleModal') {
                 initDateProtection();
                 updatePreview();
+                updateObsPreview();
             }
         }
 
@@ -801,14 +870,13 @@
                 const response = await fetch('/api/v1/admin/raffles/list');
                 if (!response.ok) throw new Error('Сбой API');
                 
-                const allRaffles = await response.json();
+                allLoadedRaffles = await response.json();
                 
-                const filteredRaffles = allRaffles.filter(r => {
+                const filteredRaffles = allLoadedRaffles.filter(r => {
                     const s = r.settings || {};
                     const isDone = r.status === 'completed';
                     const isSched = r.status === 'scheduled' || s.start_time; 
                     
-                    // Фильтр по статусу
                     let statusMatch = false;
                     if(currentFilter === 'completed') statusMatch = isDone;
                     else if(currentFilter === 'scheduled') statusMatch = !isDone && isSched;
@@ -816,7 +884,6 @@
 
                     if (!statusMatch) return false;
 
-                    // Фильтр по платформе
                     const isTwitchRaffle = r.type.includes('twitch');
                     if (currentPlatformFilter === 'twitch' && !isTwitchRaffle) return false;
                     if (currentPlatformFilter === 'tg' && isTwitchRaffle) return false;
@@ -852,7 +919,6 @@
                     else if (s.is_silent) badge = `<span class="bg-[#2AABEE]/10 text-[#2AABEE] text-[10px] font-bold px-2 py-1 rounded border border-[#2AABEE]/30"><i class="fa-solid fa-ghost"></i> ТИХИЙ</span>`;
                     else badge = `<span class="bg-[#2AABEE]/10 text-[#2AABEE] text-[10px] font-bold px-2 py-1 rounded border border-[#2AABEE]/30"><span class="w-1.5 h-1.5 inline-block rounded-full bg-[#2AABEE] animate-pulse mr-1"></span>TELEGRAM</span>`;
 
-                    // 🔥 ВОТ ТУТ ДОБАВЛЕНА КНОПКА ДЛЯ OBS ПРЯМО НА КАРТОЧКУ
                     container.innerHTML += `
                     <div class="glass-panel rounded-xl overflow-hidden flex flex-col hover:border-zinc-600 transition-all group relative">
                         <div class="h-48 relative flex items-center justify-center p-4 border-b border-zinc-800 overflow-hidden" style="background: radial-gradient(circle at center, ${rColor}15 0%, transparent 100%)">
@@ -880,6 +946,9 @@
                                 </button>
                                 <button onclick="navigator.clipboard.writeText('${window.location.origin}/obs/raffle/${raffle.id}'); alert('Ссылка для OBS скопирована!')" class="px-3 py-1.5 bg-[#9146FF]/10 hover:bg-[#9146FF]/20 text-[#9146FF] border border-[#9146FF]/20 rounded transition-colors flex items-center justify-center" title="Скопировать ссылку для OBS">
                                     <i class="fa-solid fa-display text-[10px]"></i> OBS
+                                </button>
+                                <button onclick="editRaffle(${raffle.id})" class="px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded transition-colors flex items-center justify-center" title="Редактировать">
+                                    <i class="fa-solid fa-pen text-[10px]"></i>
                                 </button>
                                 ${raffle.status !== 'completed' ? `<button onclick="completeRaffle(${raffle.id})" class="px-3 py-1.5 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/20 rounded transition-colors flex items-center justify-center" title="Завершить досрочно"><i class="fa-solid fa-flag-checkered text-[10px]"></i></button>` : ''}
                                 <button onclick="deleteRaffle(${raffle.id})" class="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded transition-colors flex items-center justify-center" title="Удалить розыгрыш">
@@ -918,7 +987,7 @@
             updateObsPreview(); // Обязательно обновляем превью при включении/выключении ступеней
         }
 
-        function addStepRow() {
+        function addStepRow(data = {}) {
             const container = document.getElementById('steps-container');
             const stepId = Date.now() + Math.floor(Math.random() * 1000); 
             
@@ -927,18 +996,18 @@
             // В каждый инпут добавлен onchange/oninput для живого обновления OBS
             row.innerHTML = `
                 <div class="w-16">
-                    <input type="number" step="1" placeholder="Людей" oninput="updateObsPreview()" class="step-req w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
+                    <input type="number" step="1" placeholder="Людей" value="${data.participants_required || ''}" oninput="updateObsPreview()" class="step-req w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
                 </div>
                 <div class="flex-1 flex flex-col gap-1.5">
                     <div class="flex gap-1">
-                        <input type="text" id="step-prize-${stepId}" placeholder="Скин (Напр: AK-47 | Slate)" oninput="updateObsPreview()" class="step-prize w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
+                        <input type="text" id="step-prize-${stepId}" placeholder="Скин" value="${data.prize_name || ''}" oninput="updateObsPreview()" class="step-prize w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
                         <button type="button" onclick="openLibrarySearch(${stepId})" class="bg-zinc-800 text-zinc-300 border border-zinc-700 px-2 rounded hover:bg-zinc-700 transition" title="Найти на складе">
                             <i class="fa-solid fa-magnifying-glass"></i>
                         </button>
                     </div>
                     <div class="flex gap-1">
                         <select id="step-quality-${stepId}" onchange="updateObsPreview()" class="step-quality w-1/2 bg-[#18181b] border border-zinc-700 text-[10px] text-zinc-400 rounded px-1 py-1 focus:outline-none focus:border-[#9146FF]">
-                            <option value="">Без кач.</option>
+                            <option value="${data.skin_quality || ''}">${data.skin_quality || 'Без кач.'}</option>
                             <option value="FN">FN (Прямо с завода)</option>
                             <option value="MW">MW (Немного понош.)</option>
                             <option value="FT">FT (После полевых)</option>
@@ -946,9 +1015,10 @@
                             <option value="BS">BS (Закаленное)</option>
                         </select>
                         <select id="step-rarity-${stepId}" onchange="updateObsPreview()" class="step-rarity w-1/2 bg-[#18181b] border border-zinc-700 text-[10px] text-zinc-400 rounded px-1 py-1 focus:outline-none focus:border-[#9146FF]">
+                            <option value="${data.rarity_color || '#4b69ff'}">Выбрано</option>
                             <option value="#b0c3d9">Серый</option>
                             <option value="#5e98d9">Синий</option>
-                            <option value="#4b69ff" selected>Фиол</option>
+                            <option value="#4b69ff">Фиол</option>
                             <option value="#8847ff">Розовый</option>
                             <option value="#d32ce6">Малиновый</option>
                             <option value="#eb4b4b">Красный</option>
@@ -957,7 +1027,7 @@
                     </div>
                 </div>
                 <div class="w-20">
-                    <input type="number" step="0.01" id="step-price-${stepId}" placeholder="Цена ₽" oninput="updateObsPreview()" class="step-price w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
+                    <input type="number" step="0.01" id="step-price-${stepId}" placeholder="Цена ₽" value="${data.prize_price || ''}" oninput="updateObsPreview()" class="step-price w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
                 </div>
                 <button type="button" onclick="this.parentElement.remove(); updateObsPreview()" class="text-red-400 hover:text-red-300 w-6 flex justify-center mt-1.5">
                     <i class="fa-solid fa-trash text-xs"></i>
@@ -1093,11 +1163,11 @@
                 if (minP) url.searchParams.append('min_p', minP);
                 if (maxP) url.searchParams.append('max_p', maxP);
 
-                // Отправляем сортировку
+                // Отправляем сортировку прямо в БД
                 const sortOrder = document.getElementById('lib-sort').value;
                 url.searchParams.append('sort', sortOrder);
 
-                // Фильтр редкости
+                // Запрос фильтра редкости у бэкенда, если выбрана ОДНА редкость (для оптимизации БД)
                 const selectedRarities = Array.from(document.querySelectorAll('#lib-filter-rarity-group input:checked')).map(cb => cb.value);
                 if (selectedRarities.length === 1) {
                     url.searchParams.append('rarity', selectedRarities[0]);
@@ -1117,7 +1187,7 @@
 
                 if (items.length < 50) hasMoreItems = false; 
 
-                // Фильтрация наклеек
+                // ФИЛЬТРАЦИЯ НАКЛЕЕК НА ФРОНТЕНДЕ
                 if (document.getElementById('lib-exclude-stickers').checked) {
                     items = items.filter(i => {
                         const n = i.market_hash_name.toLowerCase();
@@ -1125,7 +1195,7 @@
                     });
                 }
 
-                // Мульти-фильтр редкости
+                // МУЛЬТИ-ФИЛЬТР ПО РЕДКОСТИ НА ФРОНТЕНДЕ (если выбрано > 1)
                 if (selectedRarities.length > 0) {
                     items = items.filter(i => {
                         const r = (i.rarity || 'blue').toLowerCase();
@@ -1133,7 +1203,7 @@
                     });
                 }
 
-                // Мульти-фильтр качества
+                // МУЛЬТИ-ФИЛЬТР ПО КАЧЕСТВУ НА ФРОНТЕНДЕ
                 const selectedQualities = Array.from(document.querySelectorAll('#lib-filter-quality-group input:checked')).map(cb => cb.value);
                 if (selectedQualities.length > 0) {
                     items = items.filter(i => {
@@ -1171,6 +1241,7 @@
                     const rarityObj = rarityConfig[item.rarity?.toLowerCase()] || { color: '#4b69ff', label: 'Неизвестно' };
                     const rColor = rarityObj.color;
                     
+                    // Парсим качество для красивого бейджика
                     let qBadge = "";
                     const m = item.market_hash_name.match(/\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred|Прямо с завода|Немного поношенное|После полевых испытаний|Поношенное|Закаленное в боях)\)/i);
                     if (m) {
@@ -1210,7 +1281,9 @@
             let cleanName = item.market_hash_name;
             let qualityCode = "";
             
+            // ПРОДВИНУТЫЙ ПАРСЕР КАЧЕСТВА (Ищет только точные совпадения, исключая ошибки)
             const conditionMatch = cleanName.match(/\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred|Прямо с завода|Немного поношенное|После полевых испытаний|Поношенное|Закаленное в боях)\)/i);
+            
             if (conditionMatch) {
                 const rawWear = conditionMatch[1].toLowerCase();
                 if (rawWear.includes('factory') || rawWear.includes('прямо')) qualityCode = 'FN';
@@ -1218,6 +1291,7 @@
                 else if (rawWear.includes('field') || rawWear.includes('полевых')) qualityCode = 'FT';
                 else if (rawWear.includes('well') || rawWear.includes('поношенное')) qualityCode = 'WW';
                 else if (rawWear.includes('battle') || rawWear.includes('закаленное')) qualityCode = 'BS';
+                
                 cleanName = cleanName.replace(conditionMatch[0], '').trim();
             }
 
@@ -1246,6 +1320,7 @@
             // Если искали для ГЛАВНОГО приза
             document.getElementById('inp-prize').value = cleanName;
             
+            // ЕСЛИ У НАС ЕСТЬ ПОЛЕ prize_price ДЛЯ ГЛАВНОГО ПРИЗА, ЗАПОЛНЯЕМ ЕГО
             const mainPriceInput = document.getElementById('inp-prize-price');
             if (mainPriceInput) mainPriceInput.value = item.price_rub || 0;
             
@@ -1263,10 +1338,6 @@
             const fd = new FormData(form);
             const isTwitch = fd.get('platform') === 'twitch';
             
-            let endpoint = '';
-            let payload = {};
-
-            // СБОР СТУПЕНЕЙ
             let stepsArray = [];
             if (document.getElementById('enable-steps').checked) {
                 document.querySelectorAll('.step-row').forEach(row => {
@@ -1295,14 +1366,15 @@
                 bgColor: hexToRgba(document.getElementById('obs-bg-color').value, document.getElementById('obs-bg-opacity').value)
             };
 
+            let payload = {};
+
             if (isTwitch) {
-                endpoint = '/api/v1/admin/raffles/create_twitch';
                 payload = {
                     title: fd.get('prize'),
                     end_time: fd.get('end_time'), 
                     cost: parseInt(fd.get('twitch_cost') || 500),
                     broadcaster_id: fd.get('twitch_broadcaster'),
-                    is_for_newbies: fd.get('is_for_newbies') === 'on',
+                    is_for_newbies: document.getElementById('inp-newbies') ? document.getElementById('inp-newbies').checked : false,
                     min_lifetime_msgs: parseInt(fd.get('min_lifetime_msgs') || 0),
                     image_url: fd.get('image'),
                     skin_quality: fd.get('quality'),
@@ -1310,10 +1382,9 @@
                     prize_price: parseFloat(fd.get('prize_price') || 0),
                     winners_count: 1,
                     steps: stepsArray,
-                    obs_config: obsConfig
+                    obs_config: obsConfig 
                 };
             } else {
-                endpoint = '/api/v1/admin/raffles/create';
                 payload = {
                     title: fd.get('prize'),
                     type: fd.get('type'),
@@ -1337,14 +1408,21 @@
                         is_refund_enabled: fd.get('is_refund_enabled') === 'on',
                         refund_percent: parseInt(fd.get('refund_percent') || 100),
                         steps: stepsArray,
-                        obs_config: obsConfig
+                        obs_config: obsConfig 
                     }
                 };
             }
 
+            // Если editingRaffleId не null, то шлем PATCH запрос (для редактирования)
+            const endpoint = editingRaffleId 
+                ? `/api/v1/admin/raffles/${editingRaffleId}/edit` 
+                : (isTwitch ? '/api/v1/admin/raffles/create_twitch' : '/api/v1/admin/raffles/create');
+                
+            const method = editingRaffleId ? 'PATCH' : 'POST';
+
             try {
                 const res = await fetch(endpoint, {
-                    method: 'POST', 
+                    method: method, 
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(payload)
                 });
@@ -1356,10 +1434,20 @@
                 }
 
                 if (res.ok) {
-                    alert(isTwitch ? 'Успех! Twitch-розыгрыш запущен!' : 'Успех! Telegram-розыгрыш создан.');
-                    form.reset(); 
+                    const resData = await res.json();
+                    
+                    if (!editingRaffleId) {
+                        let raffleId = resData.raffle_id || resData.id || "последний"; 
+                        const obsLink = window.location.origin + "/obs/raffle/" + raffleId;
+                        document.getElementById('obs-link-output').value = obsLink;
+                        alert(isTwitch ? 'Успех! Twitch-розыгрыш запущен! Скопируйте ссылку для OBS ниже.' : 'Успех! Telegram-розыгрыш создан. Скопируйте ссылку для OBS ниже.');
+                    } else {
+                        alert('Успешно сохранено!');
+                    }
+                    
+                    if (!editingRaffleId) form.reset(); 
                     toggleModal('createRaffleModal');
-                    loadRaffles(); // При загрузке подтянется кнопка с OBS ссылкой
+                    loadRaffles(); 
                 } else {
                     const err = await res.json();
                     alert('Ошибка: ' + (err.detail || 'Сбой'));
@@ -1423,6 +1511,9 @@
             loadRaffles();
             togglePlatform(); 
             loadChannels(); 
+            
+            // Легкая задержка, чтобы iframe успел загрузиться и принять сообщение
+            setTimeout(updateObsPreview, 1000);
         });
     </script>
 </body>
