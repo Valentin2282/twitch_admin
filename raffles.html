@@ -985,6 +985,10 @@
                 if (minP) url.searchParams.append('min_p', minP);
                 if (maxP) url.searchParams.append('max_p', maxP);
 
+                // 🔥 Отправляем сортировку прямо в БД
+                const sortOrder = document.getElementById('lib-sort').value;
+                url.searchParams.append('sort', sortOrder);
+
                 // 🔥 ДОБАВЛЕНО: Запрос фильтра редкости у бэкенда, если выбрана ОДНА редкость (для оптимизации БД)
                 const selectedRarities = Array.from(document.querySelectorAll('#lib-filter-rarity-group input:checked')).map(cb => cb.value);
                 if (selectedRarities.length === 1) {
@@ -1038,14 +1042,6 @@
                         return selectedQualities.includes(qCode);
                     });
                 }
-
-                // 🔥 СОРТИРОВКА
-                const sortOrder = document.getElementById('lib-sort').value;
-                items.sort((a, b) => {
-                    const priceA = parseFloat(a.price_rub) || 0;
-                    const priceB = parseFloat(b.price_rub) || 0;
-                    return sortOrder === 'asc' ? priceA - priceB : priceB - priceA;
-                });
 
                 if (items.length === 0 && isNewSearch) {
                     cont.innerHTML = '<div class="text-center text-xs text-zinc-500 mt-10">По фильтрам ничего не найдено 😔</div>';
