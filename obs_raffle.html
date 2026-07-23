@@ -188,8 +188,15 @@
             document.getElementById('obs-quality').style.color = rColor;
             
             // Картинка
-            const imgEl = document.getElementById('obs-img');
-            if(s.prize_image) { imgEl.src = s.prize_image; } else { imgEl.style.display = 'none'; }
+const imgEl = document.getElementById('obs-img');
+const imageUrl = s.prize_image || data.image_url;
+
+if (imageUrl) { 
+    imgEl.src = imageUrl;
+    imgEl.style.display = 'block'; // Принудительно показываем, если onerror скрыл до этого
+} else { 
+    imgEl.style.display = 'none'; 
+}
 
             // Бейджики
             const statusBadge = document.getElementById('status-badge');
