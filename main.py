@@ -2069,18 +2069,51 @@ class MarketCSGO:
                 logging.warning(f"[MARKET] Сбой: {e}.")
                 return {"success": False, "error": "timeout_limit"}
 
+    # 🔥 НОВАЯ ФУНКЦИЯ: Поиск реальной минимальной цены прямо сейчас
+    async def get_lowest_price(self, hash_name: str) -> Optional[float]:
+        try:
+            response = await self._make_request("search-item-by-hash-name", {"hash_name": hash_name})
+            if isinstance(response, dict) and response.get("success") and response.get("data"):
+                items = response["data"]
+                if items:
+                    # Маркет всегда отдает список от дешевых к дорогим. Берем [0]
+                    cheapest = items[0]
+                    return float(cheapest.get("price", 0)) / 100 # переводим копейки в рубли
+        except Exception as e:
+            logging.error(f"[MARKET] Ошибка при поиске минимальной цены: {e}")
+        return None
+
     async def buy_for_user(self, hash_name: str, max_price_rub: float, trade_link: str, custom_id: str): 
         partner, token = self.parse_trade_link(trade_link)
         if not partner or not token:
             return {"success": False, "error": "Неверная трейд-ссылка"}
 
-        if max_price_rub <= 20:
-            ceiling_rub = max_price_rub * 3.0 
-        elif max_price_rub <= 100:
-            ceiling_rub = max_price_rub * 2.0
+        # 🔥 1. Узнаем РЕАЛЬНУЮ минимальную цену на маркете
+        real_lowest_price = await self.get_lowest_price(hash_name)
+        
+        if real_lowest_price:
+            # Делаем потолок: минимальная цена + 5% (чтобы точно выкупить, если первый лот уведут из-под носа)
+            ceiling_rub = real_lowest_price * 1.05
+            
+            # 🔥 БРОНЕЖИЛЕТ ОТ СЛИВА ДЕНЕГ:
+            # Если цена на маркете внезапно стала больше нашей ожидаемой (max_price_rub) в 2+ раза — отменяем!
+            if max_price_rub > 0 and ceiling_rub > (max_price_rub * 2.0):
+                error_msg = f"Скин резко подорожал (Ожидали ~{max_price_rub}₽, сейчас минимум {real_lowest_price}₽). Покупка отменена."
+                logging.warning(f"[RAFFLE] {error_msg}")
+                return {"success": False, "error": error_msg}
+                
+            logging.info(f"[MARKET] Найден дешевый '{hash_name}' за {real_lowest_price:.2f} руб. Бронируем покупку.")
         else:
-            ceiling_rub = max_price_rub * 1.3
+            # Если маркет лагает и не отдал поиск, используем безопасный резервный потолок
+            logging.warning(f"[MARKET] Не удалось узнать текущую цену '{hash_name}'. Используем резервный лимит.")
+            if max_price_rub <= 20:
+                ceiling_rub = max_price_rub * 3.0 
+            elif max_price_rub <= 100:
+                ceiling_rub = max_price_rub * 2.0
+            else:
+                ceiling_rub = max_price_rub * 1.3
 
+        # Переводим в копейки для API
         price_in_kopecks = int(ceiling_rub * 100)
 
         params = {
@@ -2090,8 +2123,6 @@ class MarketCSGO:
             "token": token,
             "custom_id": custom_id
         }
-        
-        logging.info(f"[MARKET] Прямой выкуп '{hash_name}' с бюджетом до {ceiling_rub:.2f} руб. (custom_id: {custom_id})")
         
         response = await self._make_request("buy-for", params)
         
