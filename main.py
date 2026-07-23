@@ -126,6 +126,8 @@ async def login():
     # Полный фарш прав для будущего функционала
     scopes_list = [
         "user:read:email",
+        "user:write:chat",                # 🔥 НОВОЕ: Право писать в чат через Helix API
+        "user:read:chat",                 # 🔥 НОВОЕ: Право читать чат через Helix API
         "channel:read:redemptions",
         "channel:manage:redemptions",     # Награды
         "channel:read:polls",
@@ -136,8 +138,8 @@ async def login():
         "channel:read:subscriptions",     # Чтение сабов
         "bits:read",                      # Чтение битсов
         "channel:moderate",               # Базовые права модератора
-        "chat:read",
-        "chat:edit",                      # Чтение и отправка сообщений
+        "chat:read",                      # IRC чтение
+        "chat:edit",                      # IRC отправка
         "moderator:manage:announcements", # Отправка /announce
         "moderator:manage:chat_messages", # Удаление сообщений
         "moderator:manage:banned_users",  # Бан/таймаут юзеров
@@ -202,6 +204,8 @@ async def broadcaster_login():
         
     scopes_list = [
         "user:read:email",
+        "user:write:chat",                # 🔥 НОВОЕ: Право писать в чат через Helix API
+        "user:read:chat",                 # 🔥 НОВОЕ: Право читать чат через Helix API
         "channel:read:redemptions",
         "channel:manage:redemptions",
         "channel:read:polls",
