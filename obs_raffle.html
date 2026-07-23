@@ -2,267 +2,246 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>OBS Raffle Widget</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>OBS Compact Raffle v2</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-        
+        /* --- БАЗА --- */
+        html, body {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background: transparent; overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; flex-direction: column;
+            justify-content: flex-end; align-items: flex-end;
+            padding: 20px; box-sizing: border-box;
+        }
+
         :root {
-            /* Базовые переменные. Они будут перезаписываться из админки в реальном времени */
             --widget-scale: 1;
-            --bg-color: rgba(24, 24, 27, 0.85);
-            --accent-color: #9146FF;
-            --text-color: #ffffff;
-            --border-radius: 16px;
-            --glass-blur: 12px;
         }
 
-        body {
-            margin: 0;
-            overflow: hidden; /* В OBS скроллов быть не должно */
-            font-family: 'Inter', sans-serif;
-            background: transparent; /* Обязательно прозрачный фон для OBS */
-        }
-
-        .obs-widget {
+        /* --- ОБЩИЙ КОНТЕЙНЕР --- */
+        .obs-container {
+            width: 320px;
+            display: flex; flex-direction: column; gap: 8px;
             transform: scale(var(--widget-scale));
-            transform-origin: top left;
-            background: var(--bg-color);
-            backdrop-filter: blur(var(--glass-blur));
-            border-radius: var(--border-radius);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: var(--text-color);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            width: 450px;
-            padding: 20px;
-            transition: all 0.3s ease;
+            transform-origin: bottom right;
+            transition: all 0.3s ease-out;
         }
 
-        /* Премиальная анимация левитации приза */
-        @keyframes float {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-8px); }
-            100% { transform: translateY(0px); }
+        /* --- КОМПАКТНАЯ КАРТОЧКА --- */
+        .compact-card {
+            position: relative; width: 100%;
+            min-height: 115px;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 15px; box-sizing: border-box;
+            border-radius: 16px; overflow: hidden;
+            background: #0a0a0a;
+            background-image: radial-gradient(circle at 70% 50%, rgba(var(--rarity-rgb), 0.15) 0%, rgba(10, 10, 10, 1) 90%);
+            border: 1px solid rgba(var(--rarity-rgb), 0.4);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.6), inset 0 0 20px rgba(var(--rarity-rgb), 0.05);
         }
-        .prize-image { animation: float 6s ease-in-out infinite; }
 
-        /* Трек прогресса */
-        .progress-track {
-            position: relative;
-            height: 12px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 6px;
-            margin-top: 30px;
+        .compact-card::after {
+            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: linear-gradient(to right, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%);
+            transform: rotate(30deg); pointer-events: none; animation: shine 8s infinite linear;
         }
-        .progress-fill {
-            position: absolute;
-            top: 0; left: 0; height: 100%;
-            background: var(--accent-color);
-            border-radius: 6px;
-            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 0 15px var(--accent-color);
+        @keyframes shine { from { transform: translateX(-100%) rotate(30deg); } to { transform: translateX(100%) rotate(30deg); } }
+
+        /* БЕЙДЖИКИ */
+        .badges-wrapper {
+            position: absolute; top: 8px; left: 12px;
+            display: flex; gap: 4px; z-index: 20;
         }
-        
-        /* Маркеры ступеней */
-        .step-marker {
-            position: absolute;
-            top: -6px;
-            width: 24px;
-            height: 24px;
-            background: #18181b;
-            border: 3px solid rgba(255,255,255,0.2);
-            border-radius: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.5s ease;
-            z-index: 10;
+        .mini-badge {
+            font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+            color: rgba(255,255,255,0.9);
+            background: rgba(var(--rarity-rgb), 0.25);
+            padding: 2px 6px; border-radius: 4px;
+            border: 1px solid rgba(var(--rarity-rgb), 0.3);
+            display: flex; align-items: center; gap: 3px;
         }
-        .step-marker.reached {
-            border-color: var(--accent-color);
-            background: var(--accent-color);
-            box-shadow: 0 0 12px var(--accent-color);
+        .badge-newbie { background: rgba(34, 197, 94, 0.2); border-color: rgba(34, 197, 94, 0.4); color: #4ade80; }
+        .badge-completed { background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #f87171; }
+
+        /* ЛЕВАЯ ЧАСТЬ (ТЕКСТ) */
+        .card-left {
+            display: flex; flex-direction: column; justify-content: center;
+            z-index: 5; max-width: 50%;
+            margin-top: 14px;
         }
-        .step-info {
-            position: absolute;
-            top: 28px;
-            transform: translateX(-50%);
-            text-align: center;
-            font-size: 10px;
-            width: 90px;
-            color: rgba(255,255,255,0.6);
-            line-height: 1.2;
+        .mini-quality { font-size: 9px; font-weight: 700; color: rgba(255, 255, 255, 0.5); margin-bottom: 2px; text-transform: uppercase; }
+        .mini-name {
+            font-size: 14px; font-weight: 800; color: #fff; line-height: 1.1; margin-bottom: 6px;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+            text-shadow: 0 1px 5px rgba(0,0,0,0.8);
         }
-        .step-marker.reached .step-info { color: var(--text-color); font-weight: 600; drop-shadow: 0 2px 4px rgba(0,0,0,0.8); }
-    </style>
+
+        /* ТАЙМЕР */
+        .mini-timer {
+            display: inline-flex; align-items: center; gap: 3px;
+            background: rgba(0,0,0,0.6); padding: 4px 6px; border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.1); font-size: 10px; color: #bbb; font-weight: 600;
+            width: fit-content;
+        }
+        .timer-val { font-family: 'Courier New', monospace; color: #fff; font-weight: 800; font-size: 12px; }
+
+        /* КАРТИНКА */
+        .card-img {
+            position: absolute; right: -15px; bottom: -5px;
+            height: auto; max-height: 115px; width: auto; max-width: 55%;
+            object-fit: contain; z-index: 10;
+            image-rendering: -webkit-optimize-contrast;
+            filter: drop-shadow(0 8px 20px rgba(0,0,0,0.8));
+            animation: weaponFloat 6s ease-in-out infinite;
+        }
+        @keyframes weaponFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+        /* CTA */
+        .cta-box {
+            background: rgba(12, 12, 12, 1); backdrop-filter: blur(10px);
+            border-radius: 10px; padding: 8px 12px; text-align: center;
+            border: 1px solid rgba(255,255,255,0.08);
+            font-size: 11px; color: #999; font-weight: 600;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+        }
+        .cta-highlight {
+            font-weight: 800; font-size: 12px;
+            color: rgb(var(--rarity-rgb));
+            text-shadow: 0 0 10px rgba(var(--rarity-rgb), 0.4);
+            letter-spacing: 0.5px; text-transform: uppercase;
+        }
+    </script>
 </head>
 <body>
 
-    <div class="obs-widget" id="widget-container">
-        <!-- Шапка -->
-        <div class="flex justify-between items-start mb-4">
-            <div>
-                <div class="text-[10px] uppercase tracking-widest text-zinc-400 font-bold mb-1 flex items-center gap-1" id="raffle-type">
-                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block"></span> 
-                    <span>СБОР УЧАСТНИКОВ</span>
+    <div id="obs-overlay" class="obs-container" style="--rarity-rgb: 145, 70, 255">
+        <div class="compact-card">
+            <div class="badges-wrapper">
+                <div class="mini-badge" id="status-badge"><span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span> АКТИВЕН</div>
+                <div class="mini-badge badge-newbie hidden" id="newbie-badge"><i class="fa-solid fa-leaf"></i> НОВИЧКАМ</div>
+            </div>
+            
+            <div class="card-left">
+                <div class="mini-quality" id="obs-quality" style="color: #9146FF">Field-Tested</div>
+                <div class="mini-name" id="obs-name">Загрузка...</div>
+                <div class="mini-timer" id="obs-timer">
+                    <i class="fa-regular fa-clock" style="font-size:10px"></i>
+                    <span class="timer-val h-v">00</span>:
+                    <span class="timer-val m-v">00</span>:
+                    <span class="timer-val s-v">00</span>
                 </div>
-                <h1 class="text-xl font-extrabold tracking-tight drop-shadow-md" id="raffle-title">Загрузка...</h1>
             </div>
-            <div class="bg-black/40 px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2 shadow-inner">
-                <i class="fa-solid fa-users text-[10px]" style="color: var(--accent-color)"></i>
-                <span class="font-bold font-mono text-lg" id="participants-count">0</span>
-            </div>
+            <img src="" class="card-img" id="obs-img" alt="Skin" onerror="this.style.display='none'" onload="this.style.display='block'">
         </div>
-
-        <!-- Подиум приза -->
-        <div class="relative h-40 flex items-center justify-center rounded-xl bg-gradient-to-b from-white/5 to-transparent border border-white/5 overflow-hidden mb-3">
-            <!-- Динамическое свечение -->
-            <div id="glow-bg" class="absolute inset-0 opacity-20 blur-3xl transition-colors duration-1000"></div>
-            <img id="prize-img" src="" class="prize-image max-h-32 object-contain relative z-10 drop-shadow-2xl transition-all duration-500">
-        </div>
-
-        <!-- Текст приза -->
-        <div class="text-center mb-2">
-            <div id="prize-name" class="font-bold text-lg drop-shadow-md">Секретный приз</div>
-            <div class="flex items-center justify-center gap-2 mt-1">
-                <span id="prize-price" class="text-[11px] bg-black/60 px-2 py-0.5 rounded text-green-400 font-mono border border-green-500/20">0 ₽</span>
-                <span id="prize-quality" class="text-[10px] bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold text-zinc-300"></span>
-            </div>
-        </div>
-
-        <!-- Ступенчатая система -->
-        <div id="steps-container" class="pb-8 hidden">
-            <div class="progress-track">
-                <div id="progress-fill" class="progress-fill" style="width: 0%;"></div>
-                <div id="markers-layer"></div>
-            </div>
+        
+        <div class="cta-box">
+            Подробнее <span class="cta-highlight" id="obs-cta">!розыгрыш</span> в чат, заходи и участвуй!
         </div>
     </div>
 
     <script>
-        // Извлекаем ID розыгрыша из URL: /obs/raffle/123
         const pathParts = window.location.pathname.split('/');
         const raffleId = pathParts[pathParts.length - 1];
+        let countdownTimer = null;
 
-        // 1. СЛУШАТЕЛЬ ДЛЯ АДМИНКИ (Превью в реальном времени)
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '145, 70, 255';
+        }
+
+        // 1. Слушаем iframe конструктора админки
         window.addEventListener('message', (event) => {
-            const msg = event.data;
-            if (msg.type === 'OBS_PREVIEW_UPDATE') {
-                // Применяем цвета и масштаб
-                const root = document.documentElement;
-                if(msg.config.scale) root.style.setProperty('--widget-scale', msg.config.scale);
-                if(msg.config.bgColor) root.style.setProperty('--bg-color', msg.config.bgColor);
-                if(msg.config.accentColor) root.style.setProperty('--accent-color', msg.config.accentColor);
-                
-                // Передаем данные с формы прямо в функцию отрисовки
-                updateWidget(msg.data);
+            if (event.data.type === 'OBS_PREVIEW_UPDATE') {
+                const conf = event.data.config;
+                if(conf.scale) document.documentElement.style.setProperty('--widget-scale', conf.scale);
+                updateWidget(event.data.data);
             }
         });
 
-        // 2. ПУЛЛИНГ ДАННЫХ ИЗ БД (Обновление прогресса)
+        // 2. Пуллинг данных из базы для реального OBS
         async function fetchRaffleData() {
-            if(!raffleId) return;
+            if(!raffleId || raffleId === "preview") return;
             try {
-                // Дергаем наш новый эндпоинт в backend.py
                 const res = await fetch(`/api/v1/obs/raffle/${raffleId}/data`);
                 if (!res.ok) return;
                 const data = await res.json();
-                updateWidget(data); // <-- ВОТ ТВОЯ ФУНКЦИЯ!
-            } catch (e) {
-                console.error("Ошибка обновления OBS", e);
-            }
+                updateWidget(data);
+            } catch (e) {}
         }
 
-        // 3. ОСНОВНАЯ ФУНКЦИЯ ОТРИСОВКИ
         function updateWidget(data) {
-            const settings = data.settings || {};
-            const participants = data.participants_count || 0;
+            const s = data.settings || {};
+            const rColor = s.rarity_color || '#9146FF';
+            const rgbColor = hexToRgb(rColor);
             
-            // Если в настройках есть сохраненный дизайн - применяем его
-            if (settings.obs_config) {
-                const root = document.documentElement;
-                if(settings.obs_config.scale) root.style.setProperty('--widget-scale', settings.obs_config.scale);
-                if(settings.obs_config.bgColor) root.style.setProperty('--bg-color', settings.obs_config.bgColor);
-                if(settings.obs_config.accentColor) root.style.setProperty('--accent-color', settings.obs_config.accentColor);
-            }
-
-            // Статус
-            const typeLabel = document.getElementById('raffle-type');
-            if(data.status === 'completed') {
-                typeLabel.innerHTML = '<span class="text-red-500"><i class="fa-solid fa-flag-checkered mr-1"></i> ЗАВЕРШЕНО</span>';
-            } else {
-                typeLabel.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block"></span> <span>СБОР УЧАСТНИКОВ</span>';
+            // Настройки контейнера
+            const overlay = document.getElementById('obs-overlay');
+            overlay.style.setProperty('--rarity-rgb', rgbColor);
+            if(s.obs_config && s.obs_config.scale) {
+                document.documentElement.style.setProperty('--widget-scale', s.obs_config.scale);
             }
 
             // Тексты
-            document.getElementById('raffle-title').innerText = data.title;
-            document.getElementById('participants-count').innerText = participants;
+            document.getElementById('obs-name').innerText = s.prize_name || data.title || "Секретный приз";
+            document.getElementById('obs-quality').innerText = s.skin_quality || "";
+            document.getElementById('obs-quality').style.color = rColor;
             
-            document.getElementById('prize-name').innerText = settings.prize_name || "Секретный приз";
-            document.getElementById('prize-img').src = settings.prize_image || "https://placehold.co/400x300/transparent/3f3f46?text=No+Image";
-            document.getElementById('prize-price').innerText = `${settings.prize_price || 0} ₽`;
-            
-            // Качество скина
-            const qualityEl = document.getElementById('prize-quality');
-            if(settings.skin_quality) {
-                qualityEl.innerText = settings.skin_quality;
-                qualityEl.style.display = 'inline-block';
+            // Картинка
+            const imgEl = document.getElementById('obs-img');
+            if(s.prize_image) { imgEl.src = s.prize_image; } else { imgEl.style.display = 'none'; }
+
+            // Бейджики
+            const statusBadge = document.getElementById('status-badge');
+            if(data.status === 'completed') {
+                statusBadge.className = 'mini-badge badge-completed';
+                statusBadge.innerHTML = '<i class="fa-solid fa-flag-checkered"></i> ЗАВЕРШЕНО';
+                document.getElementById('obs-timer').innerHTML = 'РАЗДАЧА ОКОНЧЕНА';
             } else {
-                qualityEl.style.display = 'none';
+                statusBadge.className = 'mini-badge';
+                statusBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span> АКТИВЕН';
+                startTimer(s.end_time || data.end_time); // Запускаем таймер
             }
 
-            // Цвет свечения под редкость
-            const rarityColor = settings.rarity_color || '#9146FF';
-            document.getElementById('glow-bg').style.backgroundColor = rarityColor;
-            
-            // 4. ЛОГИКА СТУПЕНЕЙ
-            const steps = settings.steps || [];
-            const stepsContainer = document.getElementById('steps-container');
-            const markersLayer = document.getElementById('markers-layer');
-            const progressFill = document.getElementById('progress-fill');
+            document.getElementById('newbie-badge').style.display = s.is_for_newbies ? 'flex' : 'none';
 
-            if (steps.length > 0) {
-                stepsContainer.classList.remove('hidden');
-                
-                // Сортируем от меньшей ступени к большей
-                const sortedSteps = [...steps].sort((a, b) => a.participants_required - b.participants_required);
-                const maxTarget = sortedSteps[sortedSteps.length - 1].participants_required;
-                
-                // Прогресс бар
-                let percent = (participants / maxTarget) * 100;
-                if (percent > 100) percent = 100;
-                progressFill.style.width = `${percent}%`;
-
-                // Отрисовка кружочков на полосе
-                markersLayer.innerHTML = '';
-                sortedSteps.forEach(step => {
-                    const stepPercent = (step.participants_required / maxTarget) * 100;
-                    const isReached = participants >= step.participants_required;
-                    
-                    const marker = document.createElement('div');
-                    marker.className = `step-marker ${isReached ? 'reached' : ''}`;
-                    marker.style.left = `${stepPercent}%`;
-                    
-                    marker.innerHTML = `
-                        ${isReached ? '<i class="fa-solid fa-check text-[10px] text-white"></i>' : '<i class="fa-solid fa-lock text-[10px] text-zinc-500"></i>'}
-                        <div class="step-info">
-                            <div class="font-mono bg-black/50 rounded-sm inline-block px-1 mb-0.5"><i class="fa-solid fa-users text-[8px] mr-0.5"></i>${step.participants_required}</div>
-                            <div class="truncate w-full font-bold" style="color: ${isReached ? step.rarity_color : 'inherit'}">${step.prize_name}</div>
-                        </div>
-                    `;
-                    markersLayer.appendChild(marker);
-                });
+            // CTA (Призыв к действию)
+            const ctaEl = document.getElementById('obs-cta');
+            if(data.type && data.type.includes('twitch')) {
+                ctaEl.innerText = '!розыгрыш'; // Если Твич
             } else {
-                // Если ступеней нет - просто скрываем блок прогресса
-                stepsContainer.classList.add('hidden');
+                ctaEl.innerText = 'в TG Боте'; // Если Телеграм
             }
         }
 
-        // Запуск
+        function startTimer(endTimeStr) {
+            if(!endTimeStr) return;
+            if (countdownTimer) clearInterval(countdownTimer);
+            
+            const update = () => {
+                const el = document.getElementById('obs-timer');
+                if (!el || el.innerHTML === 'РАЗДАЧА ОКОНЧЕНА') return;
+                
+                const diff = new Date(endTimeStr) - new Date();
+                if (diff <= 0) { el.innerHTML = 'ЗАВЕРШЕНО'; clearInterval(countdownTimer); return; }
+                
+                const h = Math.floor(diff / (1000 * 60 * 60));
+                const m = Math.floor((diff / (1000 * 60)) % 60);
+                const s = Math.floor((diff / 1000) % 60);
+                
+                const hEl = el.querySelector('.h-v');
+                if(hEl) {
+                    hEl.innerText = String(h).padStart(2, '0');
+                    el.querySelector('.m-v').innerText = String(m).padStart(2, '0');
+                    el.querySelector('.s-v').innerText = String(s).padStart(2, '0');
+                }
+            };
+            update();
+            countdownTimer = setInterval(update, 1000);
+        }
+
         fetchRaffleData();
-        setInterval(fetchRaffleData, 2000); // Опрашиваем бэкенд каждые 2 секунды (60 раз в минуту - сервер легко выдержит)
+        setInterval(fetchRaffleData, 3000);
     </script>
 </body>
 </html>
