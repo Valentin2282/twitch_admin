@@ -1982,6 +1982,28 @@ async def get_admin_raffles(request: Request, supabase: httpx.AsyncClient = Depe
 
     return raffles
 
+# ==============================================================================
+# 🎥 OBS ВИДЖЕТЫ
+# ==============================================================================
+
+@app.get("/obs/raffle/{raffle_id}", response_class=HTMLResponse)
+async def obs_raffle_page(raffle_id: int):
+    # Отдаем чистую HTML страницу для OBS
+    return HTMLResponse(content=get_html("obs_raffle.html"))
+
+@app.get("/api/v1/obs/raffle/{raffle_id}/data")
+async def get_obs_raffle_data(raffle_id: int, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # Быстрый эндпоинт для обновления данных в реальном времени (без авторизации, т.к. это для OBS)
+    res = await supabase.get("/rest/v1/raffles", params={
+        "id": f"eq.{raffle_id}",
+        "select": "title, participants_count, settings, status"
+    })
+    
+    if res.status_code != 200 or not res.json():
+        raise HTTPException(status_code=404, detail="Not found")
+        
+    return res.json()[0]
+
 # =========================================================================
 # ⚙️ 2. СКРЫТЫЙ ЭНДПОИНТ-ВОРКЕР (Спокойно закупает скин за 10 секунд)
 # =========================================================================
