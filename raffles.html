@@ -396,9 +396,14 @@
 
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Качество</label>
-                                <select id="lib-filter-quality" onchange="debounceSearch()" class="w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
-                                    <option value="all">Любое качество</option>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-[10px] uppercase text-zinc-500 font-bold">Качество</label>
+                                    <label class="relative inline-flex items-center cursor-pointer scale-[0.6] m-0 origin-right">
+                                        <input type="checkbox" id="lib-enable-quality" onchange="document.getElementById('lib-filter-quality').disabled = !this.checked; debounceSearch()" class="sr-only peer">
+                                        <div class="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-300 after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#9146FF]"></div>
+                                    </label>
+                                </div>
+                                <select id="lib-filter-quality" disabled onchange="debounceSearch()" class="w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF] disabled:opacity-50 disabled:cursor-not-allowed">
                                     <option value="FN">Прямо с завода (FN)</option>
                                     <option value="MW">Немного поношенное (MW)</option>
                                     <option value="FT">После полевых (FT)</option>
@@ -407,12 +412,17 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Редкость</label>
-                                <select id="lib-filter-rarity" onchange="debounceSearch()" class="w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
-                                    <option value="all">Любая редкость</option>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-[10px] uppercase text-zinc-500 font-bold">Редкость</label>
+                                    <label class="relative inline-flex items-center cursor-pointer scale-[0.6] m-0 origin-right">
+                                        <input type="checkbox" id="lib-enable-rarity" onchange="document.getElementById('lib-filter-rarity').disabled = !this.checked; debounceSearch()" class="sr-only peer">
+                                        <div class="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-300 after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#9146FF]"></div>
+                                    </label>
+                                </div>
+                                <select id="lib-filter-rarity" disabled onchange="debounceSearch()" class="w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF] disabled:opacity-50 disabled:cursor-not-allowed">
                                     <option value="common">Серый (Ширпотреб)</option>
                                     <option value="industrial">Синий (Промышленное)</option>
-                                    <option value="blue">Фиолетовый (Армейское)</option>
+                                    <option value="blue" selected>Фиолетовый (Армейское)</option>
                                     <option value="restricted">Розовый (Запрещенное)</option>
                                     <option value="classified">Малиновый (Засекреч.)</option>
                                     <option value="covert">Красный (Тайное)</option>
@@ -511,6 +521,7 @@
             const isTwitch = document.querySelector('input[name="platform"]:checked').value === 'twitch';
             const slider = document.getElementById('platform-slider');
             const startTimeContainer = document.getElementById('start-time-container');
+            const previewBox = document.getElementById('preview-box'); // 🔥 Получаем блок превью
             
             if (isTwitch) {
                 slider.style.transform = 'translateX(100%)';
@@ -520,7 +531,8 @@
                 document.getElementById('twitch-conditions').classList.remove('hidden');
                 document.getElementById('desc-container').classList.add('hidden');
                 document.getElementById('btn-silent').classList.add('hidden');
-                startTimeContainer.classList.add('hidden'); // 🔥 Скрываем отложенный старт
+                startTimeContainer.classList.add('hidden'); 
+                previewBox.classList.add('hidden'); // 🔥 Скрываем превью для Твича
                 
                 const subBtn = document.getElementById('btn-submit');
                 subBtn.innerHTML = '<i class="fa-brands fa-twitch"></i> Запустить на Twitch';
@@ -536,7 +548,8 @@
                 document.getElementById('twitch-conditions').classList.add('hidden');
                 document.getElementById('desc-container').classList.remove('hidden');
                 document.getElementById('btn-silent').classList.remove('hidden');
-                startTimeContainer.classList.remove('hidden'); // 🔥 Показываем отложенный старт
+                startTimeContainer.classList.remove('hidden'); 
+                previewBox.classList.remove('hidden'); // 🔥 Возвращаем превью для ТГ
                 
                 const subBtn = document.getElementById('btn-submit');
                 subBtn.innerHTML = '<i class="fa-solid fa-rocket"></i> Запустить в TG';
@@ -956,9 +969,10 @@
                 if (minP) url.searchParams.append('min_p', minP);
                 if (maxP) url.searchParams.append('max_p', maxP);
 
-                // 🔥 ДОБАВЛЕНО: Запрос фильтра редкости у бэкенда, если выбрано
+                // 🔥 ДОБАВЛЕНО: Запрос фильтра редкости у бэкенда, если включен тумблер
+                const isRarityEnabled = document.getElementById('lib-enable-rarity').checked;
                 const rarityFilter = document.getElementById('lib-filter-rarity').value;
-                if (rarityFilter !== 'all') {
+                if (isRarityEnabled && rarityFilter) {
                     url.searchParams.append('rarity', rarityFilter);
                 }
 
@@ -984,9 +998,10 @@
                     });
                 }
 
-                // 🔥 ФИЛЬТРАЦИЯ ПО КАЧЕСТВУ НА ФРОНТЕНДЕ (Т.к. бэкенд это не поддерживает)
+                // 🔥 ФИЛЬТРАЦИЯ ПО КАЧЕСТВУ НА ФРОНТЕНДЕ (работает только если включен тумблер)
+                const isQualityEnabled = document.getElementById('lib-enable-quality').checked;
                 const qualityFilter = document.getElementById('lib-filter-quality').value;
-                if (qualityFilter !== 'all') {
+                if (isQualityEnabled && qualityFilter) {
                     items = items.filter(i => {
                         let qCode = "";
                         const m = i.market_hash_name.match(/\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred|Прямо с завода|Немного поношенное|После полевых испытаний|Поношенное|Закаленное в боях)\)/i);
@@ -1002,36 +1017,58 @@
                     });
                 }
 
-                // 🔥 СОРТИРОВКА (По умолчанию от дорогих к дешевым, но можно выбрать и наоборот)
+                // 🔥 ИСПРАВЛЕНИЕ: Безопасная математическая сортировка (убираем баги с десятичными)
                 const sortOrder = document.getElementById('lib-sort').value;
-                if (sortOrder === 'asc') {
-                    items.sort((a, b) => a.price_rub - b.price_rub);
-                } else {
-                    items.sort((a, b) => b.price_rub - a.price_rub);
-                }
+                items.sort((a, b) => {
+                    const priceA = parseFloat(a.price_rub) || 0;
+                    const priceB = parseFloat(b.price_rub) || 0;
+                    return sortOrder === 'asc' ? priceA - priceB : priceB - priceA;
+                });
 
                 if (items.length === 0 && isNewSearch) {
                     cont.innerHTML = '<div class="text-center text-xs text-zinc-500 mt-10">По фильтрам ничего не найдено 😔</div>';
                     return;
                 }
 
-                const rarityColors = {
-                    'common': '#b0c3d9', 'industrial': '#5e98d9', 'blue': '#4b69ff', 
-                    'restricted': '#8847ff', 'classified': '#d32ce6', 'covert': '#eb4b4b', 'gold': '#ffd700'
+                const rarityConfig = {
+                    'common': { color: '#b0c3d9', label: 'Ширпотреб' },
+                    'industrial': { color: '#5e98d9', label: 'Промышленное' },
+                    'blue': { color: '#4b69ff', label: 'Армейское' },
+                    'restricted': { color: '#8847ff', label: 'Запрещенное' },
+                    'classified': { color: '#d32ce6', label: 'Засекреченное' },
+                    'covert': { color: '#eb4b4b', label: 'Тайное' },
+                    'gold': { color: '#ffd700', label: 'Нож/Перчатки' }
                 };
 
                 items.forEach(item => {
                     const safeJson = encodeURIComponent(JSON.stringify(item).replace(/'/g, "&apos;"));
-                    const rColor = rarityColors[item.rarity?.toLowerCase()] || '#4b69ff';
+                    const rarityObj = rarityConfig[item.rarity?.toLowerCase()] || { color: '#4b69ff', label: 'Неизвестно' };
+                    const rColor = rarityObj.color;
+                    
+                    // Парсим качество для красивого бейджика
+                    let qBadge = "";
+                    const m = item.market_hash_name.match(/\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred|Прямо с завода|Немного поношенное|После полевых испытаний|Поношенное|Закаленное в боях)\)/i);
+                    if (m) {
+                        const rawW = m[1].toLowerCase();
+                        if(rawW.includes('factory') || rawW.includes('прямо')) qBadge = 'FN';
+                        else if(rawW.includes('minimal') || rawW.includes('немного')) qBadge = 'MW';
+                        else if(rawW.includes('field') || rawW.includes('полевых')) qBadge = 'FT';
+                        else if(rawW.includes('well') || rawW.includes('поношенное')) qBadge = 'WW';
+                        else if(rawW.includes('battle') || rawW.includes('закаленное')) qBadge = 'BS';
+                    }
 
                     cont.innerHTML += `
                     <div class="flex items-center gap-4 p-2 bg-[#18181b] border border-zinc-800 rounded-md hover:bg-zinc-800/50 transition cursor-pointer" style="border-left: 3px solid ${rColor}" onclick="selectFromCache('${safeJson}')">
-                        <img src="${item.image_url}" class="w-12 h-8 object-contain" onerror="this.src='https://placehold.co/60x40/18181b/3f3f46'">
+                        <img src="${item.image_url}" class="w-14 h-10 object-contain drop-shadow-md" onerror="this.src='https://placehold.co/60x40/18181b/3f3f46'">
                         <div class="flex-1 min-w-0">
-                            <div class="font-semibold text-[11px] text-zinc-200 truncate">${item.market_hash_name}</div>
-                            <div class="text-[10px] text-zinc-400 mt-0.5">💰 ${item.price_rub} руб.</div>
+                            <div class="font-semibold text-[11px] text-zinc-200 truncate mb-1">${item.market_hash_name}</div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] font-bold text-white bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">💰 ${item.price_rub} ₽</span>
+                                ${qBadge ? `<span class="text-[9px] font-bold text-zinc-800 bg-zinc-300 px-1.5 py-0.5 rounded">${qBadge}</span>` : ''}
+                                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded truncate" style="color: ${rColor}; background: ${rColor}15; border: 1px solid ${rColor}30;">${rarityObj.label}</span>
+                            </div>
                         </div>
-                        <button class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded text-[10px] font-medium transition mr-1">ВЫБРАТЬ</button>
+                        <button type="button" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded text-[10px] font-medium transition mr-1">ВЫБРАТЬ</button>
                     </div>`;
                 });
             } catch(e) { 
