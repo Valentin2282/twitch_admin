@@ -787,10 +787,10 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
         
     twitch_reward_id = tw_res.json()["data"][0]["id"]
 
-    # 🔥 1. СОХРАНЯЕМ В ТАБЛИЦУ НАГРАД (чтобы вебхук понимал, что это)
+    # 🔥 1. СОХРАНЯЕМ В ТАБЛИЦУ НАГРАД (С защитой от дубликатов)
     rw_payload = {
         "title": reward_title,
-        "reward_type": "raffle", # Указываем тип: Розыгрыш
+        "reward_type": "raffle", 
         "broadcaster_id": req.broadcaster_id,
         "twitch_reward_id": twitch_reward_id,
         "cost": req.cost,
@@ -800,7 +800,18 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
         "platform": "twitch",
         "condition_type": "none"
     }
-    db_rw = await supabase.post("/rest/v1/twitch_rewards", json=rw_payload, headers={"Prefer": "return=representation"})
+    
+    # Ищем, была ли уже такая награда в БД
+    check_db = await supabase.get("/rest/v1/twitch_rewards", params={"title": f"eq.{reward_title}", "select": "id"})
+    
+    if check_db.status_code == 200 and check_db.json():
+        # Если есть — просто обновляем её новым ID от Twitch (PATCH)
+        existing_id = check_db.json()[0]["id"]
+        db_rw = await supabase.patch("/rest/v1/twitch_rewards", params={"id": f"eq.{existing_id}"}, json=rw_payload, headers={"Prefer": "return=representation"})
+    else:
+        # Если нет — создаем новую (POST)
+        db_rw = await supabase.post("/rest/v1/twitch_rewards", json=rw_payload, headers={"Prefer": "return=representation"})
+        
     if db_rw.status_code not in [200, 201]:
         raise HTTPException(status_code=400, detail=f"Ошибка БД (twitch_rewards): {db_rw.text}")
         
@@ -1713,7 +1724,7 @@ async def create_admin_raffle(req: RaffleCreateRequest, request: Request, supaba
     else:
         raise HTTPException(status_code=400, detail=f"Ошибка Twitch: {tw_res.text}")
 
-    # 3. Сохраняем награду в нашу БД twitch_rewards (чтобы крон-новичков ее видел)
+    # 3. Сохраняем награду в нашу БД twitch_rewards (С ЗАЩИТОЙ ОТ ДУБЛЕЙ)
     rw_payload = {
         "title": req.title,
         "reward_type": "raffle",
@@ -1725,7 +1736,15 @@ async def create_admin_raffle(req: RaffleCreateRequest, request: Request, supaba
         "show_user_input": True,
         "condition_type": "none"
     }
-    db_rw = await supabase.post("/rest/v1/twitch_rewards", json=rw_payload, headers={"Prefer": "return=representation"})
+    
+    # Ищем старую награду
+    check_db = await supabase.get("/rest/v1/twitch_rewards", params={"title": f"eq.{req.title}", "select": "id"})
+    
+    if check_db.status_code == 200 and check_db.json():
+        existing_id = check_db.json()[0]["id"]
+        db_rw = await supabase.patch("/rest/v1/twitch_rewards", params={"id": f"eq.{existing_id}"}, json=rw_payload, headers={"Prefer": "return=representation"})
+    else:
+        db_rw = await supabase.post("/rest/v1/twitch_rewards", json=rw_payload, headers={"Prefer": "return=representation"})
     
     if db_rw.status_code not in [200, 201]:
         raise HTTPException(status_code=400, detail="Ошибка создания награды в БД")
@@ -2239,7 +2258,7 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
     if cron_secret != expected_secret:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # 🔥 ИЩЕМ И СТАТУС "Привязан" ТОЖЕ!
+    # ИЩЕМ И СТАТУС "Привязан" ТОЖЕ!
     res = await supabase.get("/rest/v1/twitch_reward_purchases", params={
         "status": "in.(Не привязан,Ожидает выдачи,Привязан)", 
         "limit": 10,
@@ -2256,20 +2275,59 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
         reward_id = p["reward_id"]
         purchaser_login = p.get("twitch_login", "").lower()
         
+        # 🔥 Получаем то, что ввел юзер, и ID транзакции Twitch для возврата
+        user_input = p.get("user_input", "").strip()
+        twitch_redemption_id = p.get("twitch_redemption_id") 
+        
         # Лочим заявку
         await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "В обработке"})
         
-        # Получаем инфу о награде
-        rew_res = await supabase.get("/rest/v1/twitch_rewards", params={"id": f"eq.{reward_id}", "select": "title, steam_item_name, reward_type"})
+        # Получаем инфу о награде (добавили выборку broadcaster_id и twitch_reward_id)
+        rew_res = await supabase.get("/rest/v1/twitch_rewards", params={"id": f"eq.{reward_id}", "select": "title, steam_item_name, reward_type, broadcaster_id, twitch_reward_id"})
         if not rew_res.json(): 
             await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Ошибка: Награда удалена"})
             continue
             
         reward_data = rew_res.json()[0]
         reward_type = reward_data.get("reward_type")
+        broadcaster_id = reward_data.get("broadcaster_id")
+        twitch_reward_id = reward_data.get("twitch_reward_id")
         
-        # 🔥 СЦЕНАРИЙ А: ЭТО РОЗЫГРЫШ (Добавляем в raffle_participants)
+        # СЦЕНАРИЙ А: ЭТО РОЗЫГРЫШ
         if reward_type == "raffle":
+            
+            # =====================================================================
+            # 🛡 АНТИ-АБУЗ: Проверяем, выполнил ли он инструкцию Фоссабота
+            # Если нет ни плюсика, ни трейд-ссылки - возвращаем баллы и пишем в чат!
+            # =====================================================================
+            if user_input != "+" and "steamcommunity.com/tradeoffer" not in user_input.lower():
+                if twitch_redemption_id and broadcaster_id:
+                    # 1. Достаем токен стримера
+                    tok_res = await supabase.get("/rest/v1/users", params={"twitch_id": f"eq.{broadcaster_id}", "select": "twitch_access_token"})
+                    if tok_res.status_code == 200 and tok_res.json():
+                        b_token = tok_res.json()[0].get("twitch_access_token")
+                        if b_token:
+                            headers = {"Authorization": f"Bearer {b_token}", "Client-Id": TWITCH_CLIENT_ID, "Content-Type": "application/json"}
+                            
+                            # 2. ВОЗВРАЩАЕМ БАЛЛЫ (отменяем покупку на Twitch)
+                            refund_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards/redemptions?broadcaster_id={broadcaster_id}&reward_id={twitch_reward_id}&id={twitch_redemption_id}"
+                            await http_client.patch(refund_url, headers=headers, json={"status": "CANCELED"})
+                            
+                            # 3. ПИШЕМ СООБЩЕНИЕ В ЧАТ TWITCH
+                            chat_url = "https://api.twitch.tv/helix/chat/messages"
+                            chat_msg = f"@{purchaser_login}, ты приобрел награду без участия! Для участия тебе нужно написать в чат !розыгрыш. Твои баллы возвращены! 🔄"
+                            await http_client.post(chat_url, headers=headers, json={
+                                "broadcaster_id": broadcaster_id,
+                                "sender_id": broadcaster_id,
+                                "message": chat_msg
+                            })
+                
+                # Закрываем заявку в нашей БД со статусом отмены
+                await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Отмена: Не написал !розыгрыш"})
+                continue # Прерываем обработку этого человека, идем к следующему
+            
+            # =====================================================================
+
             # Ищем активный розыгрыш
             raf_res = await supabase.get("/rest/v1/raffles", params={
                 "status": "eq.active",
@@ -2303,7 +2361,7 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
             # Обновляем счетчик
             await supabase.patch("/rest/v1/raffles", params={"id": f"eq.{raffle_id}"}, json={"participants_count": current_count + 1})
             
-            # 🔥 НОВОЕ: Проверяем, не пора ли апгрейднуть приз (Ступенчатая система)
+            # Проверяем, не пора ли апгрейднуть приз (Ступенчатая система)
             raffle_settings = raf_res.json()[0].get("settings", {})
             await check_and_upgrade_raffle_prize(supabase, raffle_id, current_count + 1, raffle_settings)
             
