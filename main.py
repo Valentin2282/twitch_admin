@@ -1989,7 +1989,60 @@ async def get_admin_raffles(request: Request, supabase: httpx.AsyncClient = Depe
 # ==============================================================================
 # 🎥 OBS ВИДЖЕТЫ
 # ==============================================================================
+# ЭНДПОИНТ ДЛЯ РЕДАКТИРОВАНИЯ РОЗЫГРЫШЕЙ
+@app.patch("/api/v1/admin/raffles/{raffle_id}/edit")
+async def edit_admin_raffle(raffle_id: int, request: Request, payload: dict, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    if not request.cookies.get("admin_session"): 
+        raise HTTPException(status_code=401)
+        
+    # 1. Получаем старый розыгрыш
+    res = await supabase.get("/rest/v1/raffles", params={"id": f"eq.{raffle_id}"})
+    if res.status_code != 200 or not res.json():
+        raise HTTPException(status_code=404, detail="Розыгрыш не найден")
+        
+    old_raffle = res.json()[0]
+    settings = old_raffle.get("settings", {})
 
+    # 2. Обновляем настройки из пришедшего payload
+    # Если это Твич, payload.title придет снаружи, если ТГ — может быть внутри settings
+    new_title = payload.get("title", old_raffle.get("title"))
+    if payload.get("end_time"):
+        end_time = payload.get("end_time")
+        if not end_time.endswith("Z"):
+            end_time += "Z" # Supabase любит UTC формат
+    else:
+        end_time = old_raffle.get("end_time")
+
+    # Перезаписываем ключи настроек
+    if payload.get("settings"):
+        settings.update(payload["settings"])
+    else:
+        # Если это Twitch, настройки лежат в корне Payload
+        settings["prize_name"] = payload.get("title", settings.get("prize_name"))
+        settings["prize_image"] = payload.get("image_url", settings.get("prize_image"))
+        settings["skin_quality"] = payload.get("skin_quality", settings.get("skin_quality"))
+        settings["rarity_color"] = payload.get("rarity_color", settings.get("rarity_color"))
+        settings["prize_price"] = payload.get("prize_price", settings.get("prize_price"))
+        settings["is_for_newbies"] = payload.get("is_for_newbies", settings.get("is_for_newbies"))
+        if "steps" in payload:
+            settings["steps"] = payload["steps"]
+        if "obs_config" in payload:
+            settings["obs_config"] = payload["obs_config"]
+
+    # 3. Сохраняем в Supabase
+    update_data = {
+        "title": new_title,
+        "end_time": end_time,
+        "settings": settings
+    }
+    
+    update_res = await supabase.patch("/rest/v1/raffles", params={"id": f"eq.{raffle_id}"}, json=update_data)
+    
+    if update_res.status_code not in [200, 204]:
+        raise HTTPException(status_code=400, detail="Ошибка сохранения в БД")
+        
+    return {"status": "success"}
+    
 # ==============================================================================
 # 🎥 OBS ВИДЖЕТЫ
 # ==============================================================================
