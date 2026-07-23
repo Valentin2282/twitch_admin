@@ -755,10 +755,11 @@ class TwitchRaffleCreateRequest(BaseModel):
     min_lifetime_msgs: int = 0
     image_url: Optional[str] = None
     steps: Optional[list] = [] 
-    prize_price: Optional[float] = 0.0      # 🔥 ДОБАВЛЕНО
-    skin_quality: Optional[str] = ""        # 🔥 ДОБАВЛЕНО
-    rarity_color: Optional[str] = "#9146FF" # 🔥 ДОБАВЛЕНО
-
+    prize_price: Optional[float] = 0.0      
+    skin_quality: Optional[str] = ""        
+    rarity_color: Optional[str] = "#9146FF" 
+    obs_config: Optional[dict] = {}         # 🔥 ДОБАВИТЬ ЭТО
+    
 @app.post("/api/v1/admin/raffles/create_twitch")
 async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     if not request.cookies.get("admin_session"): raise HTTPException(status_code=401)
@@ -859,7 +860,8 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
             "prize_name": req.title,          # 🔥 ТЕПЕРЬ СОХРАНЯЕТ ИМЯ
             "prize_price": req.prize_price,   # 🔥 ТЕПЕРЬ СОХРАНЯЕТ ЦЕНУ
             "skin_quality": req.skin_quality, # 🔥 ТЕПЕРЬ СОХРАНЯЕТ КАЧЕСТВО
-            "rarity_color": req.rarity_color  # 🔥 ТЕПЕРЬ СОХРАНЯЕТ ЦВЕТ
+            "rarity_color": req.rarity_color,  # 🔥 ТЕПЕРЬ СОХРАНЯЕТ ЦВЕТ
+            "obs_config": req.obs_config      # 🔥 ДОБАВИТЬ ЭТО
         }
     }
     
@@ -1716,7 +1718,8 @@ class RaffleCreateRequest(BaseModel):
     prize_name: str
     prize_price: float
     duration_minutes: int
-    steps: Optional[list] = []  # 🔥 НОВОЕ ПОЛЕ
+    steps: Optional[list] = []  
+    obs_config: Optional[dict] = {}         # 🔥 ДОБАВИТЬ ЭТО
 
 @app.post("/api/v1/admin/raffles/create")
 async def create_admin_raffle(req: RaffleCreateRequest, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -1809,7 +1812,8 @@ async def create_admin_raffle(req: RaffleCreateRequest, request: Request, supaba
             "required_twitch_reward_id": internal_reward_id,
             "prize_name": req.prize_name,
             "prize_price": req.prize_price,
-            "duration_minutes": req.duration_minutes
+            "duration_minutes": req.duration_minutes,
+            "obs_config": req.obs_config      # 🔥 ДОБАВИТЬ ЭТО
         }
     }
     db_raf = await supabase.post("/rest/v1/raffles", json=raf_payload, headers={"Prefer": "return=representation"})
@@ -1986,14 +1990,39 @@ async def get_admin_raffles(request: Request, supabase: httpx.AsyncClient = Depe
 # 🎥 OBS ВИДЖЕТЫ
 # ==============================================================================
 
+# ==============================================================================
+# 🎥 OBS ВИДЖЕТЫ
+# ==============================================================================
+
 @app.get("/obs/raffle/{raffle_id}", response_class=HTMLResponse)
-async def obs_raffle_page(raffle_id: int):
+async def obs_raffle_page(raffle_id: str): # 🔥 Изменили int на str
     # Отдаем чистую HTML страницу для OBS
     return HTMLResponse(content=get_html("obs_raffle.html"))
 
 @app.get("/api/v1/obs/raffle/{raffle_id}/data")
-async def get_obs_raffle_data(raffle_id: int, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    # Быстрый эндпоинт для обновления данных в реальном времени (без авторизации, т.к. это для OBS)
+async def get_obs_raffle_data(raffle_id: str, supabase: httpx.AsyncClient = Depends(get_supabase_client)): # 🔥 Изменили int на str
+    
+    # 🔥 ЕСЛИ ЗАПРОС ИЗ IFRAME В АДМИНКЕ - ОТДАЕМ ФЕЙК ДАННЫЕ ДЛЯ ПРЕВЬЮ
+    if raffle_id == "preview":
+        return {
+            "title": "🎁 Превью розыгрыша",
+            "participants_count": 28,
+            "status": "active",
+            "settings": {
+                "prize_name": "AK-47 | Redline",
+                "prize_price": 1450.50,
+                "skin_quality": "FT",
+                "rarity_color": "#eb4b4b",
+                "prize_image": "https://steamcommunity-a.akamaihd.net/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot7HxfDhjxszJemkV09-5lpKKqPrxN7LEm1Fd6dd2-y2T8NyiiQKy-RE-ZzvxJtTEdQM8aQvS_1XtlO-60Z-_uprImHJk7igi7HePy0C_hAYMMLJeou2sVQ/360fx360f",
+                "steps": [
+                    {"participants_required": 10, "prize_name": "M4A1-S | Cyrex", "rarity_color": "#d32ce6"},
+                    {"participants_required": 50, "prize_name": "AK-47 | Redline", "rarity_color": "#eb4b4b"},
+                    {"participants_required": 100, "prize_name": "★ Спортивные перчатки", "rarity_color": "#ffd700"}
+                ]
+            }
+        }
+
+    # Обычная логика для реального OBS
     res = await supabase.get("/rest/v1/raffles", params={
         "id": f"eq.{raffle_id}",
         "select": "title, participants_count, settings, status"
