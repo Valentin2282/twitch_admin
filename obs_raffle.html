@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>OBS Raffle Widget</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        
+        :root {
+            /* Эти переменные мы будем менять из конструктора админки */
+            --widget-scale: 1;
+            --bg-color: rgba(24, 24, 27, 0.85); /* zinc-900 с прозрачностью */
+            --accent-color: #9146FF;
+            --text-color: #ffffff;
+            --border-radius: 16px;
+            --glass-blur: 12px;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background: transparent; /* ВАЖНО ДЛЯ OBS */
+        }
+
+        .obs-widget {
+            transform: scale(var(--widget-scale));
+            transform-origin: top left;
+            background: var(--bg-color);
+            backdrop-filter: blur(var(--glass-blur));
+            border-radius: var(--border-radius);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-color);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            width: 450px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        /* Анимация пульсации для текущего приза */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .prize-image { animation: float 6s ease-in-out infinite; }
+
+        /* Прогресс-бар со ступенями */
+        .progress-track {
+            position: relative;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            margin-top: 30px;
+        }
+        .progress-fill {
+            position: absolute;
+            top: 0; left: 0; height: 100%;
+            background: var(--accent-color);
+            border-radius: 6px;
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 15px var(--accent-color);
+        }
+        .step-marker {
+            position: absolute;
+            top: -6px;
+            width: 24px;
+            height: 24px;
+            background: #18181b;
+            border: 3px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.5s ease;
+        }
+        .step-marker.reached {
+            border-color: var(--accent-color);
+            background: var(--accent-color);
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+        .step-info {
+            position: absolute;
+            top: 25px;
+            transform: translateX(-50%);
+            text-align: center;
+            font-size: 10px;
+            width: 80px;
+            color: rgba(255,255,255,0.6);
+        }
+        .step-marker.reached .step-info { color: var(--text-color); font-weight: 600; }
+    </style>
+</head>
+<body>
+
+    <div class="obs-widget" id="widget-container">
+        <!-- Шапка -->
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <div class="text-[10px] uppercase tracking-widest text-zinc-400 font-bold mb-1" id="raffle-type">!награда в чат</div>
+                <h1 class="text-xl font-extrabold tracking-tight" id="raffle-title">Загрузка...</h1>
+            </div>
+            <div class="bg-black/40 px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2">
+                <i class="fa-solid fa-users text-[10px] text-[var(--accent-color)]"></i>
+                <span class="font-bold font-mono" id="participants-count">0</span>
+            </div>
+        </div>
+
+        <!-- Приз -->
+        <div class="relative h-40 flex items-center justify-center rounded-xl bg-gradient-to-b from-white/5 to-transparent border border-white/5 overflow-hidden mb-2">
+            <!-- Свечение на фоне (подстраивается под редкость) -->
+            <div id="glow-bg" class="absolute inset-0 opacity-20 blur-2xl transition-colors duration-1000"></div>
+            <img id="prize-img" src="" class="prize-image max-h-32 object-contain relative z-10 drop-shadow-2xl transition-all duration-500">
+        </div>
+
+        <!-- Инфо о призе -->
+        <div class="text-center">
+            <div id="prize-name" class="font-bold text-lg">Секретный приз</div>
+            <div class="flex items-center justify-center gap-2 mt-1">
+                <span id="prize-price" class="text-xs bg-black/50 px-2 py-0.5 rounded text-green-400 font-mono">0 ₽</span>
+                <span id="prize-quality" class="text-[9px] bg-white/10 px-1.5 py-0.5 rounded uppercase font-bold"></span>
+            </div>
+        </div>
+
+        <!-- Ступенчатая система -->
+        <div id="steps-container" class="pb-6 hidden">
+            <div class="progress-track">
+                <div id="progress-fill" class="progress-fill" style="width: 0%;"></div>
+                <div id="markers-layer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Извлечение ID розыгрыша из URL: /obs/raffle/123
+        const pathParts = window.location.pathname.split('/');
+        const raffleId = pathParts[pathParts.length - 1];
+
+        // Слушатель для конструктора админки (получение настроек дизайна в реальном времени)
+        window.addEventListener('message', (event) => {
+            const config = event.data;
+            if (config.type === 'OBS_CONFIG_UPDATE') {
+                const root = document.documentElement;
+                if(config.scale) root.style.setProperty('--widget-scale', config.scale);
+                if(config.bgColor) root.style.setProperty('--bg-color', config.bgColor);
+                if(config.accentColor) root.style.setProperty('--accent-color', config.accentColor);
+            }
+        });
+
+        async function fetchRaffleData() {
+            if(!raffleId || isNaN(raffleId)) return;
+            try {
+                const res = await fetch(`/api/v1/obs/raffle/${raffleId}/data`);
+                if (!res.ok) return;
+                const data = await res.json();
+                updateWidget(data);
+            } catch (e) {
+                console.error("Ошибка загрузки данных розыгрыша", e);
+            }
+        }
+
+        function updateWidget(data) {
+            const settings = data.settings || {};
+            const participants = data.participants_count || 0;
+            
+            // Если розыгрыш завершен, можно добавить класс для скрытия или плашку
+            if(data.status === 'completed') {
+                document.getElementById('raffle-type').innerText = "ЗАВЕРШЕНО";
+                document.getElementById('raffle-type').classList.add("text-red-500");
+            }
+
+            document.getElementById('raffle-title').innerText = data.title;
+            document.getElementById('participants-count').innerText = participants;
+            
+            // Текущий приз (мог обновиться из-за ступеней)
+            document.getElementById('prize-name').innerText = settings.prize_name || "Секретный приз";
+            document.getElementById('prize-img').src = settings.prize_image || "";
+            document.getElementById('prize-price').innerText = `${settings.prize_price || 0} ₽`;
+            
+            if(settings.skin_quality) {
+                document.getElementById('prize-quality').innerText = settings.skin_quality;
+                document.getElementById('prize-quality').style.display = 'inline-block';
+            } else {
+                document.getElementById('prize-quality').style.display = 'none';
+            }
+
+            const rarityColor = settings.rarity_color || '#9146FF';
+            document.getElementById('glow-bg').style.backgroundColor = rarityColor;
+            
+            // Логика отрисовки СТУПЕНЕЙ
+            const steps = settings.steps || [];
+            const stepsContainer = document.getElementById('steps-container');
+            const markersLayer = document.getElementById('markers-layer');
+            const progressFill = document.getElementById('progress-fill');
+
+            if (steps.length > 0) {
+                stepsContainer.classList.remove('hidden');
+                
+                // Сортируем ступени по требованиям (от меньшего к большему)
+                const sortedSteps = [...steps].sort((a, b) => a.participants_required - b.participants_required);
+                const maxTarget = sortedSteps[sortedSteps.length - 1].participants_required;
+                
+                // Считаем ширину бара
+                let percent = (participants / maxTarget) * 100;
+                if (percent > 100) percent = 100;
+                progressFill.style.width = `${percent}%`;
+
+                // Отрисовка маркеров (если они еще не отрисованы, или обновляем их)
+                markersLayer.innerHTML = '';
+                sortedSteps.forEach(step => {
+                    const stepPercent = (step.participants_required / maxTarget) * 100;
+                    const isReached = participants >= step.participants_required;
+                    
+                    const marker = document.createElement('div');
+                    marker.className = `step-marker ${isReached ? 'reached' : ''}`;
+                    marker.style.left = `${stepPercent}%`;
+                    
+                    marker.innerHTML = `
+                        ${isReached ? '<i class="fa-solid fa-check text-[10px] text-white"></i>' : '<i class="fa-solid fa-lock text-[10px] text-zinc-500"></i>'}
+                        <div class="step-info">
+                            <div><i class="fa-solid fa-users text-[8px]"></i> ${step.participants_required}</div>
+                            <div class="truncate w-full text-[8px]" style="color: ${step.rarity_color}">${step.prize_name}</div>
+                        </div>
+                    `;
+                    markersLayer.appendChild(marker);
+                });
+            } else {
+                stepsContainer.classList.add('hidden');
+            }
+        }
+
+        // Обновляем данные каждые 3 секунды
+        setInterval(fetchRaffleData, 3000);
+        fetchRaffleData(); // Первый вызов
+    </script>
+</body>
+</html>
