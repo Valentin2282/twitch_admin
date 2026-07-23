@@ -147,14 +147,17 @@
         const raffleId = pathParts[pathParts.length - 1];
 
         // 1. СЛУШАТЕЛЬ ДЛЯ АДМИНКИ (Превью в реальном времени)
-        // Ловит postMessage из raffles.html и мгновенно меняет CSS переменные
         window.addEventListener('message', (event) => {
-            const config = event.data;
-            if (config.type === 'OBS_CONFIG_UPDATE') {
+            const msg = event.data;
+            if (msg.type === 'OBS_PREVIEW_UPDATE') {
+                // Применяем цвета и масштаб
                 const root = document.documentElement;
-                if(config.scale) root.style.setProperty('--widget-scale', config.scale);
-                if(config.bgColor) root.style.setProperty('--bg-color', config.bgColor);
-                if(config.accentColor) root.style.setProperty('--accent-color', config.accentColor);
+                if(msg.config.scale) root.style.setProperty('--widget-scale', msg.config.scale);
+                if(msg.config.bgColor) root.style.setProperty('--bg-color', msg.config.bgColor);
+                if(msg.config.accentColor) root.style.setProperty('--accent-color', msg.config.accentColor);
+                
+                // Передаем данные с формы прямо в функцию отрисовки
+                updateWidget(msg.data);
             }
         });
 
