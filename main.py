@@ -750,7 +750,10 @@ class TwitchRaffleCreateRequest(BaseModel):
     is_for_newbies: bool = False
     min_lifetime_msgs: int = 0
     image_url: Optional[str] = None
-    steps: Optional[list] = []  # 🔥 НОВОЕ ПОЛЕ
+    steps: Optional[list] = [] 
+    prize_price: Optional[float] = 0.0      # 🔥 ДОБАВЛЕНО
+    skin_quality: Optional[str] = ""        # 🔥 ДОБАВЛЕНО
+    rarity_color: Optional[str] = "#9146FF" # 🔥 ДОБАВЛЕНО
 
 @app.post("/api/v1/admin/raffles/create_twitch")
 async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -810,14 +813,18 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
         "status": "active",
         "start_time": datetime.now(timezone.utc).isoformat(),
         "settings": {
-            "required_twitch_reward_id": internal_reward_id, # Привязываем наш внутренний ID
-            "real_twitch_reward_id": twitch_reward_id, # На всякий случай ID Твича
+            "required_twitch_reward_id": internal_reward_id,
+            "real_twitch_reward_id": twitch_reward_id,
             "twitch_reward_title": reward_title,
             "winners_count": req.winners_count,
             "prize_image": req.image_url,
             "is_for_newbies": req.is_for_newbies,
             "min_lifetime_msgs": req.min_lifetime_msgs,
-            "steps": req.steps # 🔥 ДОБАВЛЕНО СОХРАНЕНИЕ СТУПЕНЕЙ
+            "steps": req.steps,
+            "prize_name": req.title,          # 🔥 ТЕПЕРЬ СОХРАНЯЕТ ИМЯ
+            "prize_price": req.prize_price,   # 🔥 ТЕПЕРЬ СОХРАНЯЕТ ЦЕНУ
+            "skin_quality": req.skin_quality, # 🔥 ТЕПЕРЬ СОХРАНЯЕТ КАЧЕСТВО
+            "rarity_color": req.rarity_color  # 🔥 ТЕПЕРЬ СОХРАНЯЕТ ЦВЕТ
         }
     }
     
@@ -1051,10 +1058,18 @@ async def complete_raffle(
             item_data = item_res.json()[0]
             item_id = item_data["id"]
             
-            # Если цена с фронта 0, спасаем ситуацию ценой со склада
             if float(prize_price) <= 0:
                 prize_price = float(item_data.get("price_rub", 0.0))
                 logging.info(f"Подтянули цену со склада для {full_prize_name}: {prize_price} руб.")
+                
+        # 🔥 БРОНЕЖИЛЕТ: Если цена ВСЁ РАВНО 0, тянем её напрямую из market_cache!
+        if float(prize_price) <= 0:
+            cache_res = await supabase.get("/rest/v1/market_cache", params={
+                "market_hash_name": f"eq.{full_prize_name}", "select": "price_rub", "limit": 1
+            })
+            if cache_res.status_code == 200 and cache_res.json():
+                prize_price = float(cache_res.json()[0].get("price_rub", 0.0))
+                logging.info(f"Подтянули резервную цену из market_cache для {full_prize_name}: {prize_price} руб.")
 
         initial_status = "processing" if trade_link else "available"
 
