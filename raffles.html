@@ -995,6 +995,10 @@
                     url.searchParams.append('rarity', selectedRarities[0]);
                 }
 
+                // 🔥 ДОБАВЛЕНО: Отправляем параметр сортировки прямо в БД!
+                const sortOrder = document.getElementById('lib-sort').value;
+                url.searchParams.append('sort', sortOrder);
+
                 const res = await fetch(url.toString());
                 let items = await res.json(); 
 
