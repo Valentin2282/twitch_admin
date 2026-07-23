@@ -414,7 +414,7 @@ async def get_admin_dashboard_stats(request: Request, supabase: httpx.AsyncClien
 @app.get("/api/v1/admin/market_cache")
 async def get_admin_market_cache_search(
     request: Request, search: str = "", cond: str = "all", rarity: str = "all",
-    min_p: float = 0.0, max_p: float = 99999.0, supabase: httpx.AsyncClient = Depends(get_supabase_client)
+    min_p: float = 0.0, max_p: float = 99999.0, sort: str = "desc", supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     try:
         jwt.decode(request.cookies.get("admin_session", ""), JWT_SECRET, algorithms=["HS256"])
@@ -422,7 +422,8 @@ async def get_admin_market_cache_search(
         raise HTTPException(status_code=401)
 
     try:
-        params = {"price_rub": f"gte.{min_p}", "and": f"(price_rub.lte.{max_p})", "limit": "50"}
+        # 🔥 ДОБАВИЛИ "order": f"price_rub.{sort}"
+        params = {"price_rub": f"gte.{min_p}", "and": f"(price_rub.lte.{max_p})", "order": f"price_rub.{sort}", "limit": "50"}
         if search: params["market_hash_name"] = f"ilike.*{search.strip()}*"
         if cond and cond != "all": params["market_hash_name"] = f"ilike.*({cond})*"
         if rarity and rarity != "all": params["rarity"] = f"eq.{rarity.lower()}"
