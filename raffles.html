@@ -27,6 +27,18 @@
             width: 16px; height: 16px; border-radius: 50%; 
             background: #9146FF; cursor: pointer;
         }
+
+        /* Анимация аккордеона фильтров */
+        .filters-container {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+            opacity: 0;
+        }
+        .filters-container.open {
+            max-height: 400px;
+            opacity: 1;
+        }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden text-sm">
@@ -158,7 +170,7 @@
                                         <option value="most_active">🔥 Топ активности</option>
                                     </select>
                                 </div>
-                                <div>
+                                <div id="start-time-container" class="hidden">
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">Время старта (Отложенный)</label>
                                     <input type="datetime-local" name="start_time" id="inp-start-time" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
                                 </div>
@@ -182,15 +194,15 @@
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">🎫 Билеты (Стоимость)</label>
-                                    <input type="number" name="ticket_cost" placeholder="0" oninput="toggleRefundBox(); updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#2AABEE]">
+                                    <input type="number" step="1" name="ticket_cost" placeholder="0" oninput="toggleRefundBox(); updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#2AABEE]">
                                 </div>
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">👥 Мин. участников</label>
-                                    <input type="number" name="min_participants" placeholder="0" oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#2AABEE]">
+                                    <input type="number" step="1" name="min_participants" placeholder="0" oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#2AABEE]">
                                 </div>
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">⭐️ Уровень BP</label>
-                                    <input type="number" name="min_bp_level" placeholder="0" oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#2AABEE]">
+                                    <input type="number" step="1" name="min_bp_level" placeholder="0" oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#2AABEE]">
                                 </div>
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">🏷 Обязательный тег (ник)</label>
@@ -205,7 +217,7 @@
                                         <option value="weekly">За неделю</option>
                                         <option value="monthly">За месяц</option>
                                     </select>
-                                    <input type="number" name="min_msgs" placeholder="0" oninput="updatePreview()" class="w-20 bg-[#09090b] border border-zinc-700 text-xs text-center text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#2AABEE]">
+                                    <input type="number" step="1" name="min_msgs" placeholder="0" oninput="updatePreview()" class="w-20 bg-[#09090b] border border-zinc-700 text-xs text-center text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#2AABEE]">
                                 </div>
                             </div>
                             <div id="refund-section" class="hidden bg-red-950/20 border border-red-900/50 p-4 rounded mt-2">
@@ -232,7 +244,7 @@
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">Цена (баллы канала)</label>
-                                    <input type="number" name="twitch_cost" value="500" min="1" oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
+                                    <input type="number" step="1" name="twitch_cost" value="500" min="1" oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
                                 </div>
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">Канал стримера</label>
@@ -249,7 +261,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">Мин. сообщений (За всё время)</label>
-                                    <input type="number" name="min_lifetime_msgs" placeholder="0" oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
+                                    <input type="number" step="1" name="min_lifetime_msgs" placeholder="0" oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
                                 </div>
                             </div>
                         </div>
@@ -264,10 +276,18 @@
                                     <i class="fa-solid fa-magnifying-glass"></i> Искать на складе
                                 </button>
                             </div>
-                            <div>
-                                <label class="block text-[11px] font-medium text-zinc-400 mb-1">Название приза</label>
-                                <input type="text" name="prize" id="inp-prize" placeholder="AWP | Asiimov" required oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
+                            
+                            <div class="grid grid-cols-[2fr_1fr] gap-4">
+                                <div>
+                                    <label class="block text-[11px] font-medium text-zinc-400 mb-1">Название приза</label>
+                                    <input type="text" name="prize" id="inp-prize" placeholder="AWP | Asiimov" required oninput="updatePreview()" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-medium text-zinc-400 mb-1">Цена ₽</label>
+                                    <input type="number" step="0.01" name="prize_price" id="inp-prize-price" placeholder="0.00" class="w-full bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]">
+                                </div>
                             </div>
+
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-400 mb-1">Качество (Wear)</label>
@@ -346,7 +366,7 @@
         </div>
     </div>
 
-    <!-- Модальное окно СКЛАДА -->
+    <!-- Модальное окно СКЛАДА (ПРОДВИНУТЫЙ ПОИСК) -->
     <div id="modal-library" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeLibrarySearch()"></div>
         <div class="relative bg-[#09090b] border border-zinc-800 rounded-xl shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col overflow-hidden">
@@ -356,13 +376,65 @@
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
-            <div class="p-4 border-b border-zinc-800 bg-[#18181b]/50 space-y-3">
-                <input type="text" id="lib-search-inp" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]" placeholder="Поиск скина (Например: AK-47)..." oninput="debounceSearch()">
-                <div class="grid grid-cols-2 gap-3">
-                    <input type="number" id="lib-price-min" placeholder="Мин. цена ₽" class="bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-1.5 focus:outline-none focus:border-[#9146FF]" oninput="debounceSearch()">
-                    <input type="number" id="lib-price-max" placeholder="Макс. цена ₽" class="bg-[#09090b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-1.5 focus:outline-none focus:border-[#9146FF]" oninput="debounceSearch()">
+            
+            <!-- ШАПКА СКЛАДА С ФИЛЬТРАМИ -->
+            <div class="p-4 border-b border-zinc-800 bg-[#18181b]/50 flex flex-col">
+                <div class="flex gap-2">
+                    <input type="text" id="lib-search-inp" class="w-full bg-[#09090b] border border-zinc-700 text-zinc-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-[#9146FF]" placeholder="Поиск скина (Например: AK-47)..." oninput="debounceSearch()">
+                    <button type="button" onclick="toggleLibFilters()" class="bg-[#09090b] text-zinc-300 border border-zinc-700 px-3 py-2 rounded hover:bg-zinc-800 transition">
+                        <i class="fa-solid fa-sliders"></i>
+                    </button>
+                </div>
+                
+                <!-- АККОРДЕОН -->
+                <div id="lib-filters-accordion" class="filters-container mt-2 bg-[#09090b] rounded border border-zinc-800 px-3">
+                    <div class="py-3 space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="number" step="0.01" id="lib-price-min" placeholder="Мин. цена ₽" class="bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-1.5 focus:outline-none focus:border-[#9146FF]" oninput="debounceSearch()">
+                            <input type="number" step="0.01" id="lib-price-max" placeholder="Макс. цена ₽" class="bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-3 py-1.5 focus:outline-none focus:border-[#9146FF]" oninput="debounceSearch()">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Качество</label>
+                                <select id="lib-filter-quality" onchange="debounceSearch()" class="w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
+                                    <option value="all">Любое качество</option>
+                                    <option value="FN">Прямо с завода (FN)</option>
+                                    <option value="MW">Немного поношенное (MW)</option>
+                                    <option value="FT">После полевых (FT)</option>
+                                    <option value="WW">Поношенное (WW)</option>
+                                    <option value="BS">Закаленное в боях (BS)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Редкость</label>
+                                <select id="lib-filter-rarity" onchange="debounceSearch()" class="w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
+                                    <option value="all">Любая редкость</option>
+                                    <option value="common">Серый (Ширпотреб)</option>
+                                    <option value="industrial">Синий (Промышленное)</option>
+                                    <option value="blue">Фиолетовый (Армейское)</option>
+                                    <option value="restricted">Розовый (Запрещенное)</option>
+                                    <option value="classified">Малиновый (Засекреч.)</option>
+                                    <option value="covert">Красный (Тайное)</option>
+                                    <option value="gold">Золотой (Нож/Перча...)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between mt-2 pt-2 border-t border-zinc-800">
+                            <label class="text-[11px] font-medium text-zinc-300 flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="lib-exclude-stickers" checked onchange="debounceSearch()" class="rounded border-zinc-700 bg-[#18181b] text-[#9146FF] focus:ring-[#9146FF]">
+                                Без наклеек и граффити
+                            </label>
+                            <select id="lib-sort" onchange="debounceSearch()" class="bg-[#18181b] border border-zinc-700 text-[10px] text-zinc-300 rounded px-2 py-1 focus:outline-none">
+                                <option value="desc">Сначала дорогие</option>
+                                <option value="asc">Сначала дешевые</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
+
             <div id="lib-results" class="flex-1 overflow-y-auto p-4 space-y-2 bg-[#09090b]" onscroll="handleScroll(this)">
                 <div class="text-center text-xs text-zinc-500 mt-10">Начните вводить название скина...</div>
             </div>
@@ -406,7 +478,19 @@
         let currentOffset = 0;
         let isFetching = false;
         let hasMoreItems = true;
-        let currentTargetStepId = null; // 🔥 НОВОЕ: Глобальная переменная для отслеживания текущего поля склада
+        let currentTargetStepId = null; // Глобальная переменная для склада
+
+        // Управление аккордеоном склада
+        function toggleLibFilters() {
+            const acc = document.getElementById('lib-filters-accordion');
+            if (acc.classList.contains('open')) {
+                acc.classList.remove('open');
+                acc.style.paddingTop = '0px';
+                acc.style.paddingBottom = '0px';
+            } else {
+                acc.classList.add('open');
+            }
+        }
 
         // ПЕРЕКЛЮЧЕНИЕ ПЛАТФОРМ ДЛЯ ФИЛЬТРА
         function setPlatformFilter(plat) {
@@ -426,15 +510,17 @@
         function togglePlatform() {
             const isTwitch = document.querySelector('input[name="platform"]:checked').value === 'twitch';
             const slider = document.getElementById('platform-slider');
+            const startTimeContainer = document.getElementById('start-time-container');
             
             if (isTwitch) {
                 slider.style.transform = 'translateX(100%)';
-                slider.className = 'absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-[#9146FF] rounded transition-all duration-300 ease-in-out';
+                slider.className = 'absolute top-1.5 bottom-1.5 left-1.5 w-[calc(50%-6px)] bg-[#9146FF] rounded transition-all duration-300 ease-in-out';
                 
                 document.getElementById('tg-conditions').classList.add('hidden');
                 document.getElementById('twitch-conditions').classList.remove('hidden');
                 document.getElementById('desc-container').classList.add('hidden');
                 document.getElementById('btn-silent').classList.add('hidden');
+                startTimeContainer.classList.add('hidden'); // 🔥 Скрываем отложенный старт
                 
                 const subBtn = document.getElementById('btn-submit');
                 subBtn.innerHTML = '<i class="fa-brands fa-twitch"></i> Запустить на Twitch';
@@ -444,12 +530,13 @@
                 document.getElementById('prize-title').classList.replace('text-[#2AABEE]', 'text-[#9146FF]');
             } else {
                 slider.style.transform = 'translateX(0)';
-                slider.className = 'absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-[#2AABEE] rounded transition-all duration-300 ease-in-out';
+                slider.className = 'absolute top-1.5 bottom-1.5 left-1.5 w-[calc(50%-6px)] bg-[#2AABEE] rounded transition-all duration-300 ease-in-out';
                 
                 document.getElementById('tg-conditions').classList.remove('hidden');
                 document.getElementById('twitch-conditions').classList.add('hidden');
                 document.getElementById('desc-container').classList.remove('hidden');
                 document.getElementById('btn-silent').classList.remove('hidden');
+                startTimeContainer.classList.remove('hidden'); // 🔥 Показываем отложенный старт
                 
                 const subBtn = document.getElementById('btn-submit');
                 subBtn.innerHTML = '<i class="fa-solid fa-rocket"></i> Запустить в TG';
@@ -691,13 +778,13 @@
 
         function addStepRow() {
             const container = document.getElementById('steps-container');
-            const stepId = Date.now() + Math.floor(Math.random() * 1000); // 🔥 НОВОЕ: Уникальный ID для каждой ступени
+            const stepId = Date.now() + Math.floor(Math.random() * 1000); 
             
             const row = document.createElement('div');
             row.className = "flex gap-2 items-start bg-[#09090b] p-2 rounded border border-zinc-800 step-row";
             row.innerHTML = `
                 <div class="w-16">
-                    <input type="number" placeholder="Людей" class="step-req w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
+                    <input type="number" step="1" placeholder="Людей" class="step-req w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
                 </div>
                 <div class="flex-1 flex flex-col gap-1.5">
                     <div class="flex gap-1">
@@ -727,7 +814,7 @@
                     </div>
                 </div>
                 <div class="w-20">
-                    <input type="number" id="step-price-${stepId}" placeholder="Цена ₽" class="step-price w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
+                    <input type="number" step="0.01" id="step-price-${stepId}" placeholder="Цена ₽" class="step-price w-full bg-[#18181b] border border-zinc-700 text-xs text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:border-[#9146FF]">
                 </div>
                 <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-300 w-6 flex justify-center mt-1.5">
                     <i class="fa-solid fa-trash text-xs"></i>
@@ -737,7 +824,6 @@
         }
 
         // --- Вспомогательные функции ---
-        // 🔥 НОВОЕ: Передаем targetId, чтобы понимать куда вставлять результаты поиска
         function openLibrarySearch(targetId = null) {
             currentTargetStepId = targetId; 
             document.getElementById('modal-library').classList.remove('hidden');
@@ -870,6 +956,12 @@
                 if (minP) url.searchParams.append('min_p', minP);
                 if (maxP) url.searchParams.append('max_p', maxP);
 
+                // 🔥 ДОБАВЛЕНО: Запрос фильтра редкости у бэкенда, если выбрано
+                const rarityFilter = document.getElementById('lib-filter-rarity').value;
+                if (rarityFilter !== 'all') {
+                    url.searchParams.append('rarity', rarityFilter);
+                }
+
                 const res = await fetch(url.toString());
                 let items = await res.json(); 
 
@@ -883,6 +975,45 @@
                 }
 
                 if (items.length < 50) hasMoreItems = false; 
+
+                // 🔥 ФИЛЬТРАЦИЯ НАКЛЕЕК НА ФРОНТЕНДЕ (По умолчанию включена)
+                if (document.getElementById('lib-exclude-stickers').checked) {
+                    items = items.filter(i => {
+                        const n = i.market_hash_name.toLowerCase();
+                        return !n.includes('sticker') && !n.includes('наклейка') && !n.includes('patch') && !n.includes('нашивка') && !n.includes('graffiti') && !n.includes('граффити') && !n.includes('pin') && !n.includes('значок') && !n.includes('capsule') && !n.includes('капсула') && !n.includes('package') && !n.includes('набор');
+                    });
+                }
+
+                // 🔥 ФИЛЬТРАЦИЯ ПО КАЧЕСТВУ НА ФРОНТЕНДЕ (Т.к. бэкенд это не поддерживает)
+                const qualityFilter = document.getElementById('lib-filter-quality').value;
+                if (qualityFilter !== 'all') {
+                    items = items.filter(i => {
+                        let qCode = "";
+                        const m = i.market_hash_name.match(/\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred|Прямо с завода|Немного поношенное|После полевых испытаний|Поношенное|Закаленное в боях)\)/i);
+                        if (m) {
+                            const rawW = m[1].toLowerCase();
+                            if(rawW.includes('factory') || rawW.includes('прямо')) qCode = 'FN';
+                            else if(rawW.includes('minimal') || rawW.includes('немного')) qCode = 'MW';
+                            else if(rawW.includes('field') || rawW.includes('полевых')) qCode = 'FT';
+                            else if(rawW.includes('well') || rawW.includes('поношенное')) qCode = 'WW';
+                            else if(rawW.includes('battle') || rawW.includes('закаленное')) qCode = 'BS';
+                        }
+                        return qCode === qualityFilter;
+                    });
+                }
+
+                // 🔥 СОРТИРОВКА (По умолчанию от дорогих к дешевым, но можно выбрать и наоборот)
+                const sortOrder = document.getElementById('lib-sort').value;
+                if (sortOrder === 'asc') {
+                    items.sort((a, b) => a.price_rub - b.price_rub);
+                } else {
+                    items.sort((a, b) => b.price_rub - a.price_rub);
+                }
+
+                if (items.length === 0 && isNewSearch) {
+                    cont.innerHTML = '<div class="text-center text-xs text-zinc-500 mt-10">По фильтрам ничего не найдено 😔</div>';
+                    return;
+                }
 
                 const rarityColors = {
                     'common': '#b0c3d9', 'industrial': '#5e98d9', 'blue': '#4b69ff', 
@@ -910,25 +1041,25 @@
             }
         }
 
-        // 🔥 НОВОЕ: Разделение логики заполнения в зависимости от того, куда нажали (главный приз или ступень)
         function selectFromCache(jsonStr) {
             const item = JSON.parse(decodeURIComponent(jsonStr).replace(/&apos;/g, "'"));
             closeLibrarySearch();
             
             let cleanName = item.market_hash_name;
             let qualityCode = "";
-            const wearMap = {
-                'factory new': 'FN', 'прямо с завода': 'FN',
-                'minimal wear': 'MW', 'немного поношенное': 'MW',
-                'field-tested': 'FT', 'после полевых испытаний': 'FT',
-                'well-worn': 'WW', 'поношенное': 'WW',
-                'battle-scarred': 'BS', 'закаленное в боях': 'BS'
-            };
-            const conditionMatch = cleanName.match(/(.*?)\s+\(([^)]+)\)$/);
+            
+            // 🔥 ПРОДВИНУТЫЙ ПАРСЕР КАЧЕСТВА (Ищет только точные совпадения, исключая ошибки)
+            const conditionMatch = cleanName.match(/\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred|Прямо с завода|Немного поношенное|После полевых испытаний|Поношенное|Закаленное в боях)\)/i);
+            
             if (conditionMatch) {
-                cleanName = conditionMatch[1].trim(); 
-                const rawWear = conditionMatch[2].toLowerCase().trim(); 
-                if (wearMap[rawWear]) qualityCode = wearMap[rawWear]; 
+                const rawWear = conditionMatch[1].toLowerCase();
+                if (rawWear.includes('factory') || rawWear.includes('прямо')) qualityCode = 'FN';
+                else if (rawWear.includes('minimal') || rawWear.includes('немного')) qualityCode = 'MW';
+                else if (rawWear.includes('field') || rawWear.includes('полевых')) qualityCode = 'FT';
+                else if (rawWear.includes('well') || rawWear.includes('поношенное')) qualityCode = 'WW';
+                else if (rawWear.includes('battle') || rawWear.includes('закаленное')) qualityCode = 'BS';
+                
+                cleanName = cleanName.replace(conditionMatch[0], '').trim();
             }
 
             const rarityHexMap = {
@@ -954,6 +1085,11 @@
             
             // Если искали для ГЛАВНОГО приза
             document.getElementById('inp-prize').value = cleanName;
+            
+            // 🔥 ЕСЛИ У НАС ЕСТЬ ПОЛЕ prize_price ДЛЯ ГЛАВНОГО ПРИЗА, ЗАПОЛНЯЕМ ЕГО
+            const mainPriceInput = document.getElementById('inp-prize-price');
+            if (mainPriceInput) mainPriceInput.value = item.price_rub || 0;
+            
             document.getElementById('inp-img').value = item.image_url || '';
             document.getElementById('inp-quality').value = qualityCode || "";
             document.getElementById('inp-rarity-color').value = rColor;
@@ -1005,6 +1141,7 @@
                     image_url: fd.get('image'),
                     skin_quality: fd.get('quality'),
                     rarity_color: fd.get('rarity_color'),
+                    prize_price: parseFloat(fd.get('prize_price') || 0), // Отправляем цену базового приза
                     winners_count: 1,
                     steps: stepsArray // 🔥 ОТПРАВЛЯЕМ СТУПЕНИ
                 };
@@ -1018,7 +1155,8 @@
                         prize_name: fd.get('prize'),
                         skin_quality: fd.get('quality'), 
                         prize_image: fd.get('image'),
-                        rarity_color: fd.get('rarity_color'),   
+                        rarity_color: fd.get('rarity_color'), 
+                        prize_price: parseFloat(fd.get('prize_price') || 0), // Отправляем цену базового приза
                         description: fd.get('desc'),
                         is_silent: isSilent,
                         start_time: fd.get('start_time'),
