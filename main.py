@@ -782,10 +782,30 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
     if tw_res.status_code == 401:
         raise HTTPException(status_code=401, detail="Токен истек или недействителен")
         
-    if tw_res.status_code != 200:
-        raise HTTPException(status_code=400, detail=f"Ошибка Twitch: {tw_res.text}")
+    twitch_reward_id = None
+    if tw_res.status_code == 400 and "DUPLICATE_REWARD" in tw_res.text:
+        # 🔥 Перехват: Ищем старую награду на Твиче и берем её ID
+        get_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={req.broadcaster_id}&only_manageable_rewards=true"
+        get_res = await http_client.get(get_url, headers=headers)
+        if get_res.status_code == 200:
+            for r in get_res.json().get("data", []):
+                if r.get("title") == reward_title:
+                    twitch_reward_id = r.get("id")
+                    break
         
-    twitch_reward_id = tw_res.json()["data"][0]["id"]
+        if twitch_reward_id:
+            # Обновляем старую награду: ставим новую цену и включаем
+            patch_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={req.broadcaster_id}&id={twitch_reward_id}"
+            await http_client.patch(patch_url, headers=headers, json={
+                "cost": req.cost, "is_user_input_required": True, "background_color": "#9146FF", "is_enabled": True
+            })
+        else:
+            raise HTTPException(status_code=400, detail=f"Награда '{reward_title}' уже существует на Twitch, но бот не имеет прав на её изменение. Пожалуйста, удали её вручную в панели управления Twitch.")
+            
+    elif tw_res.status_code != 200:
+        raise HTTPException(status_code=400, detail=f"Ошибка Twitch: {tw_res.text}")
+    else:
+        twitch_reward_id = tw_res.json()["data"][0]["id"]
 
     # 🔥 1. СОХРАНЯЕМ В ТАБЛИЦУ НАГРАД (С защитой от дубликатов)
     rw_payload = {
@@ -1719,10 +1739,30 @@ async def create_admin_raffle(req: RaffleCreateRequest, request: Request, supaba
         "background_color": "#E0115F" # Красивый цвет для розыгрышей
     })
     
-    if tw_res.status_code == 200:
-        twitch_reward_id = tw_res.json()["data"][0]["id"]
-    else:
+    twitch_reward_id = None
+    if tw_res.status_code == 400 and "DUPLICATE_REWARD" in tw_res.text:
+        # 🔥 Перехват: Ищем старую награду на Твиче и берем её ID
+        get_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={req.broadcaster_id}&only_manageable_rewards=true"
+        get_res = await http_client.get(get_url, headers=headers)
+        if get_res.status_code == 200:
+            for r in get_res.json().get("data", []):
+                if r.get("title") == req.title:
+                    twitch_reward_id = r.get("id")
+                    break
+                    
+        if twitch_reward_id:
+            # Обновляем старую награду: ставим новую цену и включаем
+            patch_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={req.broadcaster_id}&id={twitch_reward_id}"
+            await http_client.patch(patch_url, headers=headers, json={
+                "cost": req.cost, "is_user_input_required": True, "background_color": "#E0115F", "is_enabled": True
+            })
+        else:
+            raise HTTPException(status_code=400, detail=f"Награда '{req.title}' уже существует на Twitch, но бот не имеет прав на её изменение. Удали её вручную на Twitch.")
+            
+    elif tw_res.status_code != 200:
         raise HTTPException(status_code=400, detail=f"Ошибка Twitch: {tw_res.text}")
+    else:
+        twitch_reward_id = tw_res.json()["data"][0]["id"]
 
     # 3. Сохраняем награду в нашу БД twitch_rewards (С ЗАЩИТОЙ ОТ ДУБЛЕЙ)
     rw_payload = {
