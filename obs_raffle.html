@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -10,6 +10,7 @@
             margin: 0; padding: 0; width: 100%; height: 100%;
             background: transparent; overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            /* Выравнивание в правый нижний угол, как ты любишь */
             display: flex; flex-direction: column;
             justify-content: flex-end; align-items: flex-end;
             padding: 20px; box-sizing: border-box;
@@ -17,15 +18,25 @@
 
         :root {
             --widget-scale: 1;
+            --rarity-rgb: 145, 70, 255;
+            --bg-color: rgba(24, 24, 27, 0.8);
         }
 
         /* --- ОБЩИЙ КОНТЕЙНЕР --- */
         .obs-container {
             width: 320px;
             display: flex; flex-direction: column; gap: 8px;
-            transform: scale(var(--widget-scale));
-            transform-origin: bottom right;
-            transition: all 0.3s ease-out;
+            
+            /* Масштабируем, привязываясь к правому нижнему углу */
+            transform: scale(var(--widget-scale)) translateX(20px);
+            transform-origin: bottom right; 
+            
+            opacity: 0;
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+        }
+        .obs-container.active { 
+            opacity: 1; 
+            transform: scale(var(--widget-scale)) translateX(0); 
         }
 
         /* --- КОМПАКТНАЯ КАРТОЧКА --- */
@@ -35,12 +46,14 @@
             display: flex; justify-content: space-between; align-items: center;
             padding: 12px 15px; box-sizing: border-box;
             border-radius: 16px; overflow: hidden;
-            background: #0a0a0a;
-            background-image: radial-gradient(circle at 70% 50%, rgba(var(--rarity-rgb), 0.15) 0%, rgba(10, 10, 10, 1) 90%);
+            
+            background: var(--bg-color);
+            background-image: radial-gradient(circle at 70% 50%, rgba(var(--rarity-rgb), 0.15) 0%, transparent 90%);
             border: 1px solid rgba(var(--rarity-rgb), 0.4);
             box-shadow: 0 5px 20px rgba(0,0,0,0.6), inset 0 0 20px rgba(var(--rarity-rgb), 0.05);
         }
 
+        /* Блик */
         .compact-card::after {
             content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
             background: linear-gradient(to right, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%);
@@ -99,7 +112,8 @@
 
         /* CTA */
         .cta-box {
-            background: rgba(12, 12, 12, 1); backdrop-filter: blur(10px);
+            background: var(--bg-color); 
+            backdrop-filter: blur(10px);
             border-radius: 10px; padding: 8px 12px; text-align: center;
             border: 1px solid rgba(255,255,255,0.08);
             font-size: 11px; color: #999; font-weight: 600;
@@ -111,11 +125,11 @@
             text-shadow: 0 0 10px rgba(var(--rarity-rgb), 0.4);
             letter-spacing: 0.5px; text-transform: uppercase;
         }
-    </script>
+    </style>
 </head>
 <body>
 
-    <div id="obs-overlay" class="obs-container" style="--rarity-rgb: 145, 70, 255">
+    <div id="obs-overlay" class="obs-container">
         <div class="compact-card">
             <div class="badges-wrapper">
                 <div class="mini-badge" id="status-badge"><span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span> АКТИВЕН</div>
@@ -123,7 +137,7 @@
             </div>
             
             <div class="card-left">
-                <div class="mini-quality" id="obs-quality" style="color: #9146FF">Field-Tested</div>
+                <div class="mini-quality" id="obs-quality" style="color: #9146FF">...</div>
                 <div class="mini-name" id="obs-name">Загрузка...</div>
                 <div class="mini-timer" id="obs-timer">
                     <i class="fa-regular fa-clock" style="font-size:10px"></i>
@@ -141,7 +155,7 @@
     </div>
 
     <script>
-        const pathParts = window.location.pathname.split('/');
+        const pathParts = window.location.pathname.split('/').filter(p => p);
         const raffleId = pathParts[pathParts.length - 1];
         let countdownTimer = null;
 
@@ -150,24 +164,35 @@
             return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '145, 70, 255';
         }
 
-        // 1. Слушаем iframe конструктора админки
         window.addEventListener('message', (event) => {
             if (event.data.type === 'OBS_PREVIEW_UPDATE') {
                 const conf = event.data.config;
                 if(conf.scale) document.documentElement.style.setProperty('--widget-scale', conf.scale);
+                if(conf.bgColor) document.documentElement.style.setProperty('--bg-color', conf.bgColor);
                 updateWidget(event.data.data);
             }
         });
 
-        // 2. Пуллинг данных из базы для реального OBS
         async function fetchRaffleData() {
             if(!raffleId || raffleId === "preview") return;
             try {
-                const res = await fetch(`/api/v1/obs/raffle/${raffleId}/data`);
-                if (!res.ok) return;
+                // Обход кэша
+                const res = await fetch(`/api/v1/obs/raffle/${raffleId}/data?t=${new Date().getTime()}`);
+                
+                if (!res.ok) {
+                    document.getElementById('obs-name').innerText = `Розыгрыш скрыт`;
+                    document.getElementById('obs-overlay').classList.remove('active');
+                    return;
+                }
                 const data = await res.json();
                 updateWidget(data);
-            } catch (e) {}
+                
+                // 🔥 Выдвигаем виджет после загрузки данных
+                document.getElementById('obs-overlay').classList.add('active');
+                
+            } catch (e) {
+                document.getElementById('obs-name').innerText = `Сбой связи`;
+            }
         }
 
         function updateWidget(data) {
@@ -176,10 +201,10 @@
             const rgbColor = hexToRgb(rColor);
             
             // Настройки контейнера
-            const overlay = document.getElementById('obs-overlay');
-            overlay.style.setProperty('--rarity-rgb', rgbColor);
-            if(s.obs_config && s.obs_config.scale) {
-                document.documentElement.style.setProperty('--widget-scale', s.obs_config.scale);
+            document.documentElement.style.setProperty('--rarity-rgb', rgbColor);
+            if(s.obs_config) {
+                if(s.obs_config.scale) document.documentElement.style.setProperty('--widget-scale', s.obs_config.scale);
+                if(s.obs_config.bgColor) document.documentElement.style.setProperty('--bg-color', s.obs_config.bgColor);
             }
 
             // Тексты
@@ -188,15 +213,15 @@
             document.getElementById('obs-quality').style.color = rColor;
             
             // Картинка
-const imgEl = document.getElementById('obs-img');
-const imageUrl = s.prize_image || data.image_url;
+            const imgEl = document.getElementById('obs-img');
+            const imageUrl = s.prize_image || data.image_url;
 
-if (imageUrl) { 
-    imgEl.src = imageUrl;
-    imgEl.style.display = 'block'; // Принудительно показываем, если onerror скрыл до этого
-} else { 
-    imgEl.style.display = 'none'; 
-}
+            if (imageUrl) { 
+                imgEl.src = imageUrl;
+                imgEl.style.display = 'block'; 
+            } else { 
+                imgEl.style.display = 'none'; 
+            }
 
             // Бейджики
             const statusBadge = document.getElementById('status-badge');
@@ -207,17 +232,17 @@ if (imageUrl) {
             } else {
                 statusBadge.className = 'mini-badge';
                 statusBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span> АКТИВЕН';
-                startTimer(s.end_time || data.end_time); // Запускаем таймер
+                startTimer(s.end_time || data.end_time);
             }
 
             document.getElementById('newbie-badge').style.display = s.is_for_newbies ? 'flex' : 'none';
 
-            // CTA (Призыв к действию)
+            // CTA
             const ctaEl = document.getElementById('obs-cta');
-            if(data.type && data.type.includes('twitch')) {
-                ctaEl.innerText = '!розыгрыш'; // Если Твич
+            if(data.type && data.type.includes('twitch')) { 
+                ctaEl.innerText = '!розыгрыш'; 
             } else {
-                ctaEl.innerText = 'в TG Боте'; // Если Телеграм
+                ctaEl.innerText = 'в TG Боте'; 
             }
         }
 
@@ -247,18 +272,15 @@ if (imageUrl) {
             countdownTimer = setInterval(update, 1000);
         }
 
-        fetchRaffleData();
-        setInterval(fetchRaffleData, 3000);
-
+        // Сигнал готовности для админки (Превью)
         window.addEventListener('DOMContentLoaded', () => {
             if (window.parent !== window) {
                 window.parent.postMessage({ type: 'OBS_WIDGET_READY' }, '*');
             }
         });
-        
+
         fetchRaffleData();
         setInterval(fetchRaffleData, 3000);
-                                                           
     </script>
 </body>
 </html>
