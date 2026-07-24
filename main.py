@@ -842,21 +842,21 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
                     break
         
         if twitch_reward_id:
-                    patch_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={req.broadcaster_id}&id={twitch_reward_id}"
-                    
-                    # 🔥 ИСПРАВЛЕНИЕ: Обязательно снимаем с паузы и сохраняем результат
-                    patch_res = await http_client.patch(patch_url, headers=headers, json={
-                        "cost": req.cost, 
-                        "is_user_input_required": True, 
-                        "background_color": "#9146FF", # Для второго роута используй "#E0115F"
-                        "is_enabled": True,
-                        "is_paused": False 
-                    })
-                    
-                    # 🔥 БРОНЕЖИЛЕТ: Если Твич отклонил обновление или завис - тормозим создание в БД!
-                    if patch_res.status_code not in [200, 204]:
-                        raise HTTPException(status_code=400, detail="Ошибка при восстановлении существующей награды на Twitch.")
-                else:
+            patch_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={req.broadcaster_id}&id={twitch_reward_id}"
+            
+            # 🔥 ИСПРАВЛЕНИЕ: Обязательно снимаем с паузы и сохраняем результат
+            patch_res = await http_client.patch(patch_url, headers=headers, json={
+                "cost": req.cost, 
+                "is_user_input_required": True, 
+                "background_color": "#9146FF", # Для этого роута используем фиолетовый
+                "is_enabled": True,
+                "is_paused": False 
+            })
+            
+            # 🔥 БРОНЕЖИЛЕТ: Если Твич отклонил обновление или завис - тормозим создание в БД!
+            if patch_res.status_code not in [200, 204]:
+                raise HTTPException(status_code=400, detail="Ошибка при восстановлении существующей награды на Twitch.")
+        else:
             raise HTTPException(status_code=400, detail=f"Награда '{reward_title}' уже существует на Twitch, но бот не имеет прав на её изменение. Пожалуйста, удали её вручную в панели управления Twitch.")
             
     elif tw_res.status_code != 200:
@@ -922,7 +922,7 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
         raise HTTPException(status_code=400, detail="Ошибка БД при сохранении розыгрыша")
         
     return {"status": "success", "message": "Twitch розыгрыш запущен!"}
-
+    
 @app.get("/api/v1/twitch/fossabot_raffle", response_class=PlainTextResponse)
 async def handle_fossabot_raffle(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     print("===== [FOSSABOT RAFFLE] ЗАПРОС ПОЛУЧЕН =====")
