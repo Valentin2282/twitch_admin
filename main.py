@@ -818,7 +818,7 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
     if len(reward_title) > 45:
         reward_title = reward_title[:44] + "…"
 
-    # 🔥 ГЕНЕРИРУЕМ ОПИСАНИЕ (PROMPT) ДЛЯ TWITCH
+    # 🔥 ГЕНЕРИРУЕМ ОПИСАНИЕ (PROMPT) ДЛЯ TWITCH С УСЛОВИЯМИ
     prompt_text = "Обязательно вставь свою трейд-ссылку!\n"
     if req.is_for_newbies:
         prompt_text += "Только для новичков (до 100 сообщений).\n"
@@ -841,6 +841,7 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
         
     twitch_reward_id = None
     if tw_res.status_code == 400 and "DUPLICATE_REWARD" in tw_res.text:
+        # 🔥 Перехват: Ищем старую награду на Твиче и берем её ID
         get_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={req.broadcaster_id}&only_manageable_rewards=true"
         get_res = await http_client.get(get_url, headers=headers)
         if get_res.status_code == 200:
@@ -852,8 +853,9 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
         if twitch_reward_id:
             patch_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={req.broadcaster_id}&id={twitch_reward_id}"
             
+            # 🔥 ИСПРАВЛЕНИЕ: Обновляем описание старой награды и снимаем с паузы
             patch_res = await http_client.patch(patch_url, headers=headers, json={
-                "prompt": prompt_text[:200], # 🔥 Обновляем описание старой награды
+                "prompt": prompt_text[:200], 
                 "cost": req.cost, 
                 "is_user_input_required": True, 
                 "background_color": "#9146FF",
@@ -861,16 +863,18 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
                 "is_paused": False 
             })
             
+            # 🔥 БРОНЕЖИЛЕТ
             if patch_res.status_code not in [200, 204]:
                 raise HTTPException(status_code=400, detail="Ошибка при восстановлении существующей награды на Twitch.")
         else:
-            raise HTTPException(status_code=400, detail=f"Награда '{reward_title}' уже существует на Twitch, но бот не имеет прав на её изменение. Пожалуйста, удали её вручную в панели управления Twitch.")
+            raise HTTPException(status_code=400, detail=f"Награда '{reward_title}' уже существует на Twitch, но бот не имеет прав на её изменение. Удали её вручную на Twitch.")
             
     elif tw_res.status_code != 200:
         raise HTTPException(status_code=400, detail=f"Ошибка Twitch: {tw_res.text}")
     else:
         twitch_reward_id = tw_res.json()["data"][0]["id"]
 
+    # 1. СОХРАНЯЕМ В ТАБЛИЦУ НАГРАД
     rw_payload = {
         "title": reward_title,
         "reward_type": "raffle", 
@@ -897,12 +901,14 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
         
     internal_reward_id = db_rw.json()[0]["id"]
 
+    # 2. СОХРАНЯЕМ САМ РОЗЫГРЫШ И ТАЙМЕР
     raf_payload = {
         "title": req.title,
         "type": "twitch_fossabot", 
         "status": "active",
         "start_time": datetime.now(timezone.utc).isoformat(),
-        "end_time": req.end_time, # 🔥 ИСПРАВЛЕНИЕ: Теперь таймер записывается в БД!
+        # 🔥 ИСПРАВЛЕНИЕ: Теперь таймер записывается в БД (мы достали его из req в прошлом сообщении)
+        "end_time": req.end_time if hasattr(req, 'end_time') else (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(), 
         "settings": {
             "required_twitch_reward_id": internal_reward_id,
             "real_twitch_reward_id": twitch_reward_id,
@@ -912,11 +918,11 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
             "is_for_newbies": req.is_for_newbies,
             "min_lifetime_msgs": req.min_lifetime_msgs,
             "steps": req.steps,
-            "prize_name": req.title,          
-            "prize_price": req.prize_price,   
-            "skin_quality": req.skin_quality, 
-            "rarity_color": req.rarity_color,  
-            "obs_config": req.obs_config      
+            "prize_name": req.title,
+            "prize_price": req.prize_price,
+            "skin_quality": req.skin_quality,
+            "rarity_color": req.rarity_color,
+            "obs_config": req.obs_config
         }
     }
     
