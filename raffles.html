@@ -1515,6 +1515,13 @@
             // Легкая задержка, чтобы iframe успел загрузиться и принять сообщение
             setTimeout(updateObsPreview, 1000);
         });
+
+        window.addEventListener('message', (e) => {
+            if (e.data && e.data.type === 'OBS_WIDGET_READY') {
+                updateObsPreview(); // Гарантированно рендерим превью сразу после загрузки iframe
+            }
+        });
+        
     </script>
 </body>
 </html>
