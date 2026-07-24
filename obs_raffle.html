@@ -223,12 +223,20 @@
                 imgEl.style.display = 'none'; 
             }
 
-            // Бейджики
+            // Бейджики и статусы
             const statusBadge = document.getElementById('status-badge');
             if(data.status === 'completed') {
                 statusBadge.className = 'mini-badge badge-completed';
                 statusBadge.innerHTML = '<i class="fa-solid fa-flag-checkered"></i> ЗАВЕРШЕНО';
-                document.getElementById('obs-timer').innerHTML = 'РАЗДАЧА ОКОНЧЕНА';
+                
+                // 🔥 ИСПРАВЛЕНИЕ: Показываем имя победителя с короной!
+                const wName = s.winner_name || "Неизвестно";
+                document.getElementById('obs-timer').innerHTML = `
+                    <i class="fa-solid fa-crown" style="color:#ffd700"></i> 
+                    <span style="color:#ffd700; font-weight:800; text-transform:uppercase; margin-left:3px; letter-spacing:0.5px;">${wName}</span>
+                `;
+                document.getElementById('obs-timer').style.borderColor = "rgba(255, 215, 0, 0.4)";
+                document.getElementById('obs-timer').style.background = "rgba(255, 215, 0, 0.1)";
             } else {
                 statusBadge.className = 'mini-badge';
                 statusBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span> АКТИВЕН';
