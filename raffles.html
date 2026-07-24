@@ -656,7 +656,7 @@
         }
 
         // КОНСТРУКТОР: ПЕРЕКЛЮЧЕНИЕ ПЛАТФОРМ
-        function togglePlatform() {
+function togglePlatform() {
             const isTwitch = document.querySelector('input[name="platform"]:checked').value === 'twitch';
             const slider = document.getElementById('platform-slider');
             const startTimeContainer = document.getElementById('start-time-container');
@@ -671,7 +671,9 @@
                 document.getElementById('desc-container').classList.add('hidden');
                 document.getElementById('btn-silent').classList.add('hidden');
                 startTimeContainer.classList.add('hidden'); 
-                previewBox.classList.add('hidden'); 
+                
+                // 🔥 ИСПРАВЛЕНИЕ: Больше не прячем превью, пусть показывает карточку Twitch
+                previewBox.classList.remove('hidden'); 
             } else {
                 slider.style.transform = 'translateX(0)';
                 slider.className = 'absolute top-1.5 bottom-1.5 left-1.5 w-[calc(50%-6px)] bg-[#2AABEE] rounded transition-all duration-300 ease-in-out';
@@ -1061,7 +1063,7 @@
             controls.style.pointerEvents = isChecked ? "auto" : "none";
         }
 
-        function updatePreview() {
+function updatePreview() {
             const isTwitch = document.querySelector('input[name="platform"]:checked').value === 'twitch';
             const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value : '';
             const getInpVal = (name) => document.querySelector(`input[name="${name}"]`) ? document.querySelector(`input[name="${name}"]`).value : '';
@@ -1081,7 +1083,16 @@
             const previewBtn = document.getElementById('preview-btn');
 
             if (isTwitch) {
-                // Превью полностью скрывается логикой togglePlatform()
+                // 🔥 ИСПРАВЛЕНИЕ: Генерируем красивый текст превью для Twitch
+                previewBox.className = "bg-[#18181b] rounded-lg p-4 border-l-4 border-[#9146FF] relative transition-colors shadow-sm";
+                previewLabel.innerText = "Twitch Reward Preview";
+                previewBtn.className = "mt-3 bg-[#9146FF]/10 text-[#9146FF] text-center py-1.5 rounded text-xs font-semibold border border-[#9146FF]/20 transition-colors";
+                previewBtn.innerText = "Забрать награду 🎁";
+
+                const cost = getInpVal('twitch_cost') || 500;
+                html = `🟣 <b>НАГРАДА ЗА БАЛЛЫ КАНАЛА</b>\n\n`;
+                html += `🏆 <b>Приз:</b> <span style="color:${rarity}">${prizeFull}</span>\n\n`;
+                html += `💰 <b>Стоимость:</b> ${cost} баллов\n`;
             } else {
                 previewBox.className = "bg-[#18181b] rounded-lg p-4 border-l-4 border-[#2AABEE] relative transition-colors shadow-sm";
                 previewLabel.innerText = "Telegram Preview";
