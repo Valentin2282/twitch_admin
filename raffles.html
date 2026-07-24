@@ -1437,10 +1437,8 @@
                     const resData = await res.json();
                     
                     if (!editingRaffleId) {
-                        let raffleId = resData.raffle_id || resData.id || "последний"; 
-                        const obsLink = window.location.origin + "/obs/raffle/" + raffleId;
-                        document.getElementById('obs-link-output').value = obsLink;
-                        alert(isTwitch ? 'Успех! Twitch-розыгрыш запущен! Скопируйте ссылку для OBS ниже.' : 'Успех! Telegram-розыгрыш создан. Скопируйте ссылку для OBS ниже.');
+                        // 🔥 ИСПРАВЛЕНИЕ: Убрали попытку вставить ссылку в несуществующее поле
+                        alert(isTwitch ? 'Успех! Twitch-розыгрыш запущен! Ссылку для OBS можно скопировать на карточке.' : 'Успех! Telegram-розыгрыш создан. Ссылку для OBS можно скопировать на карточке.');
                     } else {
                         alert('Успешно сохранено!');
                     }
