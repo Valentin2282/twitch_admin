@@ -801,7 +801,8 @@ class TwitchRaffleCreateRequest(BaseModel):
     prize_price: Optional[float] = 0.0      
     skin_quality: Optional[str] = ""        
     rarity_color: Optional[str] = "#9146FF" 
-    obs_config: Optional[dict] = {}         # 🔥 ДОБАВИТЬ ЭТО
+    obs_config: Optional[dict] = {}         
+    end_time: str # 🔥 ДОБАВЛЕНО ДЛЯ ТАЙМЕРА
     
 @app.post("/api/v1/admin/raffles/create_twitch")
 async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -817,11 +818,19 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
     if len(reward_title) > 45:
         reward_title = reward_title[:44] + "…"
 
+    # 🔥 ГЕНЕРИРУЕМ ОПИСАНИЕ (PROMPT) ДЛЯ TWITCH
+    prompt_text = "Обязательно вставь свою трейд-ссылку!\n"
+    if req.is_for_newbies:
+        prompt_text += "Только для новичков (до 100 сообщений).\n"
+    if req.min_lifetime_msgs > 0:
+        prompt_text += f"Мин. сообщений для участия: {req.min_lifetime_msgs}.\n"
+
     twitch_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={req.broadcaster_id}"
     headers = {"Authorization": f"Bearer {broadcaster_token}", "Client-Id": TWITCH_CLIENT_ID, "Content-Type": "application/json"}
     
     tw_res = await http_client.post(twitch_url, headers=headers, json={
         "title": reward_title,
+        "prompt": prompt_text[:200], # 🔥 Твич лимитирует описание 200 символами
         "cost": req.cost,
         "is_user_input_required": True,
         "background_color": "#9146FF"
@@ -832,7 +841,6 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
         
     twitch_reward_id = None
     if tw_res.status_code == 400 and "DUPLICATE_REWARD" in tw_res.text:
-        # 🔥 Перехват: Ищем старую награду на Твиче и берем её ID
         get_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={req.broadcaster_id}&only_manageable_rewards=true"
         get_res = await http_client.get(get_url, headers=headers)
         if get_res.status_code == 200:
@@ -844,16 +852,15 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
         if twitch_reward_id:
             patch_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={req.broadcaster_id}&id={twitch_reward_id}"
             
-            # 🔥 ИСПРАВЛЕНИЕ: Обязательно снимаем с паузы и сохраняем результат
             patch_res = await http_client.patch(patch_url, headers=headers, json={
+                "prompt": prompt_text[:200], # 🔥 Обновляем описание старой награды
                 "cost": req.cost, 
                 "is_user_input_required": True, 
-                "background_color": "#9146FF", # Для этого роута используем фиолетовый
+                "background_color": "#9146FF",
                 "is_enabled": True,
                 "is_paused": False 
             })
             
-            # 🔥 БРОНЕЖИЛЕТ: Если Твич отклонил обновление или завис - тормозим создание в БД!
             if patch_res.status_code not in [200, 204]:
                 raise HTTPException(status_code=400, detail="Ошибка при восстановлении существующей награды на Twitch.")
         else:
@@ -864,7 +871,6 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
     else:
         twitch_reward_id = tw_res.json()["data"][0]["id"]
 
-    # 🔥 1. СОХРАНЯЕМ В ТАБЛИЦУ НАГРАД (С защитой от дубликатов)
     rw_payload = {
         "title": reward_title,
         "reward_type": "raffle", 
@@ -878,15 +884,12 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
         "condition_type": "none"
     }
     
-    # Ищем, была ли уже такая награда в БД
     check_db = await supabase.get("/rest/v1/twitch_rewards", params={"title": f"eq.{reward_title}", "select": "id"})
     
     if check_db.status_code == 200 and check_db.json():
-        # Если есть — просто обновляем её новым ID от Twitch (PATCH)
         existing_id = check_db.json()[0]["id"]
         db_rw = await supabase.patch("/rest/v1/twitch_rewards", params={"id": f"eq.{existing_id}"}, json=rw_payload, headers={"Prefer": "return=representation"})
     else:
-        # Если нет — создаем новую (POST)
         db_rw = await supabase.post("/rest/v1/twitch_rewards", json=rw_payload, headers={"Prefer": "return=representation"})
         
     if db_rw.status_code not in [200, 201]:
@@ -894,12 +897,12 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
         
     internal_reward_id = db_rw.json()[0]["id"]
 
-    # 🔥 2. СОХРАНЯЕМ САМ РОЗЫГРЫШ (С привязкой ID)
     raf_payload = {
         "title": req.title,
         "type": "twitch_fossabot", 
         "status": "active",
         "start_time": datetime.now(timezone.utc).isoformat(),
+        "end_time": req.end_time, # 🔥 ИСПРАВЛЕНИЕ: Теперь таймер записывается в БД!
         "settings": {
             "required_twitch_reward_id": internal_reward_id,
             "real_twitch_reward_id": twitch_reward_id,
@@ -909,11 +912,11 @@ async def create_twitch_raffle(req: TwitchRaffleCreateRequest, request: Request,
             "is_for_newbies": req.is_for_newbies,
             "min_lifetime_msgs": req.min_lifetime_msgs,
             "steps": req.steps,
-            "prize_name": req.title,          # 🔥 ТЕПЕРЬ СОХРАНЯЕТ ИМЯ
-            "prize_price": req.prize_price,   # 🔥 ТЕПЕРЬ СОХРАНЯЕТ ЦЕНУ
-            "skin_quality": req.skin_quality, # 🔥 ТЕПЕРЬ СОХРАНЯЕТ КАЧЕСТВО
-            "rarity_color": req.rarity_color,  # 🔥 ТЕПЕРЬ СОХРАНЯЕТ ЦВЕТ
-            "obs_config": req.obs_config      # 🔥 ДОБАВИТЬ ЭТО
+            "prize_name": req.title,          
+            "prize_price": req.prize_price,   
+            "skin_quality": req.skin_quality, 
+            "rarity_color": req.rarity_color,  
+            "obs_config": req.obs_config      
         }
     }
     
@@ -992,9 +995,12 @@ async def handle_fossabot_raffle(request: Request, supabase: httpx.AsyncClient =
         print(f"[FOSSABOT RAFFLE] Привязан: {is_linked}, Ссылка есть: {bool(has_trade_link)}")
 
         # 🛑 ЛОГИКА ФИЛЬТРАЦИИ:
-        if is_for_newbies and is_linked:
-            print("[FOSSABOT RAFFLE] Отказ: юзер уже есть в базе ТГ.")
-            return f"@{twitch_display}, у тебя уже привязан ТГ-бот! Участвуй в основных розыгрышах там, оставь этот новичкам! ❌"
+        
+        # 🔥 ИСПРАВЛЕНИЕ: Новичок — это тот, у кого НЕТ ТГ-бота ИЛИ меньше 100 сообщений.
+        # Поэтому отклоняем только тех, кто уже привязан И нафлудил больше 100.
+        if is_for_newbies and is_linked and db_msgs >= 100:
+            print("[FOSSABOT RAFFLE] Отказ: уже не новичок.")
+            return f"@{twitch_display}, этот розыгрыш для новичков (до 100 сообщений)! У тебя уже {db_msgs}. Оставь шансы новеньким! ❌"
             
         if min_msgs > 0 and db_msgs < min_msgs:
             print("[FOSSABOT RAFFLE] Отказ: мало сообщений.")
