@@ -156,7 +156,11 @@ async def login():
     return RedirectResponse(url)
 
 @app.get("/api/v1/auth/callback")
-async def auth_callback(code: str, response: Response):
+async def auth_callback(
+    code: str, 
+    response: Response,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
     if not TWITCH_CLIENT_ID or not TWITCH_CLIENT_SECRET:
         raise HTTPException(status_code=500, detail="Ключи Twitch не настроены")
 
@@ -168,29 +172,68 @@ async def auth_callback(code: str, response: Response):
         "redirect_uri": REDIRECT_URI
     }
     
+    # 1. Обмениваем код на токены
     token_res = await http_client.post("https://id.twitch.tv/oauth2/token", data=token_data)
     if token_res.status_code != 200:
+        logging.error(f"❌ [Auth] Ошибка обмена кода Twitch: {token_res.text}")
         raise HTTPException(status_code=400, detail="Ошибка обмена кода от Twitch")
         
-    access_token = token_res.json().get("access_token")
+    t_json = token_res.json()
+    access_token = t_json.get("access_token")
+    refresh_token = t_json.get("refresh_token") # 🔥 Обязательно забираем рефреш
+    
+    # 2. Получаем профиль вошедшего админа
     user_res = await http_client.get(
         "https://api.twitch.tv/helix/users",
         headers={"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID}
     )
     
     if user_res.status_code != 200:
+        logging.error(f"❌ [Auth] Ошибка получения профиля: {user_res.text}")
         raise HTTPException(status_code=400, detail="Ошибка получения профиля Twitch")
         
     user_data = user_res.json().get("data", [])[0]
-    twitch_id = user_data.get("id")
+    twitch_id = str(user_data.get("id"))
+    twitch_login = user_data.get("login") # 🔥 Достали логин
     
+    # 3. Блокируем доступ посторонним
     if twitch_id not in ALLOWED_IDS:
+        logging.warning(f"🛑 [Auth] Попытка входа с неразрешенного ID: {twitch_id} ({twitch_login})")
         raise HTTPException(status_code=403, detail=f"Доступ запрещен! ID: {twitch_id}")
+
+    # 🔥 4. ФИКС РАССИНХРОНА: Записываем "жирные" токены в общую БД 🔥
+    try:
+        db_res = await supabase.patch(
+            "/rest/v1/users",
+            params={"twitch_id": f"eq.{twitch_id}"},
+            json={
+                "twitch_login": twitch_login,
+                "twitch_access_token": access_token,
+                "twitch_refresh_token": refresh_token,
+                "twitch_status": "broadcaster"
+            },
+            headers={"Prefer": "return=representation"}
+        )
         
-    jwt_token = create_jwt_token({"id": twitch_id, "login": user_data.get("login")})
+        if db_res.status_code not in [200, 204]:
+            logging.error(f"❌ [Auth] Ошибка БД при обновлении токена админа: {db_res.text}")
+        else:
+            logging.info(f"✅ [Auth] Токены с полными правами для {twitch_login} сохранены в БД.")
+            
+    except Exception as e:
+        # Логируем, но не прерываем авторизацию, чтобы админ всё равно попал в панель
+        logging.error(f"❌ [Auth] Критическая ошибка при записи в БД: {e}", exc_info=True)
+
+    # 5. Выдаем JWT сессию и пускаем в настройки
+    jwt_token = create_jwt_token({"id": twitch_id, "login": twitch_login})
     redirect = RedirectResponse(url="/settings")
     redirect.set_cookie(
-        key="admin_session", value=jwt_token, httponly=True, secure=True, samesite="lax", max_age=604800
+        key="admin_session", 
+        value=jwt_token, 
+        httponly=True, 
+        secure=True, 
+        samesite="lax", 
+        max_age=604800
     )
     return redirect
 
