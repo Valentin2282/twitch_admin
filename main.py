@@ -1116,12 +1116,17 @@ async def complete_raffle(
         
     winner = random.choice(tickets)
     tg_id = winner.get("user_id")
+    
+    # 🔥 ИСПРАВЛЕНИЕ: Достаем логин победителя для OBS
+    user_data_db = winner.get("users") or {}
+    winner_name = user_data_db.get("twitch_login") or user_data_db.get("full_name") or str(tg_id)
+    raffle_settings["winner_name"] = winner_name
 
     # 5. Обновляем статус розыгрыша на completed и записываем победителя
     await supabase.patch(
         "/rest/v1/raffles", 
         params={"id": f"eq.{id}"}, 
-        json={"status": "completed", "winner_id": tg_id}
+        json={"status": "completed", "winner_id": tg_id, "settings": raffle_settings} # Записываем обновленные настройки с именем
     )
 
     # 🔥 НОВОЕ: АВТО-УДАЛЕНИЕ НАГРАДЫ С TWITCH И ИЗ БАЗЫ 🔥
