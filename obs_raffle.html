@@ -249,6 +249,16 @@ if (imageUrl) {
 
         fetchRaffleData();
         setInterval(fetchRaffleData, 3000);
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.parent !== window) {
+                window.parent.postMessage({ type: 'OBS_WIDGET_READY' }, '*');
+            }
+        });
+        
+        fetchRaffleData();
+        setInterval(fetchRaffleData, 3000);
+                                                           
     </script>
 </body>
 </html>
