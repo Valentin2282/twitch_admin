@@ -2135,10 +2135,10 @@ async def get_obs_raffle_data(raffle_id: str, supabase: httpx.AsyncClient = Depe
             }
         }
 
-    # 🔥 ИСПРАВЛЕНИЕ: Добавили type и image_url, чтобы JS не падал с ошибкой
+    # 🔥 ИСПРАВЛЕНИЕ: Убрали image_url, так как картинка лежит внутри settings
     res = await supabase.get("/rest/v1/raffles", params={
         "id": f"eq.{raffle_id}",
-        "select": "title, participants_count, settings, status, type, image_url"
+        "select": "title, participants_count, settings, status, type"
     })
     
     if res.status_code != 200 or not res.json():
