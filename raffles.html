@@ -1083,16 +1083,23 @@ function updatePreview() {
             const previewBtn = document.getElementById('preview-btn');
 
             if (isTwitch) {
-                // 🔥 ИСПРАВЛЕНИЕ: Генерируем красивый текст превью для Twitch
                 previewBox.className = "bg-[#18181b] rounded-lg p-4 border-l-4 border-[#9146FF] relative transition-colors shadow-sm";
                 previewLabel.innerText = "Twitch Reward Preview";
                 previewBtn.className = "mt-3 bg-[#9146FF]/10 text-[#9146FF] text-center py-1.5 rounded text-xs font-semibold border border-[#9146FF]/20 transition-colors";
                 previewBtn.innerText = "Забрать награду 🎁";
 
                 const cost = getInpVal('twitch_cost') || 500;
+                // 🔥 Тянем значения условий
+                const isNewbie = document.getElementById('inp-newbies') ? document.getElementById('inp-newbies').checked : false;
+                const minMsgs = getInpVal('min_lifetime_msgs');
+
                 html = `🟣 <b>НАГРАДА ЗА БАЛЛЫ КАНАЛА</b>\n\n`;
                 html += `🏆 <b>Приз:</b> <span style="color:${rarity}">${prizeFull}</span>\n\n`;
                 html += `💰 <b>Стоимость:</b> ${cost} баллов\n`;
+                html += `📌 <b>Условия (появятся на Twitch):</b>\n`;
+                html += `└ Вставить трейд-ссылку в текст\n`;
+                if (isNewbie) html += `└ Только для новичков (< 100 сообщений)\n`;
+                if (minMsgs > 0) html += `└ Минимум сообщений: ${minMsgs} 💬\n`;
             } else {
                 previewBox.className = "bg-[#18181b] rounded-lg p-4 border-l-4 border-[#2AABEE] relative transition-colors shadow-sm";
                 previewLabel.innerText = "Telegram Preview";
