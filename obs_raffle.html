@@ -225,21 +225,36 @@
 
             // Бейджики и статусы
             const statusBadge = document.getElementById('status-badge');
+            const timerEl = document.getElementById('obs-timer');
+
             if(data.status === 'completed') {
                 statusBadge.className = 'mini-badge badge-completed';
                 statusBadge.innerHTML = '<i class="fa-solid fa-flag-checkered"></i> ЗАВЕРШЕНО';
                 
-                // 🔥 ИСПРАВЛЕНИЕ: Показываем имя победителя с короной!
                 const wName = s.winner_name || "Неизвестно";
-                document.getElementById('obs-timer').innerHTML = `
+                timerEl.innerHTML = `
                     <i class="fa-solid fa-crown" style="color:#ffd700"></i> 
                     <span style="color:#ffd700; font-weight:800; text-transform:uppercase; margin-left:3px; letter-spacing:0.5px;">${wName}</span>
                 `;
-                document.getElementById('obs-timer').style.borderColor = "rgba(255, 215, 0, 0.4)";
-                document.getElementById('obs-timer').style.background = "rgba(255, 215, 0, 0.1)";
+                timerEl.style.borderColor = "rgba(255, 215, 0, 0.4)";
+                timerEl.style.background = "rgba(255, 215, 0, 0.1)";
+                
             } else {
                 statusBadge.className = 'mini-badge';
                 statusBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span> АКТИВЕН';
+                
+                // 🔥 ЗАЩИТА: Если таймер был затерт короной победителя, восстанавливаем его структуру
+                if (!timerEl.querySelector('.h-v')) {
+                    timerEl.innerHTML = `
+                        <i class="fa-regular fa-clock" style="font-size:10px"></i>
+                        <span class="timer-val h-v">00</span>:
+                        <span class="timer-val m-v">00</span>:
+                        <span class="timer-val s-v">00</span>
+                    `;
+                    timerEl.style.borderColor = "rgba(255,255,255,0.1)";
+                    timerEl.style.background = "rgba(0,0,0,0.6)";
+                }
+
                 startTimer(s.end_time || data.end_time);
             }
 
@@ -258,24 +273,46 @@
             if(!endTimeStr) return;
             if (countdownTimer) clearInterval(countdownTimer);
             
+            // 🔥 ФИКС ДЛЯ ДВИЖКА OBS: добавляем секунды, если браузер получил "2026-07-30T18:00"
+            let safeDateStr = endTimeStr;
+            if (safeDateStr.length === 16 && !safeDateStr.includes('Z')) {
+                safeDateStr += ":00"; 
+            }
+            
+            const targetDate = new Date(safeDateStr).getTime();
+            
+            // Если дата всё еще не распарсилась - прерываем, чтобы не забить таймер нулями (NaN)
+            if (isNaN(targetDate)) return;
+
             const update = () => {
                 const el = document.getElementById('obs-timer');
-                if (!el || el.innerHTML === 'РАЗДАЧА ОКОНЧЕНА') return;
                 
-                const diff = new Date(endTimeStr) - new Date();
-                if (diff <= 0) { el.innerHTML = 'ЗАВЕРШЕНО'; clearInterval(countdownTimer); return; }
+                // Блокируем обновление цифр, если розыгрыш уже завершен
+                if (!el || el.innerHTML.includes('fa-crown') || el.innerHTML === 'ЗАВЕРШЕНО') return;
+                
+                const diff = targetDate - new Date().getTime();
+                
+                if (diff <= 0) { 
+                    el.innerHTML = 'ЗАВЕРШЕНО'; 
+                    clearInterval(countdownTimer); 
+                    return; 
+                }
                 
                 const h = Math.floor(diff / (1000 * 60 * 60));
                 const m = Math.floor((diff / (1000 * 60)) % 60);
                 const s = Math.floor((diff / 1000) % 60);
                 
                 const hEl = el.querySelector('.h-v');
-                if(hEl) {
+                const mEl = el.querySelector('.m-v');
+                const sEl = el.querySelector('.s-v');
+                
+                if(hEl && mEl && sEl) {
                     hEl.innerText = String(h).padStart(2, '0');
-                    el.querySelector('.m-v').innerText = String(m).padStart(2, '0');
-                    el.querySelector('.s-v').innerText = String(s).padStart(2, '0');
+                    mEl.innerText = String(m).padStart(2, '0');
+                    sEl.innerText = String(s).padStart(2, '0');
                 }
             };
+            
             update();
             countdownTimer = setInterval(update, 1000);
         }
