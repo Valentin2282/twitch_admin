@@ -1117,7 +1117,7 @@ async def complete_raffle(
     winner = random.choice(tickets)
     tg_id = winner.get("user_id")
     
-    # 🔥 ИСПРАВЛЕНИЕ: Достаем логин победителя для OBS
+    # Достаем логин победителя для OBS
     user_data_db = winner.get("users") or {}
     winner_name = user_data_db.get("twitch_login") or user_data_db.get("full_name") or str(tg_id)
     raffle_settings["winner_name"] = winner_name
@@ -1126,39 +1126,33 @@ async def complete_raffle(
     await supabase.patch(
         "/rest/v1/raffles", 
         params={"id": f"eq.{id}"}, 
-        json={"status": "completed", "winner_id": tg_id, "settings": raffle_settings} # Записываем обновленные настройки с именем
+        json={"status": "completed", "winner_id": tg_id, "settings": raffle_settings}
     )
 
-    # 🔥 НОВОЕ: АВТО-УДАЛЕНИЕ НАГРАДЫ С TWITCH И ИЗ БАЗЫ 🔥
+    # АВТО-УДАЛЕНИЕ НАГРАДЫ С TWITCH
     internal_reward_id = raffle_settings.get("required_twitch_reward_id")
     if internal_reward_id:
         try:
-            # Ищем награду в нашей базе
             rew_res = await supabase.get("/rest/v1/twitch_rewards", params={"id": f"eq.{internal_reward_id}", "select": "broadcaster_id, twitch_reward_id"})
             if rew_res.status_code == 200 and rew_res.json():
                 b_id = rew_res.json()[0].get("broadcaster_id")
                 t_id = rew_res.json()[0].get("twitch_reward_id")
                 
-                # Идем на Twitch удалять награду
                 if b_id and t_id:
                     tok_res = await supabase.get("/rest/v1/users", params={"twitch_id": f"eq.{b_id}", "select": "twitch_access_token"})
                     if tok_res.status_code == 200 and tok_res.json():
                         b_token = tok_res.json()[0].get("twitch_access_token")
                         if b_token:
                             twitch_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={b_id}&id={t_id}"
-                            # Отправляем DELETE запрос в Twitch
                             await http_client.delete(twitch_url, headers={"Authorization": f"Bearer {b_token}", "Client-Id": TWITCH_CLIENT_ID})
-                            logging.info(f"[RAFFLE CLEANUP] Награда {t_id} удалена с Twitch канала {b_id}")
                             
-            # Удаляем саму награду из нашей БД, чтобы не висела в списке наград
             await supabase.delete("/rest/v1/twitch_rewards", params={"id": f"eq.{internal_reward_id}"})
-            logging.info(f"[RAFFLE CLEANUP] Награда удалена из базы twitch_rewards")
         except Exception as e:
             logging.error(f"[RAFFLE CLEANUP] Ошибка при удалении награды: {e}")
 
-    # 6. Начисление приза
+    # 6. Подготовка к прямой закупке с Маркета
     base_prize_name = raffle_settings.get("prize_name", raffle.get("title", "Секретный приз"))
-    prize_price = raffle_settings.get("prize_price", 0.0)
+    prize_price = float(raffle_settings.get("prize_price", 0.0))
     skin_quality = raffle_settings.get("skin_quality", "")
 
     # СОБИРАЕМ ТОЧНОЕ ИМЯ ДЛЯ МАРКЕТА
@@ -1174,11 +1168,9 @@ async def complete_raffle(
             full_prize_name = f"{full_prize_name} ({eng_quality})"
             
     if tg_id:
-        # Забираем трейд-ссылку из данных победителя
-        user_data_db = winner.get("users") or {}
         trade_link = user_data_db.get("trade_link")
 
-        # Ищем ID предмета и ЕГО ЦЕНУ в каталоге
+        # Ищем ID предмета и актуальную цену, если она 0
         item_res = await supabase.get("/rest/v1/cs_items", params={
             "market_hash_name": f"eq.{full_prize_name}",  
             "select": "id, price_rub", 
@@ -1190,19 +1182,18 @@ async def complete_raffle(
             item_data = item_res.json()[0]
             item_id = item_data["id"]
             
-            if float(prize_price) <= 0:
+            if prize_price <= 0:
                 prize_price = float(item_data.get("price_rub", 0.0))
-                logging.info(f"Подтянули цену со склада для {full_prize_name}: {prize_price} руб.")
                 
-        # БРОНЕЖИЛЕТ: Если цена ВСЁ РАВНО 0, тянем её напрямую из market_cache
-        if float(prize_price) <= 0:
+        # Если цены всё ещё нет — тянем из кэша маркета
+        if prize_price <= 0:
             cache_res = await supabase.get("/rest/v1/market_cache", params={
                 "market_hash_name": f"eq.{full_prize_name}", "select": "price_rub", "limit": 1
             })
             if cache_res.status_code == 200 and cache_res.json():
                 prize_price = float(cache_res.json()[0].get("price_rub", 0.0))
-                logging.info(f"Подтянули резервную цену из market_cache для {full_prize_name}: {prize_price} руб.")
 
+        # Изначально ставим processing (в процессе)
         initial_status = "processing" if trade_link else "available"
 
         history_res = await supabase.post("/rest/v1/cs_history", json={
@@ -1215,7 +1206,7 @@ async def complete_raffle(
             "is_swapped": False
         }, headers={"Prefer": "return=representation"})
         
-        # 7. Запускаем покупку на маркете в фоне
+        # 7. Запускаем ПОКУПКУ НА МАРКЕТЕ В ФОНЕ
         if trade_link and history_res.status_code in [200, 201] and history_res.json():
             history_id = history_res.json()[0]["id"]
             
@@ -1224,32 +1215,32 @@ async def complete_raffle(
                 client=supabase,
                 trade_link=trade_link,
                 prize_name=full_prize_name, 
-                prize_price=float(prize_price),
+                prize_price=prize_price,
                 history_id=history_id
             )
 
     return {
         "status": "success", 
-        "winner": winner.get("users", {}).get("full_name", str(tg_id))
+        "winner": winner_name
     }
-    
-# 🔥 ДОБАВЛЯЕМ ЭТУ ФУНКЦИЮ СРАЗУ ПОСЛЕ complete_raffle
+
+
 async def direct_market_buy_for_raffle(client, trade_link: str, prize_name: str, prize_price: float, history_id: int):
     """
     Прямая закупка скина на CSGO Market для победителя розыгрыша.
     """
-    logging.info(f"[RAFFLE] Покупаем {prize_name} для history_id #{history_id}")
+    logging.info(f"[RAFFLE] Покупаем напрямую {prize_name} для history_id #{history_id}")
     
     TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY") 
     if not TM_API_KEY:
         logging.error("Нет ключа CSGO_MARKET_API_KEY!")
-        await client.patch("/rest/v1/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "Ошибка: Нет API ключа"})
+        await client.patch("/rest/v1/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "available", "details": "Ошибка: Нет API ключа маркета"})
         return
 
     market = MarketCSGO(api_key=TM_API_KEY)
     unique_market_id = f"raf_{history_id}_{int(time.time())}"
     
-    # Пытаемся купить
+    # Делаем запрос к Маркету на покупку
     market_res = await market.buy_for_user(
         hash_name=prize_name,
         max_price_rub=prize_price,
@@ -1258,7 +1249,7 @@ async def direct_market_buy_for_raffle(client, trade_link: str, prize_name: str,
     )
     
     if market_res.get("success"):
-        logging.info(f"[RAFFLE] ✅ Успешно куплено на Маркете!")
+        logging.info(f"[RAFFLE] ✅ Успешно куплено на Маркете! Маркет отправляет трейд.")
         await client.patch("/rest/v1/cs_history", params={"id": f"eq.{history_id}"}, json={
             "status": "market_pending", 
             "tradeofferid": unique_market_id
@@ -1266,7 +1257,8 @@ async def direct_market_buy_for_raffle(client, trade_link: str, prize_name: str,
     else:
         err_msg = market_res.get("error", "Ошибка Маркета")
         logging.error(f"[RAFFLE] ❌ Ошибка Маркета: {err_msg}")
-        # При ошибке откатываем статус на "available", чтобы юзер забрал позже
+        # Если маркет отказал (нет цены, лагает, нет денег) - переводим в Доступно.
+        # Пользователь не теряет приз и сможет вывести его вручную!
         await client.patch("/rest/v1/cs_history", params={"id": f"eq.{history_id}"}, json={
             "status": "available",
             "details": f"Сбой автовывода: {err_msg}"
