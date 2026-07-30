@@ -1132,6 +1132,14 @@ async def complete_raffle(
         json={"status": "completed", "winner_id": tg_id, "settings": raffle_settings}
     )
 
+    # 🔥 НОВОЕ: Проставляем флаг победы в таблице участников (для отрисовки КОРОНЫ в админке)
+    if winner.get("id"):
+        await supabase.patch(
+            "/rest/v1/raffle_participants",
+            params={"id": f"eq.{winner.get('id')}"},
+            json={"is_winner": True}
+        )
+
     # АВТО-УДАЛЕНИЕ НАГРАДЫ С TWITCH И СООБЩЕНИЕ В ЧАТ 🔥
     internal_reward_id = raffle_settings.get("required_twitch_reward_id")
     if internal_reward_id:
@@ -1152,7 +1160,7 @@ async def complete_raffle(
                             twitch_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={b_id}&id={t_id}"
                             await http_client.delete(twitch_url, headers=headers)
                             
-                            # 🔥 2. ОТПРАВЛЯЕМ ПОЗДРАВЛЕНИЕ В ЧАТ TWITCH 🔥
+                            # 2. Отправляем поздравление в чат Twitch
                             chat_url = "https://api.twitch.tv/helix/chat/messages"
                             chat_msg = f"🎉 Розыгрыш завершен! Победитель: @{winner_name}! Скин уже выслан на твой аккаунт! 🎁"
                             
@@ -1172,7 +1180,6 @@ async def complete_raffle(
     prize_price = float(raffle_settings.get("prize_price", 0.0))
     skin_quality = raffle_settings.get("skin_quality", "")
 
-    # СОБИРАЕМ ТОЧНОЕ ИМЯ ДЛЯ МАРКЕТА
     full_prize_name = base_prize_name.strip()
     quality_map = {
         "FN": "Factory New", "MW": "Minimal Wear", "FT": "Field-Tested", 
@@ -1187,7 +1194,6 @@ async def complete_raffle(
     if tg_id:
         trade_link = user_data_db.get("trade_link")
 
-        # Ищем ID предмета и актуальную цену, если она 0
         item_res = await supabase.get("/rest/v1/cs_items", params={
             "market_hash_name": f"eq.{full_prize_name}",  
             "select": "id, price_rub", 
@@ -1198,11 +1204,9 @@ async def complete_raffle(
         if item_res.status_code == 200 and item_res.json():
             item_data = item_res.json()[0]
             item_id = item_data["id"]
-            
             if prize_price <= 0:
                 prize_price = float(item_data.get("price_rub", 0.0))
                 
-        # Если цены всё ещё нет — тянем из кэша маркета
         if prize_price <= 0:
             cache_res = await supabase.get("/rest/v1/market_cache", params={
                 "market_hash_name": f"eq.{full_prize_name}", "select": "price_rub", "limit": 1
@@ -1210,7 +1214,6 @@ async def complete_raffle(
             if cache_res.status_code == 200 and cache_res.json():
                 prize_price = float(cache_res.json()[0].get("price_rub", 0.0))
 
-        # Изначально ставим processing (в процессе)
         initial_status = "processing" if trade_link else "available"
 
         history_res = await supabase.post("/rest/v1/cs_history", json={
@@ -1238,7 +1241,7 @@ async def complete_raffle(
 
     return {
         "status": "success", 
-        "winner": winner_name
+        "winner_name": winner_name # 🔥 ИСПРАВЛЕНО: возвращаем winner_name для красивого Alert'а
     }
 
 
