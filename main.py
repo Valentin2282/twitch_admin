@@ -1117,10 +1117,13 @@ async def complete_raffle(
     winner = random.choice(tickets)
     tg_id = winner.get("user_id")
     
-    # Достаем логин победителя для OBS
+    # Достаем логин победителя для OBS и чата
     user_data_db = winner.get("users") or {}
     winner_name = user_data_db.get("twitch_login") or user_data_db.get("full_name") or str(tg_id)
     raffle_settings["winner_name"] = winner_name
+
+    # 🔥 НОВОЕ: Красивый лог в консоль
+    logging.info(f"🏆 [RAFFLE] Розыгрыш #{id} завершен! Победитель: {winner_name} (TG ID: {tg_id})")
 
     # 5. Обновляем статус розыгрыша на completed и записываем победителя
     await supabase.patch(
@@ -1129,7 +1132,7 @@ async def complete_raffle(
         json={"status": "completed", "winner_id": tg_id, "settings": raffle_settings}
     )
 
-    # АВТО-УДАЛЕНИЕ НАГРАДЫ С TWITCH
+    # АВТО-УДАЛЕНИЕ НАГРАДЫ С TWITCH И СООБЩЕНИЕ В ЧАТ 🔥
     internal_reward_id = raffle_settings.get("required_twitch_reward_id")
     if internal_reward_id:
         try:
@@ -1143,12 +1146,26 @@ async def complete_raffle(
                     if tok_res.status_code == 200 and tok_res.json():
                         b_token = tok_res.json()[0].get("twitch_access_token")
                         if b_token:
+                            headers = {"Authorization": f"Bearer {b_token}", "Client-Id": TWITCH_CLIENT_ID, "Content-Type": "application/json"}
+                            
+                            # 1. Удаляем награду с канала
                             twitch_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={b_id}&id={t_id}"
-                            await http_client.delete(twitch_url, headers={"Authorization": f"Bearer {b_token}", "Client-Id": TWITCH_CLIENT_ID})
+                            await http_client.delete(twitch_url, headers=headers)
+                            
+                            # 🔥 2. ОТПРАВЛЯЕМ ПОЗДРАВЛЕНИЕ В ЧАТ TWITCH 🔥
+                            chat_url = "https://api.twitch.tv/helix/chat/messages"
+                            chat_msg = f"🎉 Розыгрыш завершен! Победитель: @{winner_name}! Скин уже выслан на твой аккаунт! 🎁"
+                            
+                            await http_client.post(chat_url, headers=headers, json={
+                                "broadcaster_id": b_id,
+                                "sender_id": b_id,
+                                "message": chat_msg
+                            })
+                            logging.info(f"💬 [RAFFLE] Итоги розыгрыша успешно отправлены в чат Twitch!")
                             
             await supabase.delete("/rest/v1/twitch_rewards", params={"id": f"eq.{internal_reward_id}"})
         except Exception as e:
-            logging.error(f"[RAFFLE CLEANUP] Ошибка при удалении награды: {e}")
+            logging.error(f"[RAFFLE CLEANUP] Ошибка при удалении награды/отправке в чат: {e}")
 
     # 6. Подготовка к прямой закупке с Маркета
     base_prize_name = raffle_settings.get("prize_name", raffle.get("title", "Секретный приз"))
@@ -2130,6 +2147,7 @@ async def get_obs_raffle_data(raffle_id: str, supabase: httpx.AsyncClient = Depe
             "title": "🎁 Превью розыгрыша",
             "participants_count": 28,
             "status": "active",
+            "end_time": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(), # 🔥 ДОБАВИЛИ END_TIME ДЛЯ ПРЕВЬЮ
             "settings": {
                 "prize_name": "AK-47 | Redline",
                 "prize_price": 1450.50,
@@ -2144,10 +2162,10 @@ async def get_obs_raffle_data(raffle_id: str, supabase: httpx.AsyncClient = Depe
             }
         }
 
-    # 🔥 ИСПРАВЛЕНИЕ: Убрали image_url, так как картинка лежит внутри settings
+    # 🔥 ИСПРАВЛЕНИЕ: Добавили end_time в выборку (select)
     res = await supabase.get("/rest/v1/raffles", params={
         "id": f"eq.{raffle_id}",
-        "select": "title, participants_count, settings, status, type"
+        "select": "title, participants_count, settings, status, type, end_time" 
     })
     
     if res.status_code != 200 or not res.json():
@@ -2584,7 +2602,7 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
             # 2. Проверка на новичка
             if is_for_newbies and is_linked and db_msgs >= 100:
                 await reject_and_refund(
-                    f"этот розыгрыш для новичков (до 100 сообщений)! У тебя уже {db_msgs}. Оставь шансы новеньким! ❌",
+                    f"этот розыгрыш для новичков (до 100 сообщений)! У тебя уже больше {db_msgs}. Оставь шансы новеньким! ❌",
                     "Отмена: Не новичок"
                 )
                 continue
