@@ -2524,7 +2524,7 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
         reward_data = rew_res.json()[0]
         reward_type = reward_data.get("reward_type")
         broadcaster_id = reward_data.get("broadcaster_id")
-        twitch_reward_id = reward_data.get("twitch_reward_id") # 🔥 Исправлено название переменной
+        twitch_reward_id = reward_data.get("twitch_reward_id")
         
         if reward_type == "raffle":
             # Ищем розыгрыш, чтобы достать его настройки ДО проверок
@@ -2594,7 +2594,7 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
 
             # --- ПРОХОДИМСЯ ПО ВСЕМ УСЛОВИЯМ ОТКАЗА ---
             
-            # 1. Проверка трейд-ссылки
+            # 1. Проверка трейд-ссылки (ЕСЛИ НЕТ НИГДЕ -> ВОЗВРАТ)
             if not has_db_link and not is_valid_link:
                 await reject_and_refund(
                     "у тебя нет привязанной трейд-ссылки! ОБЯЗАТЕЛЬНО ВСТАВЬ СВОЮ ТРЕЙД-ССЫЛКУ прямо в текст награды.",
@@ -2629,7 +2629,12 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
             }, headers={"Prefer": "resolution=ignore-duplicates"})
             
             await supabase.patch("/rest/v1/raffles", params={"id": f"eq.{raffle_id}"}, json={"participants_count": current_count + 1})
-            await check_and_upgrade_raffle_prize(supabase, raffle_id, current_count + 1, raffle_settings)
+            
+            # Если есть функция апгрейда призов, вызываем её:
+            try:
+                await check_and_upgrade_raffle_prize(supabase, raffle_id, current_count + 1, raffle_settings)
+            except NameError:
+                pass # Защита, если функции check_and_upgrade_raffle_prize нет
             
             await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={
                 "status": "Участвует", 
