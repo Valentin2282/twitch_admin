@@ -2483,7 +2483,6 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
     if cron_secret != expected_secret:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # ИЩЕМ И СТАТУС "Привязан" ТОЖЕ!
     res = await supabase.get("/rest/v1/twitch_reward_purchases", params={
         "status": "in.(Не привязан,Ожидает выдачи,Привязан)", 
         "limit": 10,
@@ -2499,15 +2498,11 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
         p_id = p["id"]
         reward_id = p["reward_id"]
         purchaser_login = p.get("twitch_login", "").lower()
-        
-        # 🔥 Получаем то, что ввел юзер, и ID транзакции Twitch для возврата
         user_input = p.get("user_input", "").strip()
         twitch_redemption_id = p.get("twitch_redemption_id") 
         
-        # Лочим заявку
         await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "В обработке"})
         
-        # Получаем инфу о награде (добавили выборку broadcaster_id и twitch_reward_id)
         rew_res = await supabase.get("/rest/v1/twitch_rewards", params={"id": f"eq.{reward_id}", "select": "title, steam_item_name, reward_type, broadcaster_id, twitch_reward_id"})
         if not rew_res.json(): 
             await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Ошибка: Награда удалена"})
@@ -2516,63 +2511,10 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
         reward_data = rew_res.json()[0]
         reward_type = reward_data.get("reward_type")
         broadcaster_id = reward_data.get("broadcaster_id")
-        twitch_reward_id = reward_data.get("twitch_reward_id")
+        twitch_reward_id = reward_data.get("twitch_reward_id") # 🔥 Исправлено название переменной
         
-        # СЦЕНАРИЙ А: ЭТО РОЗЫГРЫШ
         if reward_type == "raffle":
-            
-            # 🔥 1. ЗАРАНЕЕ ДОСТАЕМ ЮЗЕРА И ПРОВЕРЯЕМ ЕГО БАЗОВУЮ ССЫЛКУ
-            tg_id = None
-            has_db_link = False
-            if purchaser_login:
-                u_res = await supabase.get("/rest/v1/users", params={"twitch_login": f"eq.{purchaser_login}", "select": "telegram_id, trade_link"})
-                if u_res.status_code == 200 and u_res.json():
-                    tg_id = u_res.json()[0].get("telegram_id")
-                    t_link = u_res.json()[0].get("trade_link")
-                    if t_link and len(t_link) > 10:
-                        has_db_link = True
-            
-            # =====================================================================
-            # 🛡 АНТИ-АБУЗ: Проверка на наличие трейд-ссылки (где угодно)
-            import re
-            is_valid_link = bool(re.search(r"partner=\d+&token=[a-zA-Z0-9_-]+", user_input))
-            
-            # 🚨 ПРАВИЛО: Если у юзера НЕТ ссылки в базе И он НЕ вставил валидную ссылку в текст награды
-            if not has_db_link and not is_valid_link:
-                try:
-                    if twitch_redemption_id and broadcaster_id:
-                        tok_res = await supabase.get("/rest/v1/users", params={"twitch_id": f"eq.{broadcaster_id}", "select": "twitch_access_token"})
-                        if tok_res.status_code == 200 and tok_res.json():
-                            b_token = tok_res.json()[0].get("twitch_access_token")
-                            if b_token:
-                                headers = {"Authorization": f"Bearer {b_token}", "Client-Id": TWITCH_CLIENT_ID, "Content-Type": "application/json"}
-                                
-                                # 1. ВОЗВРАЩАЕМ БАЛЛЫ
-                                refund_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards/redemptions?broadcaster_id={broadcaster_id}&reward_id={t_reward_id}&id={twitch_redemption_id}"
-                                await http_client.patch(refund_url, headers=headers, json={"status": "CANCELED"})
-                                logging.info(f"✅ [АНТИ-АБУЗ] Баллы возвращены юзеру {purchaser_login} (Нет трейд-ссылки ни в БД, ни в тексте)")
-                                
-                                # 2. ПИШЕМ ЧЕТКОЕ СООБЩЕНИЕ В ЧАТ
-                                try:
-                                    chat_url = "https://api.twitch.tv/helix/chat/messages"
-                                    chat_msg = f"@{purchaser_login}, у тебя нет привязанной трейд-ссылки! Для участия ОБЯЗАТЕЛЬНО ВСТАВЬ СВОЮ ТРЕЙД-ССЫЛКУ прямо в текст награды. Твои баллы возвращены 🔄"
-                                        
-                                    await http_client.post(chat_url, headers=headers, json={
-                                        "broadcaster_id": broadcaster_id,
-                                        "sender_id": broadcaster_id,
-                                        "message": chat_msg
-                                    })
-                                except Exception as e:
-                                    logging.error(f"⚠️ Ошибка отправки в чат: {e}")
-                except Exception as e:
-                    logging.error(f"🚨 Ошибка возврата баллов: {e}")
-                
-                # Закрываем заявку в нашей БД со статусом отмены
-                await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Отмена: Нет трейд-ссылки"})
-                continue
-            # =====================================================================
-
-            # Ищем активный розыгрыш
+            # Ищем розыгрыш, чтобы достать его настройки ДО проверок
             raf_res = await supabase.get("/rest/v1/raffles", params={
                 "status": "eq.active",
                 "settings->>required_twitch_reward_id": f"eq.{reward_id}",
@@ -2584,33 +2526,121 @@ async def process_newbies_cron(request: Request, cron_secret: Optional[str] = No
                 await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Ошибка: Розыгрыш не найден/завершен"})
                 continue
                 
-            raffle_id = raf_res.json()[0]["id"]
-            current_count = raf_res.json()[0].get("participants_count", 0)
+            raffle = raf_res.json()[0]
+            raffle_id = raffle["id"]
+            current_count = raffle.get("participants_count", 0)
+            raffle_settings = raffle.get("settings", {})
             
-            # Добавляем в таблицу участников (tg_id мы уже нашли на самом верху!)
+            is_for_newbies = raffle_settings.get("is_for_newbies", False)
+            min_msgs = raffle_settings.get("min_lifetime_msgs", 0)
+
+            # Достаем юзера, его трейд-ссылку И кол-во сообщений
+            tg_id = None
+            has_db_link = False
+            db_msgs = 0
+            is_linked = False
+            
+            if purchaser_login:
+                u_res = await supabase.get("/rest/v1/users", params={"twitch_login": f"eq.{purchaser_login}", "select": "telegram_id, trade_link, total_message_count"})
+                if u_res.status_code == 200 and u_res.json():
+                    u_data = u_res.json()[0]
+                    tg_id = u_data.get("telegram_id")
+                    t_link = u_data.get("trade_link")
+                    db_msgs = u_data.get("total_message_count", 0)
+                    is_linked = tg_id is not None
+                    if t_link and len(t_link) > 10:
+                        has_db_link = True
+
+            import re
+            is_valid_link = bool(re.search(r"partner=\d+&token=[a-zA-Z0-9_-]+", user_input))
+
+            # --- МИНИ-ФУНКЦИЯ ДЛЯ ЧАТА И ВОЗВРАТА БАЛЛОВ ---
+            async def reject_and_refund(reason_msg: str, db_status: str):
+                """Отклоняет заявку, возвращает баллы и пишет в чат"""
+                try:
+                    tok_res = await supabase.get("/rest/v1/users", params={"twitch_id": f"eq.{broadcaster_id}", "select": "twitch_access_token"})
+                    if tok_res.status_code == 200 and tok_res.json():
+                        b_token = tok_res.json()[0].get("twitch_access_token")
+                        if b_token:
+                            headers = {"Authorization": f"Bearer {b_token}", "Client-Id": TWITCH_CLIENT_ID, "Content-Type": "application/json"}
+                            
+                            # 1. Возврат баллов
+                            refund_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards/redemptions?broadcaster_id={broadcaster_id}&reward_id={twitch_reward_id}&id={twitch_redemption_id}"
+                            await http_client.patch(refund_url, headers=headers, json={"status": "CANCELED"})
+                            
+                            # 2. Сообщение в чат
+                            await http_client.post("https://api.twitch.tv/helix/chat/messages", headers=headers, json={
+                                "broadcaster_id": broadcaster_id,
+                                "sender_id": broadcaster_id,
+                                "message": f"@{purchaser_login}, {reason_msg} Твои баллы возвращены 🔄"
+                            })
+                except Exception as e:
+                    logging.error(f"🚨 Ошибка возврата/чата: {e}")
+                
+                await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": db_status})
+
+            # --- ПРОХОДИМСЯ ПО ВСЕМ УСЛОВИЯМ ОТКАЗА ---
+            
+            # 1. Проверка трейд-ссылки
+            if not has_db_link and not is_valid_link:
+                await reject_and_refund(
+                    "у тебя нет привязанной трейд-ссылки! ОБЯЗАТЕЛЬНО ВСТАВЬ СВОЮ ТРЕЙД-ССЫЛКУ прямо в текст награды.",
+                    "Отмена: Нет трейд-ссылки"
+                )
+                continue
+                
+            # 2. Проверка на новичка
+            if is_for_newbies and is_linked and db_msgs >= 100:
+                await reject_and_refund(
+                    f"этот розыгрыш для новичков (до 100 сообщений)! У тебя уже {db_msgs}. Оставь шансы новеньким! ❌",
+                    "Отмена: Не новичок"
+                )
+                continue
+                
+            # 3. Проверка на минимальные сообщения
+            if min_msgs > 0 and db_msgs < min_msgs:
+                await reject_and_refund(
+                    f"у тебя недостаточно сообщений в чате (нужно {min_msgs}, а у тебя {db_msgs}). Общайся больше! ❌",
+                    "Отмена: Мало сообщений"
+                )
+                continue
+
+            # --- ЕСЛИ ДОШЛИ СЮДА - ЮЗЕР ПРОШЕЛ ВСЕ ПРОВЕРКИ ---
+
+            # Добавляем в таблицу участников
             await supabase.post("/rest/v1/raffle_participants", json={
                 "raffle_id": raffle_id,
-                "user_id": tg_id,
+                "user_id": tg_id, # Может быть None, если он не привязан, но кинул ссылку в текст
                 "source": "twitch",
                 "score": 1
             }, headers={"Prefer": "resolution=ignore-duplicates"})
             
-            # Обновляем счетчик
             await supabase.patch("/rest/v1/raffles", params={"id": f"eq.{raffle_id}"}, json={"participants_count": current_count + 1})
-            
-            # Проверяем, не пора ли апгрейднуть приз (Ступенчатая система)
-            raffle_settings = raf_res.json()[0].get("settings", {})
             await check_and_upgrade_raffle_prize(supabase, raffle_id, current_count + 1, raffle_settings)
             
-            # Статус покупки -> Участвует
             await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={
                 "status": "Участвует", 
                 "rewarded_at": datetime.now(timezone.utc).isoformat(),
                 "viewed_by_admin": True,
                 "viewed_by_admin_name": "Авто-регистрация"
             })
+
+            # Пишем УСПЕШНОЕ сообщение в чат
+            try:
+                tok_res = await supabase.get("/rest/v1/users", params={"twitch_id": f"eq.{broadcaster_id}", "select": "twitch_access_token"})
+                if tok_res.status_code == 200 and tok_res.json():
+                    b_token = tok_res.json()[0].get("twitch_access_token")
+                    if b_token:
+                        headers = {"Authorization": f"Bearer {b_token}", "Client-Id": TWITCH_CLIENT_ID, "Content-Type": "application/json"}
+                        await http_client.post("https://api.twitch.tv/helix/chat/messages", headers=headers, json={
+                            "broadcaster_id": broadcaster_id,
+                            "sender_id": broadcaster_id,
+                            "message": f"@{purchaser_login}, твоя заявка на участие принята! Удачи в розыгрыше! 🎁"
+                        })
+            except Exception as e:
+                logging.error(f"⚠️ Ошибка отправки успешного сообщения в чат: {e}")
+
         else:
-            # ЕСЛИ ЭТО НЕ РОЗЫГРЫШ - просто игнорируем или ставим статус
             await supabase.patch("/rest/v1/twitch_reward_purchases", params={"id": f"eq.{p_id}"}, json={"status": "Игнорировано (не raffle)"})
 
     return {"status": "ok"}
