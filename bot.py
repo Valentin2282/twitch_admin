@@ -24,11 +24,14 @@ API_KEYS = [
 ]
 
 FALLBACK_MODELS = [
-    "gemini-2.5-flash",
-    "gemini-3-flash-preview",
     "gemini-3.1-flash-tts-preview",
+    "gemini-3-flash-preview",
+    "gemini-2.5-flash",
     "gemini-2.0-flash",
-    "gemini-1.5-flash"
+    "gemini-1.5-flash-latest",
+    "gemini-1.5-flash",
+    "gemini-pro",         # <-- Железобетонная модель, работает всегда
+    "gemini-1.0-pro"
 ]
 
 # Словарик для антиспама (хранится в памяти Vercel между "теплыми" стартами)
