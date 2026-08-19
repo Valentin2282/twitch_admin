@@ -1,3 +1,4 @@
+import os
 import time
 import random
 import asyncio
@@ -7,27 +8,12 @@ from google import genai
 
 app = FastAPI()
 
-TG_TOKEN = "8354796378:AAGBZMkEwvpJyCRdnALzbVo-b1n0NiFYBJY"
+# Теперь ключи безопасно тянутся из скрытых настроек Vercel!
+TG_TOKEN = os.getenv("TG_BOT_TOKEN")
 BOT_USERNAME = "@HATElove_ai"
-
-# Актуальная модель (старая 1.5 больше не работает)
 WORKING_MODEL = "gemini-2.5-flash"
-
-# Твои ключи
-API_KEYS = [
-    "AIzaSyCTA0JmbppVzWBEK8okOXSSaljdkK02jBc",
-    "AIzaSyDB89SLS76uT-yPGCAXlUGzdL3IHiLsMvI",
-    "AIzaSyCJnthrKjjZbMddkJGA8EFp9v9_fFLGgAw",
-    "AIzaSyAayhXt8froc_vybN47D_F3VIRGOuhC9ik",
-    "AIzaSyAWUo0Te5f5Ek4TM7oWfoGXUEe8eQvmu8w",
-    "AIzaSyAHZzxeN1bNyHFRL7UsmJIZ7OPYQTh5i-Q",
-    "AIzaSyB9vbQqDXtTiX6D0ykp44TZ3hr9lMCFmQE",
-    "AIzaSyAAtKmVcls9bY7i_Gv6Y-hVUlOoHVgIZb4",
-    "AIzaSyDhi5SzypGmqVM9r0A-zmMW6AwMeScUy9E"
-]
-
-user_cooldowns = {}
 COOLDOWN_SECONDS = 7
+user_cooldowns = {}
 
 async def send_tg_message(chat_id: int, text: str):
     url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
