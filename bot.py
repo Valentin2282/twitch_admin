@@ -91,16 +91,15 @@ async def telegram_webhook(request: Request):
     # Чистим текст от юзернейма бота, чтобы нейронка не пыталась отвечать на свой же ник
     clean_text = user_text.replace(BOT_USERNAME, "").strip()
     
-    # 5. ГЕНЕРАЦИЯ ОТВЕТА (Оптимизированная очередь)
+    # 5. ГЕНЕРАЦИЯ ОТВЕТА
     current_key = random.choice(API_KEYS)
     genai.configure(api_key=current_key)
     success = False
+    last_error = "Неизвестная ошибка" # <--- Сюда запишем причину
     
     for model_name in FALLBACK_MODELS:
         try:
             model = genai.GenerativeModel(model_name)
-            # Жесткий таймаут 7 секунд. Если модель тупит дольше — Vercel убьет функцию (лимит 10-15 сек).
-            # Поэтому мы сами обрываем долгий запрос и моментально берем следующую модель.
             response = await asyncio.wait_for(
                 model.generate_content_async(f"Ты — участник чата. Ответь коротко: {clean_text}"),
                 timeout=7.0
@@ -110,13 +109,14 @@ async def telegram_webhook(request: Request):
             break 
             
         except asyncio.TimeoutError:
+            last_error = f"Таймаут на {model_name}"
             continue 
-        except Exception:
+        except Exception as e:
+            last_error = f"Ошибка на {model_name}: {e}"
             continue 
             
-    # Если мы перебрали все модели, и ни одна не ответила за 7 секунд
     if not success:
-        await send_tg_message(chat_id, "Чет я подвис, давай попозже.")
+        # Теперь бот пришлет точную причину, почему он упал!
+        await send_tg_message(chat_id, f"Чет я подвис. Причина: {last_error}")
 
-    # Телеграм всегда должен получать 200 OK, чтобы не создавать очередь
     return {"status": "ok"}
