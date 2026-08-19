@@ -1,24 +1,19 @@
 import time
+import random
 import asyncio
 import httpx
-import google.generativeai as genai
 from fastapi import FastAPI, Request
+from google import genai
 
 app = FastAPI()
 
 TG_TOKEN = "8354796378:AAGBZMkEwvpJyCRdnALzbVo-b1n0NiFYBJY"
 BOT_USERNAME = "@HATElove_ai"
 
-# Оставляем только те модели, которые 100% работают и эффективны
-WORKING_MODELS = ["gemini-1.5-flash", "gemini-1.5-pro"]
+# Актуальная модель (старая 1.5 больше не работает)
+WORKING_MODEL = "gemini-2.5-flash"
 
-# Антиспам: словарь в памяти (сбрасывается при деплое/перезагрузке)
-user_cooldowns = {}
-COOLDOWN_SECONDS = 7
-
-# Настройка API один раз при загрузке (экономит ресурсы)
-# Выбираем ключ из списка, можно взять первый для стабильности
-import random
+# Твои ключи
 API_KEYS = [
     "AIzaSyCTA0JmbppVzWBEK8okOXSSaljdkK02jBc",
     "AIzaSyDB89SLS76uT-yPGCAXlUGzdL3IHiLsMvI",
@@ -30,7 +25,9 @@ API_KEYS = [
     "AIzaSyAAtKmVcls9bY7i_Gv6Y-hVUlOoHVgIZb4",
     "AIzaSyDhi5SzypGmqVM9r0A-zmMW6AwMeScUy9E"
 ]
-genai.configure(api_key=random.choice(API_KEYS))
+
+user_cooldowns = {}
+COOLDOWN_SECONDS = 7
 
 async def send_tg_message(chat_id: int, text: str):
     url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
@@ -54,7 +51,6 @@ async def telegram_webhook(request: Request):
     user_id = msg["from"]["id"]
     user_text = msg["text"]
     
-    # ФИЛЬТРЫ
     bot_raw_username = BOT_USERNAME.replace("@", "")
     is_private = msg["chat"]["type"] == "private"
     is_reply = msg.get("reply_to_message", {}).get("from", {}).get("username") == bot_raw_username
@@ -63,29 +59,34 @@ async def telegram_webhook(request: Request):
     if not (is_private or is_reply or is_mentioned):
         return {"status": "not_for_me"}
         
-    # АНТИСПАМ
     now = time.time()
     if now - user_cooldowns.get(user_id, 0) < COOLDOWN_SECONDS:
+        await send_tg_message(chat_id, "Воу, полегче! Я не успеваю, дай пару секунд передохнуть.")
         return {"status": "rate_limited"}
     user_cooldowns[user_id] = now
     
-    # ДЕЙСТВИЕ
     await send_tg_chat_action(chat_id)
-    
-    # ГЕНЕРАЦИЯ (без лишних циклов)
     clean_text = user_text.replace(BOT_USERNAME, "").strip()
     
-    for model_name in WORKING_MODELS:
-        try:
-            model = genai.GenerativeModel(model_name)
-            response = await asyncio.wait_for(
-                model.generate_content_async(f"Ты участник чата. Ответь: {clean_text}"),
-                timeout=7.0
-            )
-            await send_tg_message(chat_id, response.text)
-            return {"status": "ok"}
-        except Exception:
-            continue 
-            
-    await send_tg_message(chat_id, "Техническая пауза, попробуй через пару секунд.")
-    return {"status": "error"}
+    try:
+        # Инициализация клиента по-новому
+        current_key = random.choice(API_KEYS)
+        client = genai.Client(api_key=current_key)
+        
+        # Асинхронный вызов в новом SDK выглядит иначе
+        response = await asyncio.wait_for(
+            client.aio.models.generate_content(
+                model=WORKING_MODEL, 
+                contents=f"Ты — участник чата. Ответь коротко: {clean_text}"
+            ),
+            timeout=7.0
+        )
+        await send_tg_message(chat_id, response.text)
+        
+    except asyncio.TimeoutError:
+        await send_tg_message(chat_id, "Чет я подвис, давай попозже.")
+    except Exception as e:
+        # Если снова будет ошибка, бот честно скажет, какая именно
+        await send_tg_message(chat_id, f"Сломался. Причина: {e}")
+
+    return {"status": "ok"}
