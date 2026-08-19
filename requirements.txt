@@ -2,5 +2,6 @@ fastapi
 uvicorn
 httpx
 pyjwt
+google-generativeai
 pydantic
  
